@@ -1,0 +1,369 @@
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="tkadls1!",
+            database="samin_pms",
+        )
+
+
+ALTER TABLE businesschangehistory
+ADD CONSTRAINT fk_bch_projects
+FOREIGN KEY (ContractCode)
+REFERENCES projects (Contractcode)
+ON DELETE CASCADE; -- 필요에 따라 DELETE 동작 설정
+
+
+ALTER TABLE projects MODIFY ProjectCost BIGINT;
+ALTER TABLE projects MODIFY ProjectCost_NoVAT BIGINT;
+
+ALTER TABLE outsourcing
+ADD COLUMN outsourcing_cost_NoVAT BIGINT;
+
+CREATE TABLE Projects ( /*사업 개요*/
+    ProjectID INT AUTO_INCREMENT,
+    ContractCode VARCHAR(100),
+    ProjectName VARCHAR(255),
+    ProjectCost INT,
+    ProjectCost_NoVAT INT,
+    StartDate DATE,
+    EndDate DATE,
+    orderPlace VARCHAR(255),
+    Manager VARCHAR(100),
+    ContributionRate INT,
+    ProjectDetails TEXT,
+    AcademicResearchRate DECIMAL(7,2),
+    OperationalRate DECIMAL(7,2),
+    EquipmentRate DECIMAL(7,2),
+    ChangeProjectCost FLOAT,
+    outsourcingCheck BOOLEAN default 0,
+    yearProject BOOLEAN default 0,
+    LinkProjectCheck VARCHAR(255),
+    referenceProject1 VARCHAR(255),
+    referenceProject2 VARCHAR(255),
+    referenceProject3 VARCHAR(255),
+    referenceProject4 VARCHAR(255),
+    referenceProject5 VARCHAR(255),
+    PRIMARY KEY (ProjectID, ContractCode)
+);
+
+CREATE TABLE EXPENSES ( /*기준정보*/
+    Position VARCHAR(50),
+    MonthlyAverageSalary INT, /*월평균*/
+    Hours INT, /*시급*/
+    Days INT, /*일급*/
+    Year INT, /*연봉*/
+    PRIMARY KEY (Position, Year)
+);
+
+CREATE TABLE EXexpenses (
+    ContractCode VARCHAR(100) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    Person INT NULL,
+    Number INT NULL,
+    Price INT NULL,
+    Amount INT NULL,
+    detail VARCHAR(255) NULL,
+    Group_content VARCHAR(100) NULL,
+    PRIMARY KEY (ContractCode, title)
+);
+
+CREATE TABLE State (
+    contractCode VARCHAR(50) PRIMARY KEY,        -- 계약 코드
+    first_dept VARCHAR(50),                       -- 첫 번째 부서명
+    second_dept VARCHAR(50),                      -- 두 번째 부서명
+    first_layout_active BOOLEAN DEFAULT 1,        -- 첫 번째 레이아웃 활성화 상태
+    second_layout_active BOOLEAN DEFAULT 1,       -- 두 번째 레이아웃 활성화 상태
+    active_layout_count INT DEFAULT 2             -- 활성화된 레이아웃 수
+);
+
+CREATE TABLE EXmanager ( /*예상 개인별 인력*/
+	id INT AUTO_INCREMENT,
+	ContractCode varchar(50) NOT NULL,
+    Position VARCHAR(50) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    M_D FLOAT NULL,
+    person FLOAT,
+    amount DECIMAL(15,2) DEFAULT 0.00,
+    PRIMARY KEY (ContractCode,department,Position)
+);
+
+CREATE TABLE ExpenseRecords (
+    ContractCode VARCHAR(255),
+    account VARCHAR(255),
+    department varchar(50),
+    people_count INT,
+    frequency INT,
+    unit DECIMAL(15, 2),
+    amount DECIMAL(15, 2),
+    PRIMARY KEY (ContractCode, account, department)
+);
+
+CREATE TABLE RecordsPrice (
+    ITEM VARCHAR(255) NOT NULL,
+    Price DECIMAL(10, 2) NOT NULL,
+    YEAR YEAR NOT NULL,
+    PRIMARY KEY (YEAR, ITEM)
+);
+
+CREATE TABLE TaskQuantity (-- 사업 물량
+    ContractCode VARCHAR(255) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    item VARCHAR(255) NOT NULL,
+    quantity decimal(7,3) NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    writingOrder INT,
+    PRIMARY KEY (ContractCode, item)
+);
+
+CREATE TABLE TaskAssignment (
+    position varchar(20) NOT NULL,
+    work_item varchar(255) NOT NULL,
+    department varchar(255) NOT NULL,
+    ContractCode varchar(255) NOT NULL,
+    quantity DECIMAL(7,2),
+    day_time DECIMAL(7,2) NULL,
+    night_time DECIMAL(7,2) NULL,
+    holiday DECIMAL(7,2) NULL,
+    PRIMARY KEY (position, work_item, ContractCode)
+);
+
+CREATE TABLE useMoney (
+    use_account varchar(50) NOT NULL,
+    history VARCHAR(50) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    department varchar(255) NOT NULL,
+    money INT NOT NULL,
+    ContractCode varchar(255) NOT NULL,
+    update_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (use_account, history, type, department, ContractCode)
+);
+
+CREATE TABLE usemoney_log (
+    ID INT AUTO_INCREMENT PRIMARY KEY,
+    contractcode VARCHAR(255) NOT NULL,
+    use_account VARCHAR(255) NOT NULL,
+    history VARCHAR(255),
+    log_date DATETIME NOT NULL,
+    type VARCHAR(255) NOT NULL,
+    department VARCHAR(255) NOT NULL,
+    money INT NOT NULL,
+    createdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedate TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE quantity_log (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    contract_code VARCHAR(50) NOT NULL,
+    department VARCHAR(50) NOT NULL,
+    log_date DATETIME NOT NULL,
+    process VARCHAR(100) NOT NULL,
+    quantity DECIMAL(10,2) NOT NULL,
+    MT_TYPE VARCHAR(30),
+    MT FLOAT,
+    position varchar(50),
+    remarks TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+-- ProjectFile만들기전에 같이 생성하기
+ALTER TABLE projects
+ADD INDEX idx_contract_code (ContractCode);
+
+CREATE TABLE ProjectFiles (
+    FileID INT AUTO_INCREMENT PRIMARY KEY,
+    ContractCode VARCHAR(50) NOT NULL,
+    FileName VARCHAR(255) NOT NULL,
+    OriginalFileName VARCHAR(255) NOT NULL,
+    FilePath VARCHAR(500) NOT NULL,
+    FileSize INT,
+    FileType VARCHAR(100),
+    UploadDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UpdateDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (ContractCode) REFERENCES projects(ContractCode)
+);
+
+CREATE TABLE outsourcing (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    outsourcing_type VARCHAR(30) NOT NULL,
+    outsourcing_company VARCHAR(50) NOT NULL,
+    outsourcing_cost DECIMAL(15, 2) NOT NULL,
+    outsourcing_quantity VARCHAR(255) NOT NULL,
+    contract_code VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE CompanyExpenses (
+    year YEAR PRIMARY KEY,
+    AcademicResearchRate FLOAT,
+    OperationalRate FLOAT,
+    EquipmentRate FLOAT
+);
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(100),
+    email VARCHAR(255),
+    department VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP NULL,
+    status ENUM('active', 'inactive', 'locked') DEFAULT 'active'
+);
+
+CREATE TABLE sso_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(50),
+    token VARCHAR(255) NOT NULL,
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    last_used TIMESTAMP NULL,
+    is_valid BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE service_permissions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(50),
+    service_name VARCHAR(100) NOT NULL,
+    permission_level VARCHAR(50) DEFAULT 'user',
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE login_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(50),
+    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    success BOOLEAN DEFAULT FALSE,
+    failure_reason VARCHAR(255),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+CREATE TABLE sso_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sso_type VARCHAR(50),
+    service_name VARCHAR(100),
+    service_id VARCHAR(255),
+    service_new VARCHAR(255),
+    service_url TEXT,
+    user_id VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_service_user (service_name, user_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- 사업변경 내역 테이블
+CREATE TABLE BusinessChangeHistory (
+    id INT AUTO_INCREMENT PRIMARY KEY,           -- 고유 ID (자동 증가)
+    Division VARCHAR(50),                        -- 구분
+    ContractDate DATE, -- 계약일자
+    Cost_VAT DECIMAL(15,2),
+    Cost_NoVAT DECIMAL(15, 2),                   -- VAT 제외 사업비
+    Cost_ShareRate DECIMAL(15, 2),                -- 지분율
+    Description TEXT,                            -- 내용
+    ContractCode varchar(100) NOT NULL,            -- 계약 코드 (기본키)
+    UpdateDate DATE                              -- 수정 날짜
+);
+
+-- 성과 심사비 테이블
+CREATE TABLE PerformanceEvaluationFee (
+    id INT AUTO_INCREMENT PRIMARY KEY,           -- 고유 ID (자동 증가)
+    Division VARCHAR(50),                        -- 구분
+    Amount DECIMAL(15, 2),                       -- 금액
+    Description TEXT,                            -- 내용
+    ContractCode varchar(100) NOT NULL,            -- 계약 코드 (기본키)
+    UpdateDate DATE                              -- 수정 날짜
+);
+
+-- 사업비 수령내역 테이블
+CREATE TABLE BusinessReceiptDetails (
+    id INT AUTO_INCREMENT PRIMARY KEY,           -- 고유 ID (자동 증가)
+    Division VARCHAR(50),                        -- 구분
+    Amount DECIMAL(15, 2),                       -- 금액
+    Balance DECIMAL(15, 2),                      -- 잔액
+    ReceiptDate DATE,                            -- 수령일자
+    Description TEXT,                            -- 내용
+    ContractCode varchar(100) NOT NULL,            -- 계약 코드 (기본키)
+    UpdateDate DATE                              -- 수정 날짜
+);
+
+
+ALTER TABLE usemoney_log
+ADD COLUMN remarks varchar(255);
+
+ALTER table taskquantity
+add column writingOrder INT;
+
+ALTER TABLE exmanager
+ADD COLUMN ProjectID INT NOT NULL;
+
+
+ALTER TABLE EXmanager 
+DROP PRIMARY KEY,
+ADD PRIMARY KEY (ProjectID,contractcode, department, position);
+
+ALTER TABLE exmanager
+DROP COLUMN ID;
+
+ALTER TABLE ExpenseRecords 
+DROP PRIMARY KEY;
+ALTER TABLE ExpenseRecords
+ADD COLUMN ProjectID INT NOT NULL;
+-- 새로운 복합 PRIMARY KEY 추가 (ContractCode, account, department)
+ALTER TABLE ExpenseRecords 
+ADD PRIMARY KEY (ProjectID,ContractCode, account, department);
+
+CREATE TABLE Project_comment (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    contractcode VARCHAR(255),
+    Create_date DATE,
+    comment VARCHAR(255),
+    input_num INT
+);
+
+CREATE TABLE external_labor_rates (
+    position VARCHAR(50) NOT NULL,         -- 직급
+    monthly_rate DECIMAL(10, 2) NOT NULL,  -- 월급
+    daily_rate DECIMAL(10, 2) NOT NULL,    -- 일급
+    contract_date DATE NOT NULL,           -- 계약 일자
+    ContractCode VARCHAR(50) NOT NULL,     -- 계약 코드
+    UNIQUE (position, ContractCode)        -- 직급 + 계약 코드를 유니크 키로 설정
+);
+
+pip install xlsxwriter
+
+
+ALTER TABLE ProjectFiles DROP FOREIGN KEY projectfiles_ibfk_1;
+
+ALTER TABLE ProjectFiles
+ADD CONSTRAINT projectfiles_ibfk_1
+FOREIGN KEY (`ContractCode`) REFERENCES `projects` (`ContractCode`)
+ON UPDATE CASCADE;
+
+[2025-01-07 15:19:42,397] ERROR in app: Exception on /api/get_latest_change [GET]
+Traceback (most recent call last):
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "\\211.169.38.15\vol.2\PMS\app.py", line 2648, in get_latest_change
+    cursor.close()
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\mysql\connector\cursor_cext.py", line 521, in close
+    self._connection.handle_unread_result()
+  File "C:\Users\경영 03-01-018\AppData\Local\Programs\Python\Python311\Lib\site-packages\mysql\connector\connection_cext.py", line 1047, in handle_unread_result
+    raise InternalError("Unread result found")
+mysql.connector.errors.InternalError: Unread result found
+        
+서버 비밀번호 : tkadls142!

@@ -1,0 +1,14 @@
+ http://192.168.0.74:5000/login/SSO_adm_index.asp
+
+http://192.168.0.74:5000/login/SSO_adm_index.asp?UserID={ID}
+
+
+===DEBUG===
+saveItem
+{'taskItemData': [{'department': '연구소', 'position': '부장', 'workTimeValue': 'day', 'item': 'test', 'quantity': 1, 'time': 8}, 
+{'department': '연구소', 'position': '대리', 'workTimeValue': 'day', 'item': '기타', 'quantity': None, 'time': 8}], 'expenseData': [], 'contractCode': 'testupdate'}
+===DEBUG===
+
+cannot access local variable 'record' where it is not associated with a value
+
+pip install Flask mysql-connector-python pymysql xlsxwriter werkzeug

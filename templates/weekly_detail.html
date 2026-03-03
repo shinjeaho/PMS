@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>주간 보고서 상세</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Year.css') }}" />
+  <style>
+    :root {
+      /* 인쇄 시 표가 페이지를 꽉 채우도록 목표 높이(필요 시 조절) */
+      --print-table-fill: 165mm;
+      --print-empty-fill-height: 150mm;
+      /* A4 인쇄 페이지 높이 정보 */
+      --print-page-height: 210mm;
+      --print-page-margin-top: 10mm;
+      --print-page-margin-bottom: 10mm;
+      --print-page-header-height: 8mm;
+      /* 이슈사항 테이블 줄간격(필요 시 값만 수정) */
+      --weekly-issues-line-height: 1.6;
+      --weekly-issues-row-gap: 6px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: block;
+      font-size: 15px;
+    }
+
+    /* 화면에서는 폭 95%로 중앙 정렬 */
+    .weekly-detail-container {
+      width: 95%;
+      margin: 0 auto;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    .page-title {
+      text-align: center;
+      font-size: 28px;
+      margin: 6px 0 8px;
+      /* 타이틀-서브타이틀 간격 축소 */
+      font-weight: 800;
+      display: none;
+    }
+
+    .sub-title {
+      text-align: center;
+      font-size: 24px;
+      margin: 8px 0 8px;
+      /* 상단 간격 축소 */
+      font-weight: 700;
+    }
+
+    table.weekly-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-bottom: 60px;
+    }
+
+    table.weekly-table th,
+    table.weekly-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px;
+      background-color: #fff;
+    }
+
+    /* 이슈사항 테이블에만 줄간격 적용 */
+    .weekly-issues-table td {
+      line-height: var(--weekly-issues-line-height);
+    }
+
+    .weekly-issues-table td div + div {
+      margin-top: var(--weekly-issues-row-gap);
+    }
+
+    .weekly-issues-table td * {
+      line-height: inherit;
+    }
+
+    .weekly-line {
+      white-space: pre-wrap;
+    }
+
+    /* 본문 셀은 수직 상단 정렬 */
+    table.weekly-table td {
+      vertical-align: top;
+    }
+
+    /* 화면에서는 숨기고, 인쇄에서만 빈 공간 채움용으로 표시 */
+    .print-only {
+      display: none;
+    }
+
+
+    table.weekly-table thead th {
+      background: #e2e8f0;
+      text-align: center;
+    }
+
+    .dept-col {
+      width: 160px;
+      text-align: center;
+    }
+
+    /* 부서 컬럼은 항상 가로/세로 중앙 정렬 */
+    table.weekly-table th.dept-col,
+    table.weekly-table td.dept-col {
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .day-col {
+      width: calc((100% - 160px) / 6);
+    }
+
+    /* 요일별 셀은 항상 왼쪽 정렬 */
+    table.weekly-table td.day-col {
+      text-align: left;
+    }
+
+    .issue-col {
+      width: calc((100% - 160px) / 2);
+    }
+
+    .blue {
+      color: #2563eb;
+    }
+
+    .red {
+      color: #ef4444;
+    }
+
+    /* 하단 푸터 로고 중앙 정렬 */
+    footer {
+      text-align: center;
+      padding: 12px 0;
+    }
+
+    /* 화면용 헤더 스타일 (전역 적용) */
+    header.page-header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* 정확한 중앙 정렬 */
+      gap: 0;
+      background-color: #007bff;
+      background-image: none !important;
+      /* 배너 이미지 백그라운드 제거 */
+      color: #fff;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      height: 75px;
+    }
+
+    header.page-header h1 {
+      margin: 0;
+      font-weight: 800;
+      text-align: center;
+      font-size: 32px;
+    }
+
+    /* 뒤로가기 버튼은 레이아웃에 영향 주지 않도록 절대 배치 */
+    header.page-header .back-button {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    /* 배너 이미지는 유지, 헤더 배경이미지만 제거 */
+
+    /* 인쇄 툴바 */
+    .print-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .print-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .print-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* 수정 버튼 */
+    .edit-btn {
+      background: #64748b;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .edit-btn:hover {
+      background: #475569;
+    }
+
+    /* 모달 기본 스타일 */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #fff;
+      width: 90%;
+      max-width: 1000px;
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: 10px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+      padding: 16px;
+    }
+
+    /* 주간보고서 입력/수정 모달은 본문 테이블과 같은 폭으로(입력 혼란 방지) */
+    #weeklyEditModal .modal-content {
+      width: 95vw;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-x: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-header .close {
+      background: transparent;
+      color: #111827;
+      border: none;
+      border-radius: 0;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .submit-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .submit-btn:hover {
+      background: #1d4ed8;
+    }
+
+    /* 에디터 툴바 */
+    .editor-toolbar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      width: fit-content;
+    }
+
+    .editor-toolbar button {
+      background: #e5e7eb;
+      color: #111827;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .editor-toolbar button:hover {
+      background: #d1d5db;
+    }
+
+    /* A4 인쇄 설정 */
+    @page {
+      size: A4 landscape;
+      /* 다른 PC에서 상단 공백이 과도하게 커지는 문제를 줄이기 위해 상단 여백을 축소 */
+      margin: 10mm 10mm 10mm 10mm;
+    }
+
+    @media print {
+
+      /* 인쇄 시 표 높이를 페이지에 맞게 강제(행 높이는 JS에서 균등 분배) */
+      table.weekly-table.print-fill {
+        height: var(--print-table-fill) !important;
+        margin-bottom: 0 !important;
+      }
+
+      /* 데이터가 없을 때도 표가 페이지를 가득 채우도록 (JS가 print-only 더미 행 추가) */
+      .print-only {
+        display: table-row !important;
+      }
+
+      table.weekly-table tbody tr.print-only td {
+        height: var(--print-empty-fill-height);
+      }
+
+      .schedule-section {
+        page-break-inside: avoid;
+      }
+
+      /* 색상 유지 */
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    .weekly-line {
+      white-space: pre-wrap;
+    }
+      /* 화면 전용 요소 숨김 */
+      .print-toolbar {
+        display: none !important;
+      }
+
+      /* 인쇄 시 페이지 폭을 꽉 사용 */
+      .weekly-detail-container {
+        width: 100% !important;
+        margin: 0;
+        /* @page 여백으로 상단 여백을 통일하고, 컨테이너 상단 padding은 제거 */
+        padding: 0;
+      }
+
+      /* 부서 컬럼 폭 축소 및 다른 컬럼 재계산 (인쇄 전용) */
+      table.weekly-table th.dept-col,
+      table.weekly-table td.dept-col {
+        width: 25mm !important;
+      }
+
+      /* 일정표 헤더 반복(페이지 하단에 헤더가 한 줄만 찍히는 현상) 방지 */
+      .schedule-section table.weekly-table thead {
+        display: table-row-group;
+      }
+
+      /* 이슈 타이틀은 다음 페이지에서 시작 */
+      #weeklyDetailRoot .schedule-section+.sub-title {
+        break-before: page;
+        page-break-before: always;
+      }
+
+      :root {
+        --weekly-dept-percent: 9.05%;
+        --weekly-day-col-width: calc((100% - var(--weekly-dept-percent)) / 5.5);
+        --weekly-sat-col-width: calc(var(--weekly-day-col-width) / 2);
+      }
+
+      .schedule-section table.weekly-table {
+        width: 100% !important;
+      }
+
+      .schedule-section table.weekly-table th.dept-col,
+      .schedule-section table.weekly-table td.dept-col {
+        width: var(--weekly-dept-percent) !important;
+      }
+
+      .schedule-section table.weekly-table th.day-col,
+      .schedule-section table.weekly-table td.day-col {
+        width: var(--weekly-day-col-width) !important;
+      }
+
+      /* 토요일(마지막 요일) 컬럼은 반으로 축소 */
+      .schedule-section table.weekly-table thead th:nth-child(7),
+      .schedule-section table.weekly-table tbody td:nth-child(7) {
+        width: var(--weekly-sat-col-width) !important;
+      }
+
+      table.weekly-table th.issue-col,
+      table.weekly-table td.issue-col {
+        width: calc((100% - 25mm) / 2) !important;
+      }
+
+      /* colgroup 기반 폭 강제 (인쇄에서 가장 안정적) */
+      col.col-dept {
+        width: var(--weekly-dept-percent) !important;
+      }
+
+      .schedule-section col.col-day {
+        width: var(--weekly-day-col-width) !important;
+      }
+
+      .schedule-section col.col-day:last-child {
+        width: var(--weekly-sat-col-width) !important;
+      }
+
+      col.col-issue {
+        width: calc((100% - 25mm) / 2) !important;
+      }
+
+      /* tr의 첫 번째 셀(부서 컬럼) 폭을 인쇄에서 강제로 축소 (클래스 누락 대비) */
+      table.weekly-table thead tr th:first-child,
+      table.weekly-table tbody tr td:first-child {
+        width: 25mm !important;
+        max-width: 25mm !important;
+        box-sizing: border-box;
+      }
+
+      /* 부서명은 인쇄에서 한 줄로(줄바꿈 방지) + 센터 정렬 */
+      table.weekly-table th.dept-col,
+      table.weekly-table td.dept-col,
+      table.weekly-table thead tr th:first-child,
+      table.weekly-table tbody tr td:first-child {
+        white-space: nowrap;
+        word-break: keep-all;
+        text-align: center;
+        vertical-align: middle;
+      }
+
+      /* 화면에서는 보이되, 인쇄에서는 '(N줄)' 표기 숨김 (레이아웃/폭 영향 방지) */
+      .dept-line-limit {
+        display: none !important;
+      }
+
+
+      /* 인쇄 가독성: 표 폰트/패딩 최적화 */
+      table.weekly-table th,
+      table.weekly-table td {
+        padding: 2mm;
+        font-size: 8pt;
+        line-height: 1.35;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      /* 인쇄에서도 이슈사항 줄간격만 별도 적용 */
+      .weekly-issues-table td {
+        line-height: var(--weekly-issues-line-height) !important;
+      }
+
+      .weekly-issues-table td div + div {
+        margin-top: 0 !important;
+      }
+
+      .weekly-issues-table td * {
+        line-height: inherit !important;
+      }
+
+      /* 셀 내부 기본 마진(특히 ol/ul/p)이 인쇄 시 하단 여백처럼 보이는 문제 방지 */
+      table.weekly-table td p,
+      table.weekly-table td ol,
+      table.weekly-table td ul {
+        margin: 0;
+      }
+
+      /* 목록은 들여쓰기만 유지 (브라우저 기본 padding/margin 차이를 줄임) */
+      table.weekly-table td ol,
+      table.weekly-table td ul {
+        padding-left: 16px;
+      }
+
+      /* 제목 크기 축소로 공간 확보 */
+      .page-title {
+        font-size: 20px;
+        margin-top: 10px;
+        margin-bottom: 0;
+        display: none;
+      }
+
+      .sub-title {
+        font-size: 18px;
+        margin-top: 0 !important;
+        margin-bottom: 4mm !important;
+      }
+
+      /* 표 기본 설정 */
+      table.weekly-table {
+        table-layout: fixed;
+        width: 100%;
+        page-break-inside: auto;
+      }
+
+      /* 스케줄 표는 항상 한 페이지 유지 */
+      .schedule-section {
+        page-break-inside: avoid;
+      }
+
+      /* 이슈 표는 내용 기준 높이로 자연 출력 */
+      .weekly-issues-table.print-fill {
+        height: auto !important;
+        margin-bottom: 0 !important;
+      }
+
+      /* 일정표 섹션 뒤는 항상 다음 페이지에서 시작 */
+      #weeklyDetailRoot .schedule-section {
+        break-after: page;
+        page-break-after: always;
+      }
+
+      /* 이슈 표: 행 레벨 page-break 제거, 자연 break 허용 */
+      table.weekly-table tbody tr {
+        page-break-inside: auto;
+        break-inside: auto;
+      }
+
+      /* 이슈 표의 셀도 break 허용 */
+      table.weekly-table tbody td {
+        break-inside: auto;
+      }
+
+      /* 이슈 표는 JS가 분할하므로 브라우저 자동 분할 방지 */
+      .weekly-issues-table tbody tr {
+        page-break-inside: auto;
+        break-inside: auto;
+      }
+
+      .weekly-issues-table tbody td {
+        break-inside: auto;
+      }
+
+      /* 인쇄에서도 요일 셀 왼쪽 정렬 유지 */
+      table.weekly-table td.day-col {
+        text-align: left !important;
+      }
+
+      /* 인쇄 시 헤더 숨김 */
+      header.page-header {
+        display: none !important;
+      }
+
+      /* 인쇄 시 푸터 숨김 */
+      footer {
+        display: none !important;
+      }
+
+
+    }
+  </style>
+
+  <script src="{{ url_for('static', filename='weekly_detail.js') }}" defer></script>
+</head>
+
+<body>
+  <header class="page-header"
+    style="display: flex; align-items: center; gap: 12px; width: 100%; height: 75px; background-color: #007bff; color: #fff; padding: 12px 20px; margin-bottom: 20px; box-sizing: border-box;">
+    <button type="button" onclick="window.location.href='/'" class="back-button"
+      style="margin-left: 20px; background: transparent; border: none; padding: 0; cursor: pointer;">
+      <img src="{{ url_for('static', filename='img/home.png') }}" alt="배너" style="width: 150px; height: 80px;">
+    </button>
+    <h1 id="projectName"
+      style="flex: 1; text-align: center; margin: 0; font-weight: 800; font-size: 32px; min-width:0; max-width:100%; overflow-x:auto; white-space:nowrap;">
+      {{ week_title }} 주간보고</h1>
+    <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;"></div>
+  </header>
+
+  <div class="weekly-detail-container" style="overflow-x:auto; max-width:100vw;">
+    <input type="hidden" id="sessionDept"
+      value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
+    <div class="print-toolbar">
+      <button type="button" class="print-btn" onclick="window.print()">인쇄</button>
+      <button type="button" class="edit-btn" onclick="openWeeklyEditModal()">수정</button>
+    </div>
+    <div class="page-title">{{ week_title }} ({{ week_range }})</div>
+    <div id="weeklyDetailRoot" data-week-start="{{ week_start }}"></div>
+  </div>
+
+  <!-- 주간 보고서 입력/수정 모달 -->
+  <div id="weeklyEditModal" class="modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="margin:0; font-size:18px; font-weight:700;">주간 보고서 입력/수정</h3>
+        <button type="button" class="close" aria-label="닫기" onclick="closeWeeklyEditModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="sub-title" id="weeklyScheduleRange" style="margin-top:4px;">주간일정표</div>
+        <table id="weeklyScheduleTable" class="weekly-table" style="margin-top:6px;"></table>
+
+        <div class="sub-title" id="weeklyIssuesTitle" style="margin-top:16px;">부서별 이슈사항</div>
+        <table id="weeklyIssuesTable" class="weekly-table weekly-issues-table" style="margin-top:6px;"></table>
+
+        <div class="modal-actions">
+          <button type="button" class="submit-btn" id="submitWeeklyBtn">제출</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo" style="height: 60px;">
+  </footer>
+</body>
+
+</html>

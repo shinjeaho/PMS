@@ -1,0 +1,684 @@
+body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #f4f4f4;
+
+    margin: 0;
+    padding: 30px;
+    min-height: 100vh;
+}
+
+.basic-info-container {
+    background: #f4f4f4;
+
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    width: 95%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.check_btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 8px;
+}
+
+.check_btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin-left: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 8px;
+}
+
+.check_btn:hover {
+    opacity: 0.8;
+}
+
+h2 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 24px;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+}
+
+.flex-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+/* 왼쪽/오른쪽 컬럼 스타일 */
+.main-info {
+    width: 48%;
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 12px;
+    position: relative;
+    border: 1px solid #e1e8ef;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.right-column {
+    width: 48%;
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 12px;
+    position: relative;
+    border: 1px solid #e1e8ef;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.main-info:hover,
+.right-column:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 입력 필드 스타일 */
+/* 입력 필드 스타일 수정 */
+input[type="text"],
+input[type="date"],
+textarea {
+    background-color: #ffffff;
+    /* 배경색을 흰색으로 */
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #cbd5e0;
+    /* 테두리 색상을 더 진하게 */
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    /* 미세한 그림자 추가 */
+}
+
+input[type="text"]:hover,
+input[type="date"]:hover,
+textarea:hover {
+    border-color: #a0aec0;
+    /* hover 시 테두리 색상 변경 */
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+textarea:focus {
+    background-color: #ffffff;
+    border-color: #4299e1;
+    /* focus 시 테두리 색상을 더 진하게 */
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
+    /* focus 시 그림자 효과 강화 */
+    outline: none;
+}
+
+/* 파일관련 */
+.file-upload-container {
+    margin: 10px 0;
+}
+
+.file-list {
+    margin-bottom: 10px;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    margin: 5px 0;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.delete-file {
+    padding: 2px 8px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    float: right;
+    margin-left: auto;
+    min-width: 50px;
+    /* 버튼 최소 너비 설정 */
+}
+
+.delete-file:hover {
+    background-color: #c82333;
+}
+
+.file-upload-controls {
+    margin-top: 10px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.file-link {
+    color: #0066cc;
+    text-decoration: none;
+    flex-grow: 1;
+    cursor: pointer;
+}
+
+.file-link:hover {
+    text-decoration: underline;
+}
+
+.file-info {
+    color: #666;
+    font-size: 0.9em;
+    margin: 0 10px;
+}
+
+/* 읽기 전용 필드 스타일 */
+input[readonly] {
+    background-color: #edf2f7;
+    /* 읽기 전용 배경색 변경 */
+    color: #4a5568;
+    cursor: not-allowed;
+    border: 1px dashed #a0aec0;
+    /* 테두리 색상 진하게 */
+}
+
+/* 라벨 스타일 강화 */
+label {
+    color: #2d3748;
+    font-weight: 600;
+    /* 폰트 두께 증가 */
+    margin-bottom: 8px;
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* placeholder 스타일 수정 */
+::placeholder {
+    color: #a0aec0;
+    /* placeholder 색상을 더 진하게 */
+}
+
+/* 저장 버튼 스타일 */
+button[type="submit"] {
+    width: 100%;
+    padding: 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-top: 20px;
+}
+
+button[type="submit"]:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+}
+
+/* 플레이스홀더 스타일 */
+::placeholder {
+    color: #adb5bd;
+}
+
+/* 입력 필드 그룹 스타일 */
+.input-group {
+    margin-bottom: 20px;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .flex-container {
+        flex-direction: column;
+    }
+
+    .main-info,
+    .right-column {
+        width: 100%;
+    }
+}
+
+/* 테이블 스타일 */
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.custom-table th,
+.custom-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    width: 20%;
+    /* 5개의 셀이 동일한 너비를 가지도록 20%로 설정 */
+    white-space: nowrap;
+    /* 텍스트 줄바꿈 방지 */
+}
+
+.custom-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.custom-table td {
+    background-color: #ffffff;
+}
+
+/* TextChange로 생성되는 input 스타일 */
+.editable-input {
+    width: calc(100% - 4px) !important;
+    /* 테두리를 고려한 너비 */
+    height: 40px !important;
+    /* 테두리를 고려한 높이 */
+    padding: 2px 4px !important;
+    margin: 0 !important;
+    border: 1px solid #cbd5e0 !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+
+/* 입력 필드 그룹 스타일 */
+.main-info label,
+.right-column label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2d3748;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* 모든 입력 필드에 동일한 마진 적용 */
+.main-info input,
+.main-info textarea,
+.right-column input,
+.right-column textarea,
+.custom-table {
+    margin-bottom: 15px;
+    /* 모든 입력 요소 사이의 간격을 25px로 통일 */
+}
+
+/* 라디오 버튼 그룹 스타일 */
+.radio-group {
+    margin-bottom: 25px;
+    /* 다른 요소들과 동일한 간격 유지 */
+}
+
+/* 테이블 마진 조정 */
+.custom-table {
+    margin: 0 0 25px 0;
+    /* 상단 마진 제거, 하단 마진만 유지 */
+}
+
+/* 프로젝트 상세 textarea 마진 */
+#projectDetails {
+    margin-bottom: 25px;
+}
+
+/* 마지막 요소의 마진 제거 */
+.main-info *:last-child,
+.right-column *:last-child {
+    margin-bottom: 0;
+}
+
+/* 제경비 비율 스타일 */
+.expense-rates {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.rate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.rate-item:last-child {
+    border-bottom: none;
+}
+
+.rate-item label {
+    color: #495057;
+    font-weight: 500;
+    margin: 0;
+}
+
+.rate-item .rate-value {
+    color: #2b6cb0;
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+
+
+/* 모달 창 배경 스타일 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    padding-top: 100px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* 모달이 열리면 body 스크롤 막기 */
+body.modal-open {
+    overflow: hidden;
+}
+
+.modal-content {
+    position: relative;
+    /* 닫기 버튼을 모달 창 내에서 정렬 */
+    display: flex;
+    flex-direction: column;
+    height: 700px;
+    max-height: 700px;
+    width: 300px;
+    background-color: #fefefe;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 50%;
+    border-radius: 10px;
+}
+
+/* 모달 바디 스크롤 */
+.modal-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+.modal-body::-webkit-scrollbar {
+    display: none;
+}
+
+/* 고정된 저장 버튼 */
+.modal-footer {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+    background-color: white;
+    position: sticky;
+    bottom: 0;
+}
+
+/* 닫기 버튼 스타일 */
+.modal_close {
+    position: absolute;
+    top: 10px;
+    /* 모달 창의 위쪽에서 10px 떨어지도록 */
+    right: 10px;
+    /* 모달 창의 오른쪽에서 10px 떨어지도록 */
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.modal_close:hover,
+.modal_close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* 모달 내부의 섹션 스타일 */
+.modal_section {
+    margin-top: 20px;
+}
+
+.modal_section label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+/* 커스텀 select 박스 스타일 */
+.modal_custom-select {
+    width: 100%;
+    height: 40px;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+/* 부서 A, B 관련 섹션 스타일 */
+.modal_form-section {
+    /* display: flex;
+    justify-content: space-between;
+    align-items: center; */
+    margin-top: 20px;
+}
+
+
+.modal_form-section h3 {
+    flex-grow: 1;
+    max-width: 100%;
+    margin-right: 10px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.modal_label-button-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    /* 전체 너비 사용 */
+}
+
+.modal_button-group {
+    display: flex;
+    gap: 10px;
+    /* 버튼 간격 조절 */
+}
+
+/* 버튼 스타일 */
+.modal_button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 10px;
+}
+
+.modal_save-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 18px;
+    border-radius: 5px;
+}
+
+.modal_save-btn:hover {
+    background-color: #0056b3;
+}
+
+/* 버튼 hover 효과 */
+.modal_button:hover,
+.modal_save-btn:hover {
+    background-color: #0056b3;
+}
+
+/* 검색 결과 컨테이너 스타일 */
+#searchResultsContainer {
+    border: 1px solid #e1e4e6;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    height: 400px;
+    /* 또는 원하는 높이 */
+    position: relative;
+    overflow: hidden;
+}
+
+/* 테이블 스타일 */
+.search-result-table {
+    width: 100%;
+    border-collapse: collapse;
+    height: 100%;
+}
+
+/* 테이블 헤더 고정 */
+.search-result-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #f8f9fa;
+}
+
+.search-result-table th {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 500;
+    color: #495057;
+}
+
+/* 테이블 바디 스크롤 */
+.search-result-table tbody {
+    display: block;
+    overflow-y: auto;
+    height: calc(100% - 43px);
+    /* 헤더 높이를 뺀 나머지 */
+}
+
+/* 행 스타일 */
+.search-result-table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.search-result-table td {
+    padding: 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* 각 열의 너비 설정 */
+.contract-code {
+    width: 40%;
+    color: #1a73e8;
+}
+
+.project-name {
+    width: 60%;
+    color: #5f6368;
+}
+
+/* 행 호버 효과 */
+.search-result-row:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+/* 마지막 행의 밑줄 제거 */
+.search-result-row:last-child td {
+    border-bottom: none;
+}
+
+/* 기본 select 스타일 */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: 1px solid #ccc;
+    background-color: transparent;
+    font-size: 16px;
+    text-align: center;
+    padding: 0;
+    width: 100%;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%204%205"><path%20fill="none"%20stroke="%23000"%20stroke-width="1"%20d="M0%200L2%202L4%200"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+    background-size: 8px 10px;
+    height: 30px;
+    overflow-y: auto;
+}
+
+select option:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+.contract-type-group {
+    display: flex;
+    gap: 30px;
+    align-items: center;
+}
+
+.contract-type-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1;
+}
+
+.contract-type-group input[type="checkbox"] {
+    margin: 0;
+    vertical-align: middle;
+}
+
+.contract-type-group span {
+    display: inline-block;
+    line-height: 1;
+}

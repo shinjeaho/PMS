@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ selected_year }}년도 사업 페이지</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Year.css') }}">
+</head>
+
+<body>
+    <header class="pageheader" style="position: relative;">
+        <h1 id="yearTitle" style="font-size: 50px; text-align: center; margin-bottom: 30px;">
+            {{ selected_year }}년도 사업
+            {% if view_type %}
+            - {{ view_type }}
+            {% endif %}
+        </h1>
+        <div class="user-logout-box">
+            <div class="user-label" title="로그인 정보">
+                <span class="user-name">{{ session['user']['name'] }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
+            </div>
+            <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
+        </div>
+
+        <input type="hidden" id="sessionName" value="{{ session['user']['name'] }}">
+        <input type="hidden" id="sessionAuth" value="{{ session['user']['auth'] }}">
+        <input type="hidden" id="sessionDataAuth" value="{{ session['user'].get('dataauth', 0) }}">
+        <input type="hidden" id="sessionProjectAuth" value="{{ session['user'].get('projectAUTH', 0) }}">
+        <input type="hidden" id="sessionReportAuth" value="{{ session['user'].get('reportAUTH', 0) }}">
+        <input type="hidden" id="sessionDept" value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
+        <input type="hidden" id="projectYEAR" value="{{ selected_year }}">
+    </header>
+    <nav class="navbar">
+        <ul>
+            <li class="dropdown">
+                <button class="year-button dropbtn">연도 선택 ▼</button>
+                <div class="dropdown-content">
+                    {% for year in available_years %}
+                    <a href="{{ url_for('business_year.business', year=year) }}">{{ year }}년</a>
+                    {% endfor %}
+                </div>
+            </li>
+            <li class="dropdown">
+                <!-- 모아보기 하위 -->
+                <button class="year-button dropbtn">모아보기 ▼</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="viewYearlyProjects()">연차사업</a>
+                    <a href="#" onclick="viewExamineProjects()">검토사업</a>
+                    <a style="display: none;" id="processProjectEngineers" href="/PMS_annualProject/status/engineers">참여기술자 모아보기</a>
+                    <a style="display: none;" id="processProjectProgress" href="/PMS_annualProject/status/progress">진행중 사업 통합자료</a>
+                    <a style="display: none;" id="completeProject" href="#" data-status = 'complete' onclick="viewCompleteProjects(this)">준공 사업 통합자료</a>
+                    <a style="display: none;" id="stopProject" href="/PMS_annualProject/status/stop">용역중지 사업 통합자료</a>
+                    <a id="annualBTN" href="#" onclick="viewAnnualProjects()" style="display: none;">연도별 통합자료</a>
+                </div>
+            </li>
+            <li><button class="year-button" onclick="addProject('{{ selected_year }}')">프로젝트 추가</button></li>
+            <li><button class="year-button" onclick="checkLaborCosts()">기준정보 확인</button></li>
+            <li><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
+            {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
+            <li><button class="year-button" onclick="viewWeeklyReports()">주간 보고서</button></li>
+            {% endif %}
+            <li><button class="year-button" onclick="openTransfer()">엑셀 데이터 이관</button></li>
+            <li id="setting-li" style="display: none;">
+                <button id="setting" class="year-button" onclick="openSettings()">설정관리</button>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- 설정관리 모달 -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>설정관리</h2>
+                <span class="close">&times;</span>
+            </div>
+            <hr class="modal-divider">
+
+            <!-- 탭 메뉴 -->
+            <div class="settings-tabs">
+                <button class="tab-button active" data-tab="account">계정관리</button>
+                <button class="tab-button" data-tab="standard">기준정보 설정</button>
+                <button class="tab-button" data-tab="price">단가 설정</button>
+                <button class="tab-button" data-tab="company_money" onclick="loadCompanyExpenseData()">제경비 비율 설정</button>
+            </div>
+
+            <!-- 탭 컨텐츠 -->
+            <div class="tab-content">
+                <!-- 계정관리 탭 -->
+                <div id="account" class="tab-pane active">
+                    <div class="account-form">
+                        <!-- 3행: 선택된 메뉴명 + 검색 -->
+                        <div class="admin-toolbar"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0PX; margin-top: 10px; margin-bottom: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="searchBox" placeholder="검색"
+                                    style="width: 200px; height: 30px;" />
+                                <button class="search-button">검색</button>
+                            </div>
+
+                            <div style="display: flex; gap: 5px;">
+                                <button class="search-button" onclick="onEditStaff()">수정</button>
+                                <button class="search-button" id="addRowBTN" style="display: none;"
+                                    onclick="addStaffRow()">행 추가</button>
+                                <button class="search-button" id="resetBTN" style="display: none;"
+                                    onclick="resetpassword()">비밀번호 초기화</button>
+                                <button class="delete-button" id="deleteBTN" onclick="deleteCheckedRows()"
+                                    style="display: none;">삭제</button>
+                                <button class="search-button" id="saveBTN" onclick="saveStaff()"
+                                    style="display: none;">저장</button>
+                            </div>
+
+                        </div>
+
+                        <!-- 4행: 그리드 -->
+                        <div class="admin-grid-area">
+                            <div id="staff" class="grid">
+                                <table class="custom-grid" id="staffGrid">
+                                    <colgroup>
+                                        <col style="width:40px;" />
+                                        <col style="width:100px;" />
+                                        <col style="width:100px;" />
+                                        <col style="width:150px;" />
+                                        <col style="width:100px;" />
+                                        <col style="width:70px;" />
+                                        <col style="width:70px;" />
+                                        <col style="width:70px;" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th class="staff-select-col" rowspan="2" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="check-all" aria-label="전체 선택"></th>
+                                            <th colspan="4" style="text-align:center;">구분</th>
+                                            <th colspan="3" style="text-align:center;">보기권한</th>
+                                        </tr>
+                                        <tr>
+                                            <th id="staffSortName" class="staff-sortable" title="이름 정렬">이름</th>
+                                            <th>아이디</th>
+                                            <th id="staffSortDept" class="staff-sortable" title="부서 정렬">부서</th>
+                                            <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">등급</th>
+                                            <th>사업목록</th>
+                                            <th>통합자료</th>
+                                            <th>주간보고</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td class="staff-select-col" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="row-check" aria-label="행 선택"></td>
+                                            <td>{{ user.Name }}</td>
+                                            <td>{{ user.userID }}</td>
+
+                                            <!-- 부서 select -->
+                                            <td>
+                                                <select style="width: 100%;">
+                                                    {% set departments = [
+                                                    '공간정보사업부', 'GIS사업부', 'GIS사업지원부',
+                                                    '기업부설연구소', '공공사업부', '공정관리부',
+                                                    '경영지원부', '총무부', '임원실',
+                                                    'BIT', 'BIT 공정관리부'
+                                                    ] %}
+                                                    {% for dept in departments %}
+                                                    <option value="{{ dept }}" {% if user.Department==dept %}selected{%
+                                                        endif %}>{{ dept }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+
+                                            <!-- 등급 select -->
+                                            <td>
+                                                <select>
+                                                    {% set auths = ['읽기', '읽기/쓰기', '관리자'] %}
+                                                    {% for auth in auths %}
+                                                    <option value="{{ auth }}" {% if user.Auth==auth %}selected{% endif
+                                                        %}>{{ auth }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+
+                                            <!-- 권한 그룹: 사업목록 / 통합자료 / 주간보고 -->
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" class="projectauth-check" {% if (user.projectAUTH|int) == 1 %}checked{% endif %} />
+                                            </td>
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" class="dataauth-check" {% if (user.dataauth|int) == 1 %}checked{% endif %} />
+                                            </td>
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" class="reportauth-check" {% if (user.reportAUTH|int) == 1 %}checked{% endif %} />
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- 기준정보 설정 탭 -->
+                <div id="standard" class="tab-pane">
+                    <div class="standard-header">
+                        <h3>기준정보 설정</h3>
+                        <select class="settingSelect" id="expenseYear" onchange="loadStandardData(this.value)" style="width: 550px; height: 50px;">
+                            <!-- JavaScript로 동적 생성 -->
+                        </select>
+                        <button class="search-button" onclick="addNewYear()">연도추가</button>
+                    </div>
+                    <div class="standard-form">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>직급</th>
+                                    <th>월평균 급여</th>
+                                    <th>시간</th>
+                                    <th>일</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standard-tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                        <div class="modal-footer"> <!-- 고정된 저장 버튼 -->
+                            <button type="button" class="modal_save-btn" onclick="saveTaskItemModal()">저장</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 단가 설정 탭 -->
+                <div id="price" class="tab-pane">
+                    <div class="standard-header">
+                        <h3>단가 설정</h3>
+                        <select class="settingSelect" id="priceYear" onchange="loadPriceData(this.value)" style="width: 600px; height: 50px;">
+                            <!-- JavaScript로 동적 생성 -->
+                        </select>
+                        <button class="search-button" onclick="addNewCompanyYear()">연도추가</button>
+                    </div>
+                    <div class="price-form">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>항목</th>
+                                    <th>단가</th>
+                                </tr>
+                            </thead>
+                            <tbody id="price-tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                        <div class="modal-footer">
+                            <button type="button" class="modal_save-btn" onclick="savePriceData()">저장</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 제경비 설정 -->
+                <div id="company_money" class="tab-pane">
+                    <div class="standard-header">
+                        <h3>제경비 설정</h3>
+                        <select class="settingSelect" id="companyYEAR" onchange="loadCompanyExpenseData(this.value)" style="width: 600px; height: 50px;">
+                            <!-- JavaScript로 동적 생성 -->
+                        </select>
+                        <button class="search-button" onclick="addNewCompanyYear()">연도추가</button>
+                    </div>
+                    <div class="company-form">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50%;">항목</th>
+                                    <th style="width: 50%;">비율(%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="company-tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                        <div class="modal-footer">
+                            <button type="button" class="modal_save-btn" onclick="saveCompanyExpenseData()">저장</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- 주간 다운로드 모달 -->
+    <div id="downloadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>주간 입력 내역 다운로드</h2>
+                <span class="close" onclick="closeModal('downloadModal')">&times;</span>
+            </div>
+            <hr class="modal-divider">
+
+            <div class="modal-body">
+                <!-- 날짜 선택 -->
+                <div class="form-group">
+                    <label for="startDate">기간 선택</label>
+                    <div class="date-range">
+                        <input type="date" id="startDate" name="startDate" required min="1900-01-01" max="2100-12-31">
+                        <span>~</span>
+                        <input type="date" id="endDate" name="endDate" required min="1900-01-01" max="2100-12-31">
+                    </div>
+                </div>
+
+                <!-- 부서 선택 -->
+                <div class="form-group">
+                    <label for="departmentSelect">부서 선택</label>
+                    <select id="departmentSelect" name="departmentSelect" required>
+                        <option value="">부서를 선택하세요</option>
+                        <option value="GIS사업부">GIS사업부</option>
+                        <option value="GIS지원사업부">GIS지원사업부</option>
+                        <option value="공간정보사업부">공간정보사업부</option>
+                        <option value="기업부설연구소">기업부설연구소</option>
+                    </select>
+                </div>
+
+
+                <!-- 사업 선택 -->
+                <div class="form-group">
+                    <label for="projectSelection">사업 선택</label>
+
+                    <div class="search-container">
+                        <input type="text" id="searchProjectsInput" class="search-input" placeholder="사업명을 입력하세요"
+                            onkeypress="handleEnter(event)" />
+                        <button id="searchProjectsButton" type="button" class="search-button"
+                            onclick="searchProjects()">검색</button>
+                    </div>
+
+                    <div class="dual-list-container">
+                        <!-- 왼쪽 목록: 사업 목록 -->
+                        <div class="list-box">
+                            <h4>사업 목록</h4>
+                            <ul id="availableProjects" class="list"></ul>
+                        </div>
+
+                        <!-- 중앙 버튼 -->
+                        <div class="list-controls">
+                            <button id="addProject" type="button" onclick="moveToSelected()">&gt;</button>
+                            <button id="removeProject" type="button" onclick="moveToAvailable()">&lt;</button>
+                        </div>
+
+                        <!-- 오른쪽 목록: 선택된 사업 -->
+                        <div class="list-box">
+                            <h4>선택된 사업</h4>
+                            <ul id="selectedProjects" class="list"></ul>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" onclick="downloadData()">다운로드</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 주간보고서 입력 모달 (골격) -->
+    <div id="weeklyInputModal" class="modal">
+        <div class="modal-content" id="weeklyInputModalContent" style="width: 95vw; max-width: 95vw; height: 90vh; overflow: auto; overflow-x: auto;">
+            <div class="modal-header">
+                <h2>주간보고서 입력</h2>
+                <span class="close" onclick="closeWeeklyInput()">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <!-- 관리자 전용: 주차 선택 -->
+                <div id="weeklyAdminControls" style="display:none; align-items:center; gap:10px; margin:8px 0 12px;">
+                    <label for="weeklyWeekStartPicker" style="font-weight:600;">주차 선택</label>
+                    <input type="date" id="weeklyWeekStartPicker" name="weeklyWeekStartPicker" min="1900-01-01" max="2100-12-31">
+                    <button type="button" class="search-button" id="weeklyWeekStartApply">조회</button>
+                </div>
+                <!-- 주간 컨트롤: 주 선택/제목 (화살표 버튼 제거) -->
+                <!-- 주간 입력 모달 전용 스타일(정렬/폭 규칙) -->
+                <style>
+
+                </style>
+
+                <!-- 주간일정표 -->
+                <h2 style="margin:8px 0; text-align:center;">주간일정표 <span id="weeklyScheduleRange" style="font-weight:600;"></span></h2>
+                <table id="weeklyScheduleTable" class="custom-table" style="width:100%; border-collapse: collapse;">
+                    <!-- JS로 동적 구성: 헤더(부서, 월~토) + 사용자 부서 1행 -->
+                </table>
+
+                <!-- 부서별 이슈사항 -->
+                <h2 style="margin:18px 0 8px; text-align:center;">부서별 이슈사항 <span id="weeklyIssuesTitle" style="font-weight:600;"></span></h2>
+                <table id="weeklyIssuesTable" class="custom-table weekly-issues-table" style="width:100%; border-collapse: collapse;">
+                    <!-- JS로 동적 구성: 헤더(부서, 전주, 금주) + 사용자 부서 1행 -->
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" id="splitWeeklyBtn" onclick="saveWeeklySplit()" style="display:none;">분할 저장</button>
+                <button type="button" class="modal_save-btn" id="submitWeeklyBtn" onclick="submitWeekly()" disabled>제출</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 회의록 업로드 모달 -->
+    <div id="meetingUploadModal" class="modal">
+        <div class="modal-content meeting-upload-modal">
+            <div class="modal-header">
+                <h2>회의록 업로드</h2>
+                <span class="close" onclick="closeMeetingUploadModal()">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <input type="hidden" id="meetingDocNumber">
+                <input type="hidden" id="meetingCreatedAt">
+                <input type="hidden" id="meetingAuthor">
+                <table class="meeting-form-table">
+                    <colgroup>
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th>관련사업번호</th>
+                            <td class="meeting-suggest-cell">
+                                <input type="text" id="meetingProjectNumber" class="meeting-form-input" placeholder="사업번호 입력(사업과 관련 없을 시 공란)" autocomplete="off">
+                            </td>
+                            <th>사업명</th>
+                            <td>
+                                <input type="text" id="meetingProjectName" class="meeting-form-input" readonly>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>회의 일자</th>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <input type="date" id="meetingDateStart" class="meeting-form-input" style="flex:1; min-width:0;">
+                                    <div style="display:flex; align-items:center; gap:4px; flex:0 0 auto;">
+                                        <input type="text" id="meetingTimeStartHour" class="meeting-form-input" style="width:34px; text-align:center; padding:0 4px;" placeholder="HH" maxlength="2" inputmode="numeric">
+                                        <span>:</span>
+                                        <input type="text" id="meetingTimeStartMinute" class="meeting-form-input" style="width:34px; text-align:center; padding:0 4px;" placeholder="MM" maxlength="2" inputmode="numeric">
+                                    </div>
+                                    <span style="white-space:nowrap;">~</span>
+                                    <div style="display:flex; align-items:center; gap:4px; flex:0 0 auto;">
+                                        <input type="text" id="meetingTimeEndHour" class="meeting-form-input" style="width:34px; text-align:center; padding:0 4px;" placeholder="HH" maxlength="2" inputmode="numeric">
+                                        <span>:</span>
+                                        <input type="text" id="meetingTimeEndMinute" class="meeting-form-input" style="width:34px; text-align:center; padding:0 4px;" placeholder="MM" maxlength="2" inputmode="numeric">
+                                    </div>
+                                </div>
+                            </td>
+                            <th>회의장소</th>
+                            <td>
+                                <input type="text" id="meetingPlace" class="meeting-form-input" placeholder="회의 장소 입력" autocomplete="off">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>제목(안건)</th>
+                            <td colspan="3">
+                                <input type="text" id="meetingAgendaTitle" class="meeting-form-input" placeholder="제목(안건)을 입력하세요" autocomplete="off">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>주관</th>
+                            <td colspan="3">
+                                <input type="text" id="meetingOrganizer" class="meeting-form-input" placeholder="주관 입력" autocomplete="off">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>참석자</th>
+                            <td colspan="3">
+                                <input type="text" id="meetingAttendees" class="meeting-form-input" placeholder="참석자 입력" autocomplete="off">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="meeting-upload-section">
+                    <div class="meeting-dropzone" id="meetingDropzone">
+                        <div class="meeting-dropzone-title">PDF 파일을 드래그 앤 드랍하거나 클릭해서 업로드</div>
+                        <div class="meeting-dropzone-sub">PDF만 허용됩니다.</div>
+                        <button type="button" class="search-button" id="meetingPickFileBtn">파일 선택</button>
+                    </div>
+                    <input type="file" id="meetingPdfInput" accept="application/pdf" style="display:none;">
+                    <div id="meetingUploadList" class="meeting-upload-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                    <button type="button" class="modal_save-btn" onclick="submitMeetingUpload()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 회의록 보기 모달 -->
+    <div id="meetingViewModal" class="modal">
+        <div class="modal-content meeting-view-modal">
+            <div class="modal-header">
+                <h2>회의록 보기</h2>
+                <span class="close" onclick="closeMeetingViewModal()">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <div class="meeting-view-toolbar">
+                    <button type="button" class="meeting-view-action" onclick="openMeetingViewerModal()" aria-label="조회자 정보">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" fill="none" stroke="currentColor" stroke-width="2" />
+                            <path d="M4 20c1.8-3.2 5-5 8-5s6.2 1.8 8 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                        <span>조회자</span>
+                    </button>
+                    <button type="button" class="meeting-view-action" onclick="meetingViewDownload()" aria-label="다운로드">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 3v10m0 0l4-4m-4 4l-4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M5 15v4h14v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                        <span>다운로드</span>
+                    </button>
+                    <!-- <button type="button" class="meeting-view-action" onclick="meetingViewPrint()" aria-label="인쇄">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M6 9V4h12v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <rect x="6" y="14" width="12" height="6" fill="none" stroke="currentColor" stroke-width="2" />
+                            <rect x="4" y="9" width="16" height="6" fill="none" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                        <span>인쇄</span>
+                    </button> -->
+                </div>
+                <table class="meeting-form-table" style="margin-bottom:8px;">
+                    <colgroup>
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th>작성일</th>
+                            <td id="meetingViewCreatedAt">-</td>
+                            <th>작성자</th>
+                            <td id="meetingViewAuthor">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="meeting-form-table meeting-view-summary">
+                    <colgroup>
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                        <col style="width: 12%;">
+                        <col style="width: 38%;">
+                    </colgroup>
+                    <tbody>
+                        <tr>
+                            <th>회의 일자</th>
+                            <td id="meetingViewMeetingDate">-</td>
+                            <th>회의장소</th>
+                            <td id="meetingViewMeetingPlace">-</td>
+                        </tr>
+                        <tr>
+                            <th>사업번호</th>
+                            <td id="meetingViewContract">-</td>
+                            <th>사업명</th>
+                            <td id="meetingViewProjectName">-</td>
+                        </tr>
+                        <tr>
+                            <th>제목(안건)</th>
+                            <td colspan="3" id="meetingViewTitle">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="meeting-view-tip-wrap">
+                    <button type="button" class="meeting-view-tip-btn" aria-label="PDF 표시 도움말">화면이 보이지 않을 시</button>
+                    <div class="meeting-view-tip-box" role="tooltip">
+                        
+                        Chrom <br> 우측상단 ⋮ 클릭 &gt; 설정 &gt; 좌측 개인정보 보호 및 보안 &gt; 사이트 설정 &gt; 추가 콘텐츠 설정 &gt; PDF 문서 &gt; Chrom에서 PDF 열기 체크<br><br>
+                        Edge <br> 우측상단 ⋯ 클릭 &gt; 설정 &gt; 개인 정보, 검색 및 서비스 &gt; 사이트 사용 권한 &gt; 모든 사용 권한 &gt; PDF 문서 &gt; 항상 PDF 파일 다운로드 체크 해제<br><br><br>
+                        혹은 파일 다운로드 후 PDF 뷰어로 열기
+                    </div>
+                </div>
+                <iframe id="meetingViewFrame" class="meeting-view-frame" title="회의록 PDF"></iframe>
+            </div>
+            <div class="modal-footer" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- 회의록 조회자 모달 -->
+    <div id="meetingViewerModal" class="modal">
+        <div class="modal-content meeting-viewer-modal">
+            <div class="modal-header">
+                <h2>회의록 조회자</h2>
+                <span class="close" onclick="closeMeetingViewerModal()">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <table class="meeting-viewer-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 28%;">조회시간</th>
+                            <th style="width: 24%;">이름</th>
+                            <th style="width: 24%;">부서</th>
+                            <th style="width: 24%;">직급</th>
+                        </tr>
+                    </thead>
+                    <tbody id="meetingViewerTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 검색 부분 HTML -->
+    <div id="searchDIV">
+        <input type="text" id="search" placeholder="검색어를 입력하세요">
+        <button class="search-button" id="search_BTN" onclick="handleSearch(1)">검색</button>
+    </div>
+
+    <!-- 메인 바디 -->
+    <div class="main-section" style="width: 100%; background-color: white;">
+        <div class="table-container">
+            <div id="weeklyReportsTopBar" style="display:none; align-items:center; justify-content:flex-end; gap: 12px; margin-bottom: 12px;">
+                <div id="weeklyReportsToolbar" style="display:block; flex:1; min-height:40px;"></div>
+                {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
+                <button class="search-button" id="openWeeklyInputBtn" onclick="openWeeklyInput()" style="display:none; height:40px; padding:0 20px; display:inline-flex; align-items:center; justify-content:center;">주간보고서 입력</button>
+                {% endif %}
+            </div>
+            <table class="projectList">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">사업번호</th>
+                        <th style="width: 55%;">사업명</th>
+                        <th style="width: 10%;">준공여부</th>
+                        <th style="width: 10%;">진행률</th>
+                        <th style="width: 10%;">외주구분</th>
+                    </tr>
+                </thead>
+                <tbody id="projectList_tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 페이지네이션 버튼 -->
+        <div id="pagination" class="pagination"></div>
+    </div>
+
+    <footer>
+        <a href="/doc_editor" style="display: inline-block;">
+            <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
+                style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px; cursor: pointer;">
+        </a>
+    </footer>
+
+    <script id="available-years-json" type="application/json">{{ available_years | tojson | safe }}</script>
+    <script id="all-project-json" type="application/json">{{ ALL_PROJECT | tojson | safe }}</script>
+    <script src="{{ url_for('static', filename='PMS_Business_Year.js') }}"></script>
+    <script>
+        const available_years = JSON.parse(document.getElementById('available-years-json')?.textContent || '[]');
+        const ALL_PROJECT = JSON.parse(document.getElementById('all-project-json')?.textContent || '[]');
+
+        function selectYear(year) {
+            window.location.href = `/PMS_Business/${year}`;
+        }
+
+        function addProject(year) {
+            window.location.href = `/addproject?year=${year}`;
+        }
+
+        // function Detail(projectID) {
+        //     window.location.href = `/project_detail/${projectID}`;
+        // }
+
+        function openTransfer() {
+            window.location.href = `/dataTransfer`;
+        }
+
+        function testmove() {
+            window.location.href = `/doc_editor`;
+        }
+
+        function checkLaborCosts() {
+            const yearTitle = document.getElementById('yearTitle').textContent;
+            console.log("Year title:", yearTitle);  // 디버깅용
+
+            // "2024년도 사업 - 연차사업" 같은 형식에서도 연도를 추출
+            const year = yearTitle.match(/\d{4}/)[0];
+            console.log("Extracted year:", year);  // 디버깅용
+
+            window.location.href = `/PMS_Expenses/${year}`;
+        }
+
+        // const userAuth = JSON.parse('{{ Auth | tojson | safe }}');
+    </script>
+</body>
+
+</html>

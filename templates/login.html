@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMS로그인</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+    <script src="{{ url_for('static', filename='login.js') }}" defer></script>
+</head>
+
+<body>
+
+
+
+    <!-- 메인 바디 -->
+    <div class="main-section" style="width: 40%; background-color: white;">
+        <div class="login-wrapper">
+            <!-- 우측 상단 설정 버튼 -->
+            <!-- <div class="top-right-setting">
+                <button onclick="openAdminModal()">
+                    <img src="{{ url_for('static', filename='img/setting.png') }}" alt="설정" />
+                </button>
+            </div> -->
+
+            <!-- 로그인 박스 -->
+            <div class="login-container">
+                <h2><b>PMS로그인</b></h2>
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    <label for="username">아이디</label>
+                    <input type="text" name="username" autocomplete="off" placeholder="아이디" required />
+
+                    <label for="password">비밀번호</label>
+                    <input type="password" name="password" autocomplete="off" placeholder="비밀번호" style="margin-bottom: 0;" required />
+                    <p style="margin: 0;">* 비밀번호 분실 시 관리자에게 문의하세요.</p>
+                    <button type="button" class="change-password-btn" onclick="openChangePasswordModal()">
+                        비밀번호 변경
+                    </button>
+
+                    <button type="submit" class="login-btn">로그인</button>
+                </form>
+            </div>
+
+            <!-- 로그인 폼 아래에 넣기 -->
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <script>
+                alert("{{ messages[0] }}");
+            </script>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+    <footer>
+        <!-- 삼인 -->
+        <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
+            style="height: 60px; margin-right: 30px; margin-top: 30px; margin-bottom: 25px;">
+
+        <!-- BIT -->
+        <!-- <img src="{{ url_for('static', filename='img/BIT_logo.png') }}" alt="Company Logo"
+            style="height: 60px;  margin-top: 30px; margin-bottom: 25px;"> -->
+    </footer>
+
+    <!-- 모달창 -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content" style="width: 650px;">
+            <span class="modal_close" onclick="closeChangePasswordModal()">&times;</span>
+            <h2>비밀번호 변경</h2>
+            <div class="modal-body">
+                <!-- 수행부서 섹션 -->
+                <div class="modal_section">
+                    <form method="POST" onsubmit="submitPasswordChange(event)">
+                        <label for="username">사용중인ID</label>
+                        <input type="text" name="username" autocomplete="off" placeholder="아이디" required />
+
+                        <label for="password">현재 비밀번호</label>
+                        <input type="password" name="use_password" autocomplete="off" placeholder="현재 비밀번호" required />
+
+                        <label for="password">변경 비밀번호</label>
+                        <input type="password" name="new_password" autocomplete="off" placeholder="변경 비밀번호" required />
+
+                        <button type="submit" class="login-btn">비밀번호 변경</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 모달: 관리자 패널 -->
+    <div id="adminModal" class="modal" style="display: none;">
+        <div class="modal-content" style="height: 750px;">
+
+            <!-- 1행: 타이틀 + 닫기 -->
+            <div class="admin-header">
+                <span>직원 관리</span>
+                <span class="modal_close" style="right: 30px; top: 25px;" onclick="closeAdminModal()">&times;</span>
+            </div>
+
+            <!-- 2행: 메뉴 가로 배치 -->
+            <div class="admin-menu-bar">
+                <!-- <button onclick="selectMenu('staff')">직원관리</button> -->
+                <!-- <button onclick="selectMenu('add_staff')">직원추가</button>
+        <button onclick="selectMenu('add_dept')">부서추가</button>
+        <button onclick="selectMenu('auth')">권한관리</button> -->
+            </div>
+
+            <!-- 3행: 선택된 메뉴명 + 검색 -->
+            <div class="admin-toolbar"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0PX;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="searchBox" placeholder="검색" style="width: 200px; margin-top: 18px;" />
+                    <button class="search-button" style="margin-top: 5px;">검색</button>
+                </div>
+
+                <div>
+                    <button class="search-button" onclick="onEditStaff()">수정</button>
+                </div>
+
+            </div>
+
+            <!-- 4행: 그리드 -->
+            <div class="admin-grid-area">
+                <div id="staff" class="grid">
+                    <table class="custom-grid" id="staffGrid">
+                        <thead>
+                            <tr>
+                                <th>이름</th>
+                                <th>아이디</th>
+                                <th>부서</th>
+                                <th>권한</th>
+                                <th>비고</th>
+                                <th style="width: 50px;">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td><button onclick="deleteRow(this)">삭제</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button onclick="addStaffRow()">+ 직원 추가</button>
+                    </div>
+                </div>
+                <!-- <div id="add_staff" class="grid" style="display: none;">직원추가용 그리드</div>
+        <div id="add_dept" class="grid" style="display: none;">부서추가용 그리드</div>
+        <div id="auth" class="grid" style="display: none;">권한관리용 그리드</div> -->
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" onclick="saveTaskQuantity()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+</body>
+
+</html>

@@ -1,0 +1,1431 @@
+/* 테이블 헤더에서 토요일 파란색이 bold에 덮이지 않도록 보장 */
+.custom-table th .blue {
+    color: #2563eb !important;
+    font-weight: 700 !important;
+}
+/* 토요일 파란색 스타일 (입력/수정 모달 포함 모든 화면) */
+.blue {
+    color: #2563eb !important;
+}
+html,
+body {
+    height: 100%;
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 80%;
+    margin: 0 auto;
+    /* 가운데 정렬 */
+}
+
+
+header {
+    width: 100%;
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin-bottom: 0;
+}
+
+/* 헤더 우측: 유저명/부서 + 로그아웃 */
+.user-logout-box {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-logout-box .user-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 999px;
+    font-size: 13px;
+    color: #222;
+    background: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+}
+
+.user-logout-box .user-sep {
+    opacity: 0.7;
+}
+
+
+a {
+    text-decoration: none;
+    text-decoration-color: none;
+    color: black;
+}
+
+.year-button {
+    padding: 10px 20px;
+    font-size: 1em;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+    border-left: 1px solid black;
+}
+
+.year-button:hover {
+    background-color: #007bff;
+    color: #fff;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.project-list {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.add-project-button {
+    background-color: #4CAF50;
+    /* Green */
+    color: white;
+    padding: 10px 20px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.add-project-button:hover {
+    background-color: #45a049;
+}
+
+.project-item {
+    width: 100%;
+    padding: 20px;
+    margin: 10px 0;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    /* 상단 정렬 */
+    max-height: 90px;
+    align-items: center;
+}
+
+.project-title {
+    flex: 1;
+    margin-right: 20px;
+    /* 제목과 뱃지 사이 간격 */
+}
+
+
+
+/* 프로젝트 제목 컨테이너 */
+.project-title {
+    flex: 1;
+    /* 남은 공간 차지 */
+}
+
+
+
+.hidden {
+    display: none;
+}
+
+#prevPage,
+#nextPage {
+    padding: 10px 20px;
+    font-size: 1em;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+#prevPage:hover,
+#nextPage:hover {
+    background-color: #007bff;
+    color: #fff;
+}
+
+.check-labor-costs-button {
+    background-color: #4CAF50;
+    /* Green */
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+.add-project-button,
+.check-labor-costs-button {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.navbar {
+    width: 100%;
+    background-color: #0066cc;
+}
+
+.navbar ul {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.navbar li {
+    flex: 1;
+    /* 각 항목이 동일한 너비를 가지도록 설정 */
+    border-right: 1px solid rgba(68, 67, 67, 0.3);
+    /* 구분선 추가 */
+}
+
+/* 마지막 항목의 오른쪽 테두리 제거 */
+.navbar li:last-child {
+    border-right: none;
+}
+
+.navbar button.year-button {
+    width: 100%;
+    background-color: #007bff;
+    color: white;
+    padding: 14px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 0;
+    /* 버튼의 모서리를 둥글게 하지 않음 */
+}
+
+.navbar button.year-button:hover {
+    background-color: #0056b3;
+}
+
+.navbar button.active {
+    background-color: #0056b3;
+}
+
+#searchDIV {
+    width: 100%;
+    margin: 20px 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    /* 입력창과 버튼 사이 간격 */
+}
+
+#search {
+    width: 200px;
+    /* 또는 원하는 너비 */
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-button {
+    padding: 8px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.search-button:hover {
+    background-color: #0052a3;
+}
+
+.delete-button {
+    padding: 8px 15px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.delete-button:hover {
+    background-color: #b02a37;
+}
+
+.navbar {
+    width: 100%;
+    background-color: #0066cc;
+}
+
+.navbar ul {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.navbar li {
+    flex: 1;
+    /* 각 항목이 동일한 너비를 가지도록 설정 */
+}
+
+.year-button {
+    width: 100%;
+    padding: 10px 20px;
+    background-color: #0066cc;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.year-button:hover {
+    background-color: #0052a3;
+}
+
+.dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    width: 100%;
+    background-color: #f9f9f9;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+.dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+}
+
+.dropdown-content a:hover {
+    background-color: #f1f1f1;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropbtn {
+    width: 100%;
+    text-align: center;
+}
+
+.year-project-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: normal;
+    color: white;
+    background-color: #0066cc;
+    border-radius: 12px;
+    margin-left: 10px;
+    /* 왼쪽 여백 추가 */
+}
+
+/* 뱃지 스타일 통일 */
+.year-project-badge,
+.outsourcing-badge,
+.linked-project-badge,
+.review-project-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: white;
+    text-align: center;
+    width: 80px;
+    /* 고정 너비 */
+}
+
+/* 연차사업 뱃지 */
+.year-project-badge {
+    background-color: #0066cc;
+}
+
+/* 전량외주 뱃지 */
+.outsourcing-badge {
+    background-color: #32a5f1;
+}
+
+/* 연계사업 뱃지 */
+.linked-project-badge {
+    background-color: #37b24d;
+}
+
+/* 검토사업 뱃지 */
+.review-project-badge {
+    background-color: #845ef7;
+}
+
+.project-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    cursor: pointer;
+    /* 마우스 포인터를 손가락 모양으로 변경 */
+    transition: background-color 0.2s;
+    /* 호버 효과를 부드럽게 */
+}
+
+/* 선택적: 호버 효과 추가 */
+.project-item:hover {
+    background-color: #cacaca;
+    /* 마우스 오버시 배경색 살짝 변경 */
+}
+
+.project-title {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
+    /* 뱃지와의 간격 */
+    min-width: 0;
+    /* flex item 내부의 텍스트 말줄임을 위해 필요 */
+}
+
+.project-name {
+    font-size: 18px;
+    white-space: nowrap;
+    /* 줄바꿈 방지 */
+    overflow: hidden;
+    /* 넘치는 텍스트 숨김 */
+    text-overflow: ellipsis;
+    /* 말줄임표 표시 */
+    margin-bottom: 5px;
+}
+
+.contract-code {
+    font-size: 14px;
+    color: #666;
+    white-space: nowrap;
+    /* 줄바꿈 방지 */
+    overflow: hidden;
+    /* 넘치는 텍스트 숨김 */
+    text-overflow: ellipsis;
+    /* 말줄임표 표시 */
+}
+
+/* 뱃지 컨테이너는 고정 너비 유지 */
+.badge-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    min-width: 100px;
+    flex-shrink: 0;
+    /* 뱃지 컨테이너는 크기 축소 방지 */
+}
+
+/* 모달 스타일 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    padding: 20px;
+    /* 가장자리 여백으로 반응형 맞춤 */
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 0;
+    /* flex 중앙정렬 사용 */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 800px;
+    max-height: 90vh;
+    /* 뷰포트에 맞춰 높이 제한 */
+    overflow: auto;
+    /* 내부 스크롤로 하단 넘침 방지 */
+    border-radius: 5px;
+}
+
+/* 표시 상태 클래스 */
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================
+   회의록(목록/팝업)
+========================= */
+.meeting-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+    border:1px solid #ddd;
+    border-radius:6px;
+    overflow:hidden;
+}
+
+.meeting-list-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 14px;
+    background:#fff;
+    border-bottom:1px solid #eee;
+    cursor:pointer;
+}
+
+.meeting-list-item:last-child{border-bottom:none;}
+.meeting-list-item:hover{background:#f8fafc;}
+
+.meeting-list-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.meeting-list-title{font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.meeting-list-meta{font-size:12px; color:#64748b;}
+
+.meeting-list-caret{
+    width:28px;
+    height:28px;
+    border:2px solid #111;
+    background:#fff;
+    border-radius:3px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+}
+
+.minutes-doc{
+    background:#fff;
+    padding: 10px;
+}
+
+.minutes-doc-title{
+    text-align:center;
+    font-size: 30px;
+    font-weight: 800;
+    margin: 10px 0 18px;
+}
+
+.minutes-gap{height: 18px;}
+
+.minutes-table{
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.minutes-table th,
+.minutes-table td{
+    border: 1px solid #111;
+    padding: 10px;
+    font-size: 14px;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+.minutes-table th{
+    background:#e5e7eb;
+    text-align:center;
+    font-weight:700;
+}
+
+.minutes-content{min-height: 520px;}
+
+/* =========================
+   회의록 업로드 모달
+========================= */
+.meeting-upload-modal{
+    width: 90%;
+    max-width: 920px;
+}
+
+.meeting-view-modal{
+    width: 90%;
+    max-width: 1000px;
+    height: 92vh;
+    overflow: hidden;
+}
+
+.meeting-view-modal .modal-body{
+    height: calc(92vh - 90px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+}
+
+.meeting-view-modal .modal-body::-webkit-scrollbar{
+    width: 0;
+    height: 0;
+}
+
+.meeting-view-summary{
+    margin-bottom: 2px;
+}
+
+.meeting-view-toolbar{
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.meeting-view-action{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.meeting-view-action svg{
+    width: 16px;
+    height: 16px;
+}
+
+.meeting-view-action:hover{
+    background: #f1f5f9;
+}
+
+.meeting-view-summary th,
+.meeting-view-summary td{
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
+.meeting-view-tip-wrap{
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    margin: 0 0 2px 0;
+}
+
+.meeting-view-tip-btn{
+    height: 22px;
+    padding: 0 8px;
+    margin: 8px 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #475569;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.meeting-view-tip-box{
+    position: absolute;
+    right: 0;
+    top: calc(100% + 2px);
+    transform: none;
+    width: 560px;
+    max-width: calc(100vw - 140px);
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: normal;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    z-index: 5;
+}
+
+.meeting-view-tip-btn:hover + .meeting-view-tip-box,
+.meeting-view-tip-btn:focus + .meeting-view-tip-box,
+.meeting-view-tip-box:hover{
+    opacity: 1;
+    visibility: visible;
+}
+
+.meeting-view-frame{
+    width: 100%;
+    height: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.meeting-viewer-modal{
+    width: 90%;
+    max-width: 720px;
+    max-height: 80vh;
+    overflow: hidden;
+}
+
+.meeting-viewer-modal .modal-body{
+    max-height: calc(80vh - 90px);
+    overflow-y: auto;
+}
+
+.meeting-viewer-table{
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.meeting-viewer-table th,
+.meeting-viewer-table td{
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.meeting-viewer-table th{
+    background: #f3f4f6;
+    font-weight: 700;
+}
+
+.meeting-form-table{
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2px;
+    table-layout: fixed;
+}
+
+.meeting-form-table th,
+.meeting-form-table td{
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.meeting-form-table th{
+    background: #f3f4f6;
+    text-align: center;
+    font-weight: 700;
+}
+
+.meeting-form-input{
+    width: 100%;
+    height: 28px;
+    border: none;
+    padding: 0 4px;
+    font-size: 14px;
+    background: transparent;
+    outline: none;
+}
+
+.meeting-form-input[readonly]{
+    color: #1f2937;
+}
+
+.meeting-suggest-cell{
+    position: relative;
+}
+
+.meeting-upload-section{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.meeting-dropzone{
+    border: 2px dashed #94a3b8;
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+}
+
+.meeting-dropzone.is-dragover{
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.meeting-dropzone-title{
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.meeting-dropzone-sub{
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.meeting-upload-list{
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 10px;
+    background: #fff;
+    min-height: 40px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.meeting-upload-item{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 4px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.meeting-upload-item:last-child{
+    border-bottom: none;
+}
+
+.meeting-upload-actions{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-upload-actions button,
+.meeting-upload-actions a{
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.meeting-upload-actions button:hover,
+.meeting-upload-actions a:hover{
+    background: #f1f5f9;
+}
+
+.meeting-suggest{
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.15);
+    max-height: 220px;
+    overflow: auto;
+    padding: 4px;
+}
+
+.meeting-suggest[aria-hidden="true"]{
+    display: none;
+}
+
+.meeting-suggest button{
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #111827;
+}
+
+#weeklyScheduleTable thead tr > th:nth-child(7) {
+  color: #2563eb !important;
+}
+
+.meeting-suggest button:hover{
+    background: #f3f4f6;
+}
+
+/* 회의록 목록: 작성일은 작은 폰트 + 한 줄 고정 */
+.meeting-date-cell{
+    font-size: 14px;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+/* 작은 화면 대응 */
+@media (max-width: 768px) {
+    .modal {
+        padding: 10px;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        padding: 16px;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.modal-divider{
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 0 0 6px;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+/* 탭 스타일 */
+.settings-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 0;
+}
+
+.tab-button {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+    border-bottom: 2px solid #2563eb;
+    color: #2563eb;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* 기본 테이블 스타일 */
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.custom-table th,
+.custom-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    white-space: nowrap;
+    /* 줄넘김을 방지하는 스타일 */
+}
+
+.custom-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.custom-table td {
+    background-color: #ffffff;
+}
+
+.custom-table tbody tr:nth-child(even) td {
+    background-color: #f9f9f9;
+}
+
+/* 테이블 헤더 색상 및 글꼴 굵기 */
+.custom-table thead th {
+    background-color: #e9ecea;
+    color: black;
+}
+
+.modal_save-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 18px;
+    border-radius: 5px;
+}
+
+.modal_save-btn:hover {
+    background-color: #0056b3;
+}
+
+.standard-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.settingSelect {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+/* TextChange로 생성되는 input 스타일 */
+.editable-input {
+    width: calc(100% - 4px) !important;
+    /* 테두리를 고려한 너비 */
+    height: 40px !important;
+    /* 테두리를 고려한 높이 */
+    padding: 2px 4px !important;
+    margin: 0 !important;
+    border: 1px solid #cbd5e0 !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    font-size: 14px !important;
+    text-align: center !important;
+}
+
+/* 기본 select 스타일 */
+select {
+    appearance: none;
+    /* 기본 브라우저 스타일 제거 */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: none;
+    background-color: transparent;
+    font-size: 16px;
+    text-align: center;
+    padding: 0;
+    /* 오른쪽에 여백을 줄이기 위해 패딩 조정 */
+    width: 100%;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%204%205"><path%20fill="none"%20stroke="%23000"%20stroke-width="1"%20d="M0%200L2%202L4%200"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+    /* 화살표 위치를 텍스트 가까이 조정 */
+    background-size: 8px 10px;
+    height: 30px;
+    /* 높이는 size 속성에 따라 자동 설정 */
+    overflow-y: auto;
+    /* 세로 스크롤바 표시 */
+}
+
+select option:nth-child(even) {
+    background-color: #f2f2f2;
+    /* 회색 배경 */
+}
+
+.modal .form-group {
+    margin-bottom: 20px;
+}
+
+.modal .form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.modal .form-group input,
+.modal .form-group select {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.modal .date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal .search-results {
+    margin-top: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    display: none;
+    /* 초기에는 숨김 */
+}
+
+/* 검색 영역 */
+.search-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.search-button:hover {
+    background-color: #0056b3;
+}
+
+/* 듀얼 리스트 박스 */
+.dual-list-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.list-box {
+    flex: 1;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    background-color: #f9f9f9;
+}
+
+.list-box h4 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.list li {
+    padding: 8px;
+    margin: 5px 0;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.list li:hover {
+    background-color: #f0f0f0;
+}
+
+.list-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.list-controls button {
+    padding: 5px 10px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    border-radius: 3px;
+}
+
+.list-controls button:hover {
+    background-color: #e9e9e9;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+.main-section {
+    width: 80%;
+    /* 테이블 컨테이너 너비 조정 */
+    max-width: 1200px;
+    /* 최대 너비 설정 */
+    margin: 0 auto;
+    /* ✅ 가운데 정렬 */
+    background-color: white;
+    padding: 20px;
+    /* 테두리와의 간격 */
+    border-radius: 8px;
+    /* 모서리 둥글게 */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    /* 테이블 박스에 그림자 효과 */
+}
+
+.projectList {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.projectList thead {
+    background-color: #808080;
+    color: white;
+    border-bottom: 2px solid #ddd;
+}
+
+.projectList thead th {
+    padding: 20px;
+    text-align: center;
+    /* font-weight: bold; */
+    border-right: 3px solid #ddd;
+    border-bottom: 5px outset #000000;
+}
+
+.projectList thead th:last-child {
+    border-right: none;
+}
+
+.projectList tbody td {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 3px solid #ddd;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.projectList tbody tr:hover {
+    background-color: #d5d7d8;
+}
+
+/* 리스크 존재 사업 강조 */
+.risk-row td {
+    background-color: #fc6868 !important;
+}
+
+.pagination {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.pagination button {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    margin: 2px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.pagination button.active {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+
+.pagination button:hover {
+    background-color: #0056b3;
+    color: white;
+}
+
+/* .projectList tbody tr:nth-child(even) td {
+    background-color: #cecdcd;
+} */
+
+/* 삼인 */
+.pageheader {
+    background-image: url('/static/img/company_logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: left center top;
+    background-size: 300px;
+}
+
+/* BIT */
+/* .pageheader {
+    background-image: url('/static/img/BIT_logo.png');
+    background-repeat: no-repeat;
+    background-size: 300px auto;
+    background-position: 24px 14px;
+} */
+.admin-toolbar {
+    display: flex;
+    /* justify-content: space-between; */
+    flex-direction: row-reverse;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+
+.grid {
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    height: 515px;
+    padding: 10px;
+    overflow: auto;
+}
+
+.custom-grid th,
+.custom-grid td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    white-space: nowrap;
+    /* 줄넘김을 방지하는 스타일 */
+}
+
+.custom-grid th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.custom-grid td {
+    background-color: #ffffff;
+}
+
+.custom-grid tbody tr:nth-child(even) td {
+    background-color: #f9f9f9;
+}
+
+.custom-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.custom-grid input {
+    width: 100%;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+}
+
+/* staffGrid: 체크박스 열은 레이아웃 고정(수정 모드에서만 표시) */
+#staffGrid input[type="checkbox"] {
+    width: auto;
+}
+
+#staffGrid .row-check,
+#staffGrid .check-all {
+    visibility: hidden;
+}
+
+#staffGrid.staff-editing .row-check,
+#staffGrid.staff-editing .check-all {
+    visibility: visible;
+}
+
+/* 폭 고정 */
+#weeklyInputModal #weeklyScheduleTable,
+#weeklyInputModal #weeklyIssuesTable {
+    table-layout: fixed;
+    width: 100%;
+}
+
+/* thead 중앙 정렬 */
+#weeklyInputModal #weeklyScheduleTable thead th,
+#weeklyInputModal #weeklyIssuesTable thead th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* tbody 기본: 좌측 정렬 + 상단 정렬 */
+#weeklyInputModal #weeklyScheduleTable tbody td,
+#weeklyInputModal #weeklyIssuesTable tbody td {
+    text-align: left;
+    vertical-align: top;
+}
+
+/* 부서 열: 중앙 정렬 + 폭 120px 고정 */
+#weeklyInputModal #weeklyScheduleTable thead th:first-child,
+#weeklyInputModal #weeklyScheduleTable tbody td:first-child,
+#weeklyInputModal #weeklyIssuesTable thead th:first-child,
+#weeklyInputModal #weeklyIssuesTable tbody td:first-child {
+    width: 160px;
+    text-align: center;
+    vertical-align: middle;
+    /* 행 높이가 커져도 세로 중앙 */
+    white-space: nowrap;
+}
+
+/* 편집 영역은 좌측 정렬 유지 + 줄바꿈 */
+#weeklyInputModal .weekly-editable {
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 주간보고서 입력 모달: 부서명 옆 (N줄) 표기 */
+#weeklyInputModal .dept-line-limit {
+    font-size: 12px;
+    white-space: nowrap;
+    display: inline;
+}
+
+/* 주간보고서 입력 모달: 이슈사항 줄간격 */
+#weeklyInputModal .weekly-issues-table td {
+    line-height: var(--weekly-issues-line-height, 1.6);
+}
+
+#weeklyInputModal .weekly-issues-table td div + div {
+    margin-top: var(--weekly-issues-row-gap, 6px);
+}
+
+#weeklyInputModal .weekly-issues-table td * {
+    line-height: inherit;
+}

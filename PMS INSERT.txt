@@ -1,0 +1,73 @@
+INSERT INTO CompanyExpenses (year, AcademicResearchRate, OperationalRate, EquipmentRate)
+VALUES (2024, 5.30, 25.053, 2.30);
+
+INSERT INTO expenses (Position, MonthAverageSalary, Hours, Days, year) VALUES
+('이사', 5417871, 30783, 246267, '2023'),
+('부장', 4761600, 27055, 216436, '2023'),
+('차장', 4239600, 24089, 192709, '2023'),
+('과장', 3456000, 19636, 157091, '2023'),
+('대리', 2854167, 16217, 129735, '2023'),
+('주임', 2456222, 13956, 111646, '2023'),
+('사원', 2080489, 11821, 94568, '2023'),
+('계약직', 2200000, 12500, 100000, '2023');
+
+INSERT INTO expenses (Position, MonthAverageSalary, Hours, Days, year) VALUES
+('이사', 5944450, 33775, 270202, '2024'),
+('부장', 5064818, 28777, 230219, '2024'),
+('차장', 4111117, 23359, 186869, '2024'),
+('과장', 3770835, 21425, 171402, '2024'),
+('대리', 3142861, 17857, 142857, '2024'),
+('주임', 2666669, 15152, 121212, '2024'),
+('사원', 2108130, 11978, 95824, '2024'),
+('계약직', 4400000, 25000, 200000, '2024');
+
+INSERT INTO recordsprice (ITEM, Price, YEAR) VALUES
+('복리후생비/식대', 9000, 2024),
+('복리후생비/음료 외', 2500, 2024),
+('여비교통비/(출장)숙박', 70000, 2024),
+('여비교통비/주차료', 0, 2024),
+('여비교통비/대중교통', 0, 2024),
+('소모품비/현장물품', 0, 2024),
+('소모품비/기타소모품', 100000, 2024),
+('차량유지비/주유', 480000, 2024),
+('차량유지비/차량수리 외', 0, 2024),
+('도서인쇄비/출력 및 제본', 0, 2024),
+('운반비/등기우편 외', 0, 2024),
+('지급수수료/증명서발급', 0, 2024),
+('기타/그 외 기타', 0, 2024);
+
+INSERT INTO recordsprice (ITEM, Price, YEAR) VALUES
+('복리후생비/식대', 9000, 2023),
+('복리후생비/음료 외', 2500, 2023),
+('여비교통비/(출장)숙박', 0, 2023),
+('여비교통비/주차료', 0, 2023),
+('여비교통비/대중교통', 0, 2023),
+('소모품비/현장물품', 0, 2023),
+('소모품비/기타소모품', 0, 2023),
+('차량유지비/주유', 70000, 2023),
+('차량유지비/차량수리 외', 0, 2023),
+('도서인쇄비/출력 및 제본', 0, 2023),
+('운반비/등기우편 외', 0, 2023),
+('지급수수료/증명서발급', 0, 2023),
+('기타/그 외 기타', 0, 2023);
+
+ALTER TABLE expenserecords
+    DROP COLUMN unit,
+    ADD COLUMN people_count DECIMAL(10,2) DEFAULT 0,
+    ADD COLUMN days DECIMAL(10,2) DEFAULT 0,
+    ADD COLUMN unit_price DECIMAL(10,2) DEFAULT 0,
+    ADD COLUMN note VARCHAR(255) DEFAULT NULL;
+
+
+
+CREATE TABLE external_labor_rates (
+    position VARCHAR(50) NOT NULL,      -- 직급
+    monthly_rate DECIMAL(10, 2) NOT NULL, -- 월급
+    daily_rate DECIMAL(10, 2) NOT NULL,   -- 일급
+    hourly_rate DECIMAL(10, 2) NOT NULL,  -- 시급
+    ContractCode VARCHAR(50) NOT NULL,   -- 계약 코드
+    UNIQUE (position, ContractCode)      -- 직급 + 계약 코드를 유니크 키로 설정
+);
+
+ALTER TABLE expenserecords
+ADD COLUMN NumID INT AUTO_INCREMENT PRIMARY KEY;

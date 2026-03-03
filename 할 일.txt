@@ -1,0 +1,307 @@
+MySQL PW : 연구소!
+
+flask 서버 실행법
+cmd실행 - C\Users\admin\Desktop\PMS개발
+venv\Scripts\activate (가상서버 실행)
+deactivate (가상서버 종료)
+----------권한자
+PMS 조회 및 수정 권한 부여 인원
+
+
+2024-7-30
+1. addProject완료시 Year받와서 return시키기 完
+2. 예상 진행비 부분에 HTML_Table 생성(DB 출력까지)完
+3. 저장 버튼 구현 完
+4. 레이아웃 상태에 따른 페이지 로드시 상태 完
+
+2024-08-02
+1. addProject 완료 시 BudGet Table 값 Insert 完
+2. BudGet 직급 EXPENSES의 직급 을 통해 JOIN 해서 Days 가져와서 인원*M/D*Days 完
+3. 해당 데이터 출력 完
+4. 레이아웃 저장 및 저장데이터 대로 출력 完
+
+2024-08-05
+1. 삭제버튼 원복 (공간정보사업부만 작동 중) 完
+2. 부서명 변경 버튼 디자인 및 위치 조정 完
+3. 부서명 변경 클릭시 해당 레이아웃 텍스트박스 등장 및 포커스 아웃시 h2고정 完
+4. 레이아웃 저장 및 DB반영 完
+
+2024-08-09
+1. table 위 div생성 및 display: flex 적용 完
+2. flex 속성 찾아서 가로 배치 적용(각 table 크기 48%) 完
+3. 경비 관련 DataBase table 생성 完
+4. 프로젝트 추가 시 데이터 삽입 完
+5. 똑같이 로드 시 select문 으로 적용 完
+
+2024-08-13
+1. 저장버튼 구현 完
+2. 비교분석 페이지 구현
+
+2024-08-21
+1. 실제 진행비 tr Sum함수 생성
+
+2024-09-04
+1. 인건비 중 이름입력 구현 및 금액 합산 구현 完
+2. 행추가 구현 完
+3. 행삭제 구현 完
+4. 각 내용 저장 구현
+--완료시 예상 진행비 完
+
+2024-09-06
+1. 예상 진행비 수정시 기본키 확인 후 저장하는 로직
+2. 김성욱 전무님에게 보고
+3. 실제 진행비 부분 구상 및 구현
+4. 실제 진행비 로직 구현
+
+2024-09-13
+1. headerText - 부서명으로 변경 코드 JS1062줄 변경 필요
+2. 버튼 값에 따른 테이블 td 변경 필요
+3. 경비 테이블 구현 필요
+4. 일일 물량 입력 페이지 구현 필요
+5. 어떻게든 생각해 내 화이팅
+
+2024-09-19
+1. initializeModalSections수정 작업물량 table 변경
+2. select값 변경(작업물량)
+3. table 상태 수행 물량하고 방식 동일하게
+4. 저장 flask 생성
+5. 실제 진행비 select * 추가 
+
+2024-09-24
+1. 실제 인건비 테이블 thead 수정
+2. 경비 수정 및 적용 
+
+2024-09-25
+1. 경비 부분 합계 추가 
+
+
+2024-09-30
+1. 경비 UseMoney부분 department 추가 (DB)
+
+2024-10-02
+1. 실제 진행비 중 경비 보류
+
+2024-10-10
+1. 인건비 및 경비 3자리 이상 입력시 입력값 초기화 문제
+
+2024-10-22
+1. 수행 물량 입력 부분 작업물량 중 select 부분 데이터 추가 확인
+2. 작업물량 작성 및 사용 경비 작성 데이터 저장 확인
+3. 실제 진행비 테이블 출력 확인
+
+
+
+계획서
+1. 개인화가 불가능한 이유 추가
+2. 인터뷰 내용 추가
+
+3. 10-21 주간회의 시연
+4. 개발 일정 수정
+
+
+물량 합계 합산
+물량 로그 생성
+예상 진행비 부서 분할
+PDF 파일 저장
+로그인?
+권한
+연차사업 표시
+
+
+2024-10-29
+1. 작업물량 입력 select 부분 데이터 중복 확인
+2. 예상 진행비 분할
+
+2024-11-13 
+1. 외주업체 추가 및 저장
+2. 외주관련 테이블 생성(ID, ContractCode, 외주업체, 외주금액, 기본키 생각) 
+3. 외주업체 출력 확인
+
+계약금액
+외주율
+외주금액
+물량 공정
+업체 담당자(성함 전화번호)
+연계, 차수 사업
+생산성 체크용 검토테이블 생성
+
+2024-11-20
+1. NAS서버 접근 확인
+2. NAS서버 배포 코드 확인
+3. 파일 저장 경로 NAS서버 변경
+4. SSO 연동을 위한 비즈메카 ID 확인
+5. 디테일페이지 참조사업 추가
+
+12월 이후
+특이사항(회의, 협상 등) 기록 탭 추가
+
+2025-01-03
+1. 서버 업데이트 및 검토, 테스트
+2. SSO 키값 테스트
+3. 수요일까지 타임라인 및 보고서 양식
+
+
+get_quantity_logs
+확인 후 경비 적용
+
+임원실 
+최태혁 대표이사
+한형섭 부사장 
+최범식 전무
+김성욱 전무 
+
+연구소
+윤종성 부사장
+우승범 전임
+
+경영
+김정욱 상무 
+나준영 부장 
+
+공정 
+안성호 부장
+이호권 과장 
+
+공공
+김정수 상무
+김 일 이사 
+안정욱 부장
+서원기 부장 
+
+공간정보팀(DB팀)
+정광철 부장 
+손군오 부장 
+
+현장팀(GIS팀)
+임용수 이사 
+최희선 부장 
+이대근 부장 
+
+비아이티 
+최경하 이사
+김봉석 부장 
+
+def create_connection():
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="127.0.0.1",
+            user="root",
+            password="tkadls1!",
+            database="samin_PMS",
+        )
+    except Error as e:
+        print(f"The error '{e}' occurred")
+    return connection
+
+
+    1. 내부망 DNS 호스트 주소(도메인) 지정
+1) 사내 DNS 서버가 있다면
+IT 관리자(또는 직접 관리 시)에게
+원하는 도메인(예: pms.company.local)을
+서버의 내부 IP(예: 192.168.0.123)에 매핑(A 레코드 등록) 요청
+모든 사내 PC에서
+http://pms.company.local:포트번호
+로 접속 가능
+2) 사내 DNS 서버가 없다면 (직접 설정)
+각 PC의 hosts 파일에 아래 한 줄 추가
+(Windows: hosts)
+저장 후
+http://pms.company.local:포트번호
+로 접속 가능
+2. SSL 인증서 발급 (mkcert 사용, 내부망/테스트용)
+1) mkcert 설치
+mkcert 공식 사이트에서
+OS에 맞게 설치
+2) 루트 인증서 설치 (최초 1회)
+3) 도메인 또는 IP용 인증서 생성
+도메인 사용 시:
+IP주소 사용 시:
+인증서(.pem)와 키(-key.pem) 파일이 생성됨
+3. 서버(Flask/nginx 등)에 인증서 적용
+1) Flask 개발 서버에서 직접 적용 (테스트용)
+2) nginx 등 리버스 프록시에서 적용 (권장)
+nginx 설정 예시:
+4. 브라우저에서 https로 접속
+https://pms.company.local:443
+또는
+https://192.168.0.123:443
+로 접속
+
+mkcert를 사용하면 신뢰 경고 없이 안전하게 접속 가능
+
+5. 요약 순서
+도메인 결정 (DNS 서버 등록 또는 hosts 파일 수정)
+mkcert로 인증서 발급
+서버(Flask/nginx)에 인증서 적용
+브라우저에서 https로 접속
+이렇게 하면 내부망에서도 안전하게 도메인+SSL 환경을 구축할 수 있습니다!
+추가로 궁금한 점이 있으면 언제든 질문해 주세요.---
+
+4. 브라우저에서 https로 접속
+https://pms.company.local:443
+또는
+https://192.168.0.123:443
+로 접속
+
+mkcert를 사용하면 신뢰 경고 없이 안전하게 접속 가능
+
+5. 요약 순서
+도메인 결정 (DNS 서버 등록 또는 hosts 파일 수정)
+mkcert로 인증서 발급
+서버(Flask/nginx)에 인증서 적용
+브라우저에서 https로 접속
+이렇게 하면 내부망에서도 안전하게 도메인+SSL 환경을 구축할 수 있습니다!
+추가로 궁금한 점이 있으면 언제든 질문해 주세요.
+
+
+
+
+
+import os
+import pandas as pd
+from collections import defaultdict
+
+# 25개 대상 동 리스트
+target_dongs = {
+    ########## 25개동
+}
+
+# 경로 설정
+base_dir = '작업해야하는 파일공간'
+save_dir = '저장될 파일공간'
+os.makedirs(save_dir, exist_ok=True)
+
+# 처리할 종류
+categories = ['신고공', '허가공']
+
+# 각 동 폴더 순회
+for dong in target_dongs:
+    dong_path = os.path.join(base_dir, dong)
+    if not os.path.isdir(dong_path):
+        continue
+
+    for category in categories:
+        df_list = []
+
+        # 해당 동 폴더 내의 신고공 또는 허가공 파일만 선택
+        for file_name in os.listdir(dong_path):
+            if not (file_name.startswith(category) and file_name.endswith('.xlsx')):
+                continue
+
+            file_path = os.path.join(dong_path, file_name)
+
+            try:
+                df = pd.read_excel(file_path)
+                df_list.append(df)
+                print(f"포함됨: {file_name} → {dong}/{category}")
+            except Exception as e:
+                print(f"읽기 실패: {file_name} - {e}")
+
+        # 병합 및 중복 제거 후 저장
+        if df_list:
+            merged_df = pd.concat(df_list, ignore_index=True)
+            deduped_df = merged_df.drop_duplicates()
+            output_path = os.path.join(save_dir, f'{category}_{dong}.xlsx')
+            deduped_df.to_excel(output_path, index=False)
+            print(f"저장 완료: {output_path}")

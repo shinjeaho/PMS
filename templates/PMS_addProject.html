@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프로젝트 추가</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_addProject.css') }}">
+</head>
+
+<body>
+    <div class="basic-info-container">
+        <h2>
+            {% if is_edit %}
+            프로젝트 수정
+            {% elif is_clone %}
+            수행사업 전환
+            {% else %}
+            프로젝트 추가
+            {% endif %}
+        </h2>
+        <input type="hidden" id="mode" value="{{ mode }}">
+        <form method="POST" action="{{ url_for('project_form.post_add_or_edit_project') }}" id="addProjectForm">
+
+            <div class="flex-container">
+                <!-- 왼쪽 컬럼 -->
+                <div class="main-info">
+                    <label for="contractCode">계약코드 <span style="color: #ccc;">(연도-OO-001 EX)24-용역-001)</span></label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="contractCode" name="contractCode" spellcheck="false" autocomplete="off"
+                            placeholder="계약코드"
+                            value="{% if is_edit or is_clone %}{{ project['ContractCode'] }}{% else %}{% endif %}"
+                            required {% if not is_edit %} style="width: 85%;" {% endif %}>
+                        {% if not is_edit %}
+                        <button class="check_btn" type="button" onclick="checkDuplicateCode()" style="padding: 8px 15px; 
+                        height: 40px; white-space: nowrap; margin-bottom: 16px;">
+                            중복확인
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <label for="projectName">프로젝트명</label>
+                    <input type="text" id="projectName" name="projectName" spellcheck="false" autocomplete="off"
+                        placeholder="프로젝트명"
+                        value="{% if is_edit or is_clone %}{{ project['ProjectName'] }}{% else %}{% endif %}" required>
+
+                    <label for="projectType">계약형식</label>
+                    <div class="contract-type-group">
+                        <label>
+                            <input type="checkbox" name="projectType[]" value="단일사업"
+                                   {% if (is_edit or is_clone) and (project['yearProject'] in [0,3]) %} checked {% endif %}>
+                            <span>단일사업</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" name="projectType[]" value="연차사업"
+                                   {% if (is_edit or is_clone) and (project['yearProject'] in [1,4]) %} checked {% endif %}>
+                            <span>연차사업</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" name="projectType[]" value="이월사업"
+                                   {% if (is_edit or is_clone) and (project['yearProject'] in [2,3,4]) %} checked {% endif %}>
+                            <span>이월사업</span>
+                        </label>
+                    </div>
+                    <label for="procurementType">발주방식</label>
+                    <select id="procurementType" name="procurementType">
+                        <option value="사전적격" {% if (is_edit or is_clone) and project['procurementType']=='사전적격' %}selected{% endif %}>사전적격</option>
+                        <option value="사후적격" {% if (is_edit or is_clone) and project['procurementType']=='사후적격' %}selected{% endif %}>사후적격</option>
+                        <option value="자체협상" {% if (is_edit or is_clone) and project['procurementType']=='자체협상' %}selected{% endif %}>자체협상</option>
+                        <option value="조달협상" {% if (is_edit or is_clone) and project['procurementType']=='조달협상' %}selected{% endif %}>조달협상</option>
+                        <option value="수의계약" {% if (is_edit or is_clone) and project['procurementType']=='수의계약' %}selected{% endif %}>수의계약</option>
+                        <option value="민간계약" {% if (is_edit or is_clone) and project['procurementType']=='민간계약' %}selected{% endif %}>민간계약</option>
+                    </select>
+
+                    <label for="projectCost">사업비(원)</label>
+                    <input type="text" id="projectCost" name="projectCost" spellcheck="false" autocomplete="off"
+                        placeholder="프로젝트 비용"
+                        value="{% if is_edit or is_clone %}{{ project['ProjectCost'] | format_currency }}{% else %}{% endif %}" required
+                        {% if mode=='detail' %}readonly{% endif %}>
+
+                    <label for="ProjectCost_NoVAT">사업비(VAT제외)</label>
+                    <input type="text" id="ProjectCost_NoVAT" name="ProjectCost_NoVAT" spellcheck="false"
+                        autocomplete="off" placeholder="부가가치세 제외 비용"
+                        value="{% if is_edit or is_clone %}{{ project['ProjectCost_NoVAT'] | format_currency }}{% else %}{% endif %}"
+                        required readonly>
+
+                    <label for="BidPrice">투찰금액(원)</label>
+                    <input type="text" id="BidPrice" name="BidPrice" spellcheck="false" autocomplete="off"
+                        placeholder="프로젝트 비용"
+                        value="{% if is_edit or is_clone %}{{ project['BidPrice'] | format_currency}}{% else %}{% endif %}" required
+                        {% if mode != 'examine' and action != 'clone' %}readonly{% endif %}>
+
+                    <label for="BidPrice_NoVAT">투찰금액(VAT제외)</label>
+                    <input type="text" id="BidPrice_NoVAT" name="BidPrice_NoVAT" spellcheck="false"
+                        autocomplete="off" placeholder="부가가치세 제외 비용"
+                        value="{% if is_edit or is_clone %}{{ project['BidPrice_NoVAT'] | format_currency}}{% else %}{% endif %}"
+                        required readonly>
+
+                    <label for="startDate">계약 일자</label>
+                    <input type="date" id="startDate" name="startDate" spellcheck="false" autocomplete="off"
+                        value="{% if is_edit or is_clone %}{{ project['StartDate'] }}{% else %}{% endif %}"
+                        min="1900-01-01" max="2100-12-31" required>
+
+                    <label for="endDate">준공 일자</label>
+                    <input type="date" id="endDate" name="endDate" spellcheck="false" autocomplete="off"
+                        value="{% if is_edit or is_clone %}{{ project['EndDate'] }}{% else %}{% endif %}"
+                        min="1900-01-01" max="2100-12-31">
+
+                    <label for="orderPlace">발주처</label>
+                    <input type="text" id="orderPlace" name="orderPlace" spellcheck="false" autocomplete="off"
+                        placeholder="발주처"
+                        value="{% if is_edit or is_clone %}{{ project['orderPlace'] }}{% else %}{% endif %}" required>
+
+                    <label for="manager">담당자</label>
+                    <input type="text" id="manager" name="manager" spellcheck="false" autocomplete="off"
+                        placeholder="담당자"
+                        value="{% if is_edit or is_clone %}{{ project['Manager'] }}{% else %}{% endif %}" required>
+
+                    <label for="contributionRate">지분율(%제외 입력)</label>
+                    <input type="text" id="contributionRate" name="contributionRate" placeholder="지분율"
+                        spellcheck="false" autocomplete="off" step="0.01"
+                        value="{% if is_edit or is_clone %}{{ project['ContributionRate'] }}{% else %}{% endif %}"
+                        required>
+
+                    <label for="safetyRate">안전관리비용</label>
+                    <input type="text" id="safetyRate" name="safetyRate" spellcheck="false" autocomplete="off"
+                        placeholder="안전관리비용" step="0.01"
+                        value="{% if is_edit or is_clone %}{{ project['safetyRate'] }}{% else %}{% endif %}">
+
+                    
+
+                </div>
+
+                <!-- 오른쪽 컬럼 -->
+                <div class="right-column">
+                    <label for="projectDetails">프로젝트 상세</label>
+                    <textarea id="projectDetails" name="projectDetails" placeholder="프로젝트 상세" spellcheck="false"
+                        autocomplete="off" rows="4"
+                        style="height: 350px;">{% if is_edit or is_clone %}{{ project['ProjectDetails'] }}{% else %}{% endif %}
+                    </textarea>
+
+                        <!-- 파일 업로드 영역 -->
+                    <label style="margin-top: 20px;">관련 파일</label>
+                    <!-- 신규 모드용: 임시 파일 업로드 div -->
+                    {% if not is_edit %}
+                    <div id="temp-upload-zone" class="file-upload-container"
+                        style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="text-align: center; color: #999; margin-bottom: 8px;">
+                            파일을 업로드하면 임시로 저장됩니다. 저장 시 확정됩니다.
+                        </div>
+                        <div id="temp-uploaded-files" style="width: 100%;"></div>
+                        <div style="text-align: right;">
+                            <input type="file" id="temp-file-input" multiple style="display: none;">
+                            <button type="button" class="btn btn-primary"
+                                onclick="document.getElementById('temp-file-input').click()">파일 선택</button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 수정 모드용: 즉시 DB에 저장되는 파일 업로드 div -->
+                    {% if is_edit %}
+                    <div id="edit-upload-zone" class="file-upload-container"
+                        style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="text-align: center; color: #999; margin-bottom: 8px;">
+                            현재 업로드된 파일 목록입니다.
+                        </div>
+                        <div id="uploaded-files" style="width: 100%;">
+                            {% if files %}
+                            {% for file in files %}
+                            <div class="file-item"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0;">
+                                <div style="flex: 1;">
+                                    <a href="/open_file/{{ file.id }}" target="_blank"
+                                        style="text-decoration: none; color: inherit;">
+                                        {{ file.name }}
+                                    </a>
+                                </div>
+                                <button type="button" onclick="deleteFile('{{ file.id }}')"
+                                    class="delete-file">삭제</button>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <p style="text-align: center; color: #666;">업로드된 파일이 없습니다.</p>
+                            {% endif %}
+                        </div>
+                        <div style="text-align: right;">
+                            <input type="file" id="file-input" multiple style="display: none;">
+                            <button type="button" class="btn btn-primary"
+                                onclick="document.getElementById('file-input').click()">파일 선택</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <label for="referenceProject">참조사업</label>
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th colspan="5">사업코드 입력</th>
+                            </tr>
+                        </thead>
+                        <tbody id="referenceProjectTbody">
+                            {% for i in range(1, 6) %}
+                            <tr>
+                                <td>참조사업 {{ i }}</td>
+                                <td style="height: 30px; cursor: pointer;" onclick="openSearchModal(this)">
+                                    <input type="text" name="referenceProject{{ i }}"
+                                        value="{% if is_edit or is_clone %}{{ project['referenceProject' ~ i] }}{% else %}{% endif %}"
+                                        style="width: 100%; border: none; background: transparent; pointer-events: none;"
+                                        readonly>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <label>제경비 비율</label>
+                    <div class="expense-rates">
+                        <div class="rate-item">
+                            <label>사전비용</label>
+                            <span class="rate-value">{{ "%.2f"|format(expenses.AcademicResearchRate) }}%</span>
+                        </div>
+                        <div class="rate-item">
+                            <label>운영비용</label>
+                            <span class="rate-value">{{ "%.3f"|format(expenses.OperationalRate) }}%</span>
+                        </div>
+                        <div class="rate-item">
+                            <label>공정비용</label>
+                            <span class="rate-value">{{ "%.2f"|format(expenses.EquipmentRate) }}%</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="academicResearchRate" name="academicResearchRate"
+                        value="{{expenses['AcademicResearchRate']}}">
+                    <input type="hidden" id="operationalRate" name="operationalRate"
+                        value="{{expenses['OperationalRate']}}">
+                    <input type="hidden" id="equipmentRate" name="equipmentRate" value="{{expenses['EquipmentRate']}}">
+                </div>
+                <div id="file-upload-loading" style="display: none; text-align: center; margin-top: 10px;">
+                    <span>파일 업로드 중입니다...</span>
+                </div>
+            </div>
+
+            <button type="submit" style="margin-top: 20px;">{{ "저장" if is_edit else "저장" }}</button>
+            <input type="hidden" id="isCloneMode" name="isCloneMode" value="{{ '1' if is_clone else '0' }}">
+            <input type="hidden" id="base_ContractCode" name="base_ContractCode" value="{{project['ContractCode']}}">
+            <input type="hidden" id="mode" name="mode" value="{{ mode }}">
+        </form>
+    </div>
+
+    <!-- 사업 검색 모달 -->
+    <div id="searchProjectModal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <span class="modal_close" onclick="closeSearchModal()">&times;</span>
+            <h2>사업 검색</h2>
+            <hr class="modal_hr">
+
+            <div class="modal-body">
+                <!-- 검색 영역 -->
+                <div class="search-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="searchProjectInput" placeholder="계약코드 또는 사업명 입력"
+                        style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <button onclick="searchProject()" style="padding: 4px 20px; background-color: #007bff; color: white; 
+                               border: none; border-radius: 4px; cursor: pointer; height: 35px;">
+                        검색
+                    </button>
+                </div>
+
+                <!-- 검색 결과 영역 -->
+                <div id="searchResultsContainer" style="border: 1px solid #ccc; 
+                        border-radius: 4px; 
+                        height: 400px; 
+                        overflow-y: auto; 
+                        padding: 20px;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        color: #666;">
+                    계약코드 검색
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const projectCostInput = document.getElementById("projectCost");
+            const mode = document.getElementById("mode").value;
+
+            if (projectCostInput.value.trim() !== "" && mode === 'detail') { // 값이 있고, mode가 examine이 아닐 때만
+                projectCostInput.addEventListener("click", function () {
+                    alert("사업비는 사업 변경내역에 추가해주세요.");
+                });
+            }
+        });
+    </script>
+    <script>
+        window.isEditMode = {{ is_edit | tojson }};
+        window.projectId = {% if project_id %}'{{ project_id }}'{% else %}null{% endif %};
+    </script>
+    <script src="{{ url_for('static', filename='PMS_addProject.js') }}"></script>
+</body>
+
+</html>

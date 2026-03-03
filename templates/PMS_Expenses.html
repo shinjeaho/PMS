@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>expenses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Expenses.css') }}">
+    <script src="{{ url_for('static', filename='PMS_Expenses.js') }}" defer></script>
+</head>
+
+<body>
+    <header>
+        <h1>{{ year }}년 기준정보</h1>
+    </header>
+
+    <div class="content">
+        <div id="Details" class="tabcontent">
+            <div class="view-mode">
+                <div class="flex-container">
+                    <div class="main-info">
+                        <h2>직급별 인건비(원)</h2>
+                        <table class="custom-table" id="expense_table">
+                            <thead>
+                                <tr>
+                                    <th>직급</th>
+                                    <th>월평균 급여</th>
+                                    <th>시간</th>
+                                    <th>일</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expenses %}
+                                <tr>
+                                    <td>{{ expense[0] }}</td>
+                                    <td>{{ expense[1] }}</td>
+                                    <td>{{ expense[2] }}</td>
+                                    <td>{{ expense[3] }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4">데이터가 없습니다.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                    </div>
+                    <div class="right-column">
+                        <h2>사용예비 단가산정</h2>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th colspan="2">구분</th>
+                                    <th>적용시간</th>
+                                    <th>배율</th>
+                                    <th>비고</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td rowspan="2">평일</td>
+                                    <td>주간</td>
+                                    <td>09:00 ~ 18:00</td>
+                                    <td>1</td>
+                                    <td>적용</td>
+                                </tr>
+                                <tr>
+                                    <td>야간</td>
+                                    <td>21:00 이후</td>
+                                    <td>2</td>
+                                    <td>적용</td>
+                                </tr>
+                                <tr>
+                                    <td rowspan="3">공휴일</td>
+                                    <td>주간</td>
+                                    <td>09:00 ~ 18:00</td>
+                                    <td>1.5</td>
+                                    <td>적용</td>
+                                </tr>
+                                <tr>
+                                    <td>야간</td>
+                                    <td>22:00 까지</td>
+                                    <td>2</td>
+                                    <td>미적용</td>
+                                </tr>
+                                <tr>
+                                    <td>철야</td>
+                                    <td>22:00 이후</td>
+                                    <td>2.5</td>
+                                    <td>미적용</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <h2>근무일수</h2>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>월 근무일수</th>
+                                    <th>일 근무시간</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>22</td>
+                                    <td>8</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h2>제경비 비율(%)</h2>
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>사전비용</th>
+                                    <th>운영비용</th>
+                                    <th>공정비용</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>{{ company_expenses.AcademicResearchRate or '' }}</td>
+                                    <td>{{ company_expenses.OperationalRate or '' }}</td>
+                                    <td>{{ company_expenses.EquipmentRate or '' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</html>

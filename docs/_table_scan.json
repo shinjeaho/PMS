@@ -1,0 +1,751 @@
+{
+  "tables": [
+    "AcademicResearchRate",
+    "all_prog",
+    "bohal",
+    "BusinessChangeHistory",
+    "businesschangehistory",
+    "BusinessReceiptDetails",
+    "businessreceiptdetails",
+    "clone_exmanager",
+    "clone_expenserecords",
+    "clone_state",
+    "combined",
+    "CompanyExpenses",
+    "companyexpenses",
+    "dept_final",
+    "dept_prog",
+    "dept_raw",
+    "examine_exmanager",
+    "examine_expenserecords",
+    "examine_note",
+    "examine_outsourcing",
+    "exmanager",
+    "expenserecords",
+    "ExpenseRecords",
+    "expenses",
+    "EXPENSES",
+    "external_labor_rates",
+    "outs_prog",
+    "outsourcing",
+    "outSourcing_MoneyPayment",
+    "PerformanceEvaluationFee",
+    "performanceevaluationfee",
+    "project",
+    "Project_comment",
+    "project_depbohal",
+    "project_engineers",
+    "project_risks",
+    "ProjectFiles",
+    "projects",
+    "Projects",
+    "quantity_log",
+    "RecordsPrice",
+    "state",
+    "TaskAssignment",
+    "taskassignment",
+    "taskquantity",
+    "TaskQuantity",
+    "transferdata",
+    "transferData",
+    "useMoney",
+    "usemoney",
+    "usemoney_log",
+    "users",
+    "weekly_entry",
+    "weekly_report",
+    "weights"
+  ],
+  "write_tables": [
+    "AcademicResearchRate",
+    "bohal",
+    "BusinessChangeHistory",
+    "businesschangehistory",
+    "BusinessReceiptDetails",
+    "clone_exmanager",
+    "clone_expenserecords",
+    "companyexpenses",
+    "examine_exmanager",
+    "examine_expenserecords",
+    "examine_note",
+    "examine_outsourcing",
+    "EXPENSES",
+    "external_labor_rates",
+    "outsourcing",
+    "outSourcing_MoneyPayment",
+    "PerformanceEvaluationFee",
+    "project",
+    "Project_comment",
+    "project_depbohal",
+    "project_engineers",
+    "project_risks",
+    "ProjectFiles",
+    "projects",
+    "Projects",
+    "quantity_log",
+    "RecordsPrice",
+    "TaskAssignment",
+    "taskassignment",
+    "taskquantity",
+    "TaskQuantity",
+    "transferData",
+    "useMoney",
+    "usemoney_log",
+    "users",
+    "weekly_entry",
+    "weekly_report"
+  ],
+  "near_keys": {
+    "AcademicResearchRate": [
+      "contractCode",
+      "id",
+      "project_id",
+      "year"
+    ],
+    "all_prog": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "bohal": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "BusinessChangeHistory": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "project_id"
+    ],
+    "businesschangehistory": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "project_id"
+    ],
+    "BusinessReceiptDetails": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "project_id"
+    ],
+    "businessreceiptdetails": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "project_id"
+    ],
+    "clone_exmanager": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "clone_expenserecords": [
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "project_id"
+    ],
+    "clone_state": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "combined": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "CompanyExpenses": [
+      "year"
+    ],
+    "companyexpenses": [
+      "year"
+    ],
+    "dept_final": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "dept_prog": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "dept_raw": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "examine_exmanager": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "examine_expenserecords": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "examine_note": [
+      "contract_code",
+      "department",
+      "year"
+    ],
+    "examine_outsourcing": [
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "project_id"
+    ],
+    "exmanager": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "projectId",
+      "project_id"
+    ],
+    "expenserecords": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "ExpenseRecords": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "expenses": [
+      "contract_code",
+      "department",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "EXPENSES": [
+      "contract_code",
+      "department",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "external_labor_rates": [
+      "contract_code",
+      "id",
+      "year"
+    ],
+    "outs_prog": [
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "outsourcing": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "projectId",
+      "project_id"
+    ],
+    "outSourcing_MoneyPayment": [
+      "contract_code",
+      "id"
+    ],
+    "PerformanceEvaluationFee": [
+      "contractCode",
+      "contract_code",
+      "id"
+    ],
+    "performanceevaluationfee": [
+      "contractCode",
+      "contract_code",
+      "id"
+    ],
+    "project": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "Project_comment": [
+      "contract_code",
+      "department",
+      "dept",
+      "id"
+    ],
+    "project_depbohal": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept"
+    ],
+    "project_engineers": [
+      "contract_code",
+      "department"
+    ],
+    "project_risks": [
+      "contract_code",
+      "department",
+      "id"
+    ],
+    "ProjectFiles": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "file_id",
+      "id",
+      "year"
+    ],
+    "projects": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "Projects": [
+      "contractCode",
+      "contract_code",
+      "id",
+      "projectId",
+      "project_id",
+      "year"
+    ],
+    "quantity_log": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id"
+    ],
+    "RecordsPrice": [
+      "dept",
+      "year"
+    ],
+    "state": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "year"
+    ],
+    "TaskAssignment": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id",
+      "year"
+    ],
+    "taskassignment": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id",
+      "year"
+    ],
+    "taskquantity": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id"
+    ],
+    "TaskQuantity": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "dept",
+      "id"
+    ],
+    "transferdata": [
+      "contract_code"
+    ],
+    "transferData": [
+      "contract_code"
+    ],
+    "useMoney": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id",
+      "year"
+    ],
+    "usemoney": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id",
+      "year"
+    ],
+    "usemoney_log": [
+      "contractCode",
+      "contract_code",
+      "department",
+      "id"
+    ],
+    "users": [
+      "contract_code",
+      "id",
+      "user_id",
+      "username",
+      "year"
+    ],
+    "weekly_entry": [
+      "department",
+      "dept",
+      "id",
+      "week_start",
+      "year"
+    ],
+    "weekly_report": [
+      "department",
+      "id",
+      "week_start",
+      "year"
+    ],
+    "weights": [
+      "department",
+      "dept"
+    ]
+  },
+  "insert_columns": {
+    "project_risks": [
+      "content",
+      "contractcode",
+      "department",
+      "write_date",
+      "writer"
+    ],
+    "users": [
+      "Auth",
+      "CreateDate",
+      "Department",
+      "Name",
+      "Password",
+      "UpdateDate",
+      "dataauth",
+      "note",
+      "projectAUTH",
+      "reportAUTH",
+      "userID"
+    ],
+    "EXPENSES": [
+      "Days",
+      "Hours",
+      "MonthlyAverageSalary",
+      "Position",
+      "Year"
+    ],
+    "RecordsPrice": [
+      "ITEM",
+      "YEAR",
+      "price"
+    ],
+    "projects": [
+      "AcademicResearchRate",
+      "BidPrice",
+      "BidPrice_NoVAT",
+      "ChangeProjectCost",
+      "ContractCode",
+      "ContributionRate",
+      "D_Day",
+      "EndDate",
+      "EquipmentRate",
+      "LinkProjectCheck",
+      "Manager",
+      "OperationalRate",
+      "ProjectCost",
+      "ProjectCost_NoVAT",
+      "ProjectDetails",
+      "ProjectName",
+      "StartDate",
+      "academicResearchRate",
+      "contractCode",
+      "contributionRate",
+      "endDate",
+      "equipmentRate",
+      "manager",
+      "operationalRate",
+      "orderPlace",
+      "outsourcingCheck",
+      "procurementType",
+      "projectCost",
+      "projectDetails",
+      "projectName",
+      "referenceProject1",
+      "referenceProject2",
+      "referenceProject3",
+      "referenceProject4",
+      "referenceProject5",
+      "safetyRate",
+      "startDate",
+      "yearProject"
+    ],
+    "BusinessChangeHistory": [
+      "ContractCode",
+      "ContractDate",
+      "Cost_NoVAT",
+      "Cost_ShareRate",
+      "Cost_VAT",
+      "Description",
+      "Division",
+      "UpdateDate"
+    ],
+    "ProjectFiles": [
+      "ContractCode",
+      "FileName",
+      "FilePath",
+      "FileSize",
+      "FileType",
+      "OriginalFileName",
+      "UploadDate"
+    ],
+    "outSourcing_MoneyPayment": [
+      "CompanyName",
+      "Cost_NoVAT",
+      "Cost_VAT",
+      "Division",
+      "PaymentDate",
+      "Remark",
+      "outsourcing_id"
+    ],
+    "TaskQuantity": [
+      "ContractCode",
+      "SummaryQuantity",
+      "bohal",
+      "cal_bohal",
+      "department",
+      "item",
+      "quantity",
+      "unit",
+      "writingorder"
+    ],
+    "project_depbohal": [
+      "bohal",
+      "contractcode",
+      "department"
+    ],
+    "quantity_log": [
+      "MT",
+      "MT_TYPE",
+      "contract_code",
+      "created_at",
+      "department",
+      "log_date",
+      "mt_type",
+      "position",
+      "process",
+      "quantity",
+      "remarks",
+      "updated_at"
+    ],
+    "taskassignment": [
+      "ContractCode",
+      "day_time",
+      "department",
+      "holiday",
+      "night_time",
+      "position",
+      "work_item"
+    ],
+    "useMoney": [
+      "ContractCode",
+      "department",
+      "history",
+      "money",
+      "type",
+      "update_date",
+      "use_account"
+    ],
+    "usemoney_log": [
+      "contractcode",
+      "createdate",
+      "department",
+      "history",
+      "log_date",
+      "money",
+      "remarks",
+      "type",
+      "updatedate",
+      "use_account"
+    ],
+    "TaskAssignment": [
+      "ContractCode",
+      "day_time",
+      "department",
+      "holiday",
+      "night_time",
+      "position",
+      "work_item"
+    ],
+    "PerformanceEvaluationFee": [
+      "Amount",
+      "ContractCode",
+      "Description",
+      "Remark",
+      "UpdateDate",
+      "performanceReview",
+      "reviewDate"
+    ],
+    "BusinessReceiptDetails": [
+      "Amount",
+      "Amount_NoVAT",
+      "Balance",
+      "ContractCode",
+      "Description",
+      "Division",
+      "ReceiptDate",
+      "UpdateDate",
+      "saveNum"
+    ],
+    "outsourcing": [
+      "change_Cost",
+      "change_Cost_NoVAT",
+      "contract_code",
+      "id",
+      "outsourcing_company",
+      "outsourcing_cost",
+      "outsourcing_cost_NoVAT",
+      "outsourcing_quantity",
+      "outsourcing_type"
+    ],
+    "Project_comment": [
+      "Create_date",
+      "comment",
+      "contractcode",
+      "department",
+      "input_num"
+    ],
+    "external_labor_rates": [
+      "ContractCode",
+      "contract_date",
+      "daily_rate",
+      "monthly_rate",
+      "position"
+    ],
+    "transferData": [
+      "ContractCode",
+      "ContributionRate",
+      "EndDate",
+      "OrderPlace",
+      "ProjectCost",
+      "ProjectCost_NoVAT",
+      "ProjectDetails",
+      "ProjectName",
+      "StartDate"
+    ],
+    "clone_exmanager": [
+      "ContractCode",
+      "M_D",
+      "Position",
+      "ProjectID",
+      "amount",
+      "department",
+      "person"
+    ],
+    "clone_expenserecords": [
+      "ContractCode",
+      "ProjectID",
+      "account",
+      "amount",
+      "days",
+      "department",
+      "frequency",
+      "note",
+      "people_count",
+      "unit_price"
+    ],
+    "examine_exmanager": [
+      "ContractCode",
+      "M_D",
+      "Position",
+      "ProjectID",
+      "amount",
+      "department",
+      "mode",
+      "person"
+    ],
+    "examine_expenserecords": [
+      "ContractCode",
+      "ProjectID",
+      "account",
+      "amount",
+      "days",
+      "department",
+      "frequency",
+      "mode",
+      "note",
+      "people_count",
+      "unit_price"
+    ],
+    "examine_outsourcing": [
+      "contract_code",
+      "outsourcing_company",
+      "outsourcing_cost",
+      "outsourcing_cost_NoVAT",
+      "outsourcing_quantity",
+      "outsourcing_type"
+    ],
+    "examine_note": [
+      "contractcode",
+      "createDate",
+      "department",
+      "note"
+    ],
+    "companyexpenses": [
+      "AcademicResearchRate",
+      "EquipmentRate",
+      "OperationalRate",
+      "year"
+    ],
+    "weekly_report": [
+      "created_at",
+      "created_by",
+      "crosses_next_month",
+      "department",
+      "month",
+      "status",
+      "title",
+      "updated_at",
+      "week_index",
+      "week_start",
+      "year"
+    ],
+    "weekly_entry": [
+      "attachments_count",
+      "created_at",
+      "created_by",
+      "detail_segments",
+      "priority",
+      "report_id",
+      "summary_segments",
+      "tags_text",
+      "title",
+      "updated_at"
+    ]
+  }
+}

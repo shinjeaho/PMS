@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연도 선택 페이지</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Select_year.css') }}">
+</head>
+<body>
+    <header>
+        <h1>연도 선택</h1>
+    </header>
+    <main>
+        <div class="year-buttons">
+            <button class="year-button" onclick="selectYear(2023)">2023년</button>
+            <button class="year-button" onclick="selectYear(2024)">2024년</button>
+            <!-- 추가 버튼 가능 -->
+        </div>
+    </main>
+    <script>
+    function selectYear(year) {
+        window.location.href = `/PMS_Business/${year}`;
+    }
+    </script>
+</body>
+</html>

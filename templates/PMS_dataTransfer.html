@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 이관 페이지</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_dataTransfer.css') }}">
+</head>
+
+<body>
+    <header class="pageheader" onclick="home()">
+        <h1 id="yearTitle" style="font-size: 50px; text-align: center; margin-bottom: 30px;">
+            데이터 이관 페이지
+        </h1>
+    </header>
+   
+
+    <!-- 설정관리 모달 -->
+    <div id="transferModal" class="modal">
+        <div class="modal-content" style="width: 80%;">
+            <div class="modal-header">
+                <h2>사업수정</h2>
+                <span id="modalCloseButton" class="close">&times;</span>
+            </div>
+
+            <!-- 탭 컨텐츠 -->
+            <div class="tab-content">
+                <form id="transferForm">
+                    <div id="flex-container">
+                        <div id="left-div">
+                            <label for="contractCode">사업코드</label>
+                            <input type="text" id="contractCode" name="contractCode" required>
+                        
+                            <label for="projectName">사업명</label>
+                            <input type="text" id="projectName" name="projectName" required>
+                        
+                            <label for="projectCost">사업비</label>
+                            <input type="text" id="projectCost" name="projectCost" required>
+                        
+                            <label for="projectCost">사업비(VAT제외)</label>
+                            <input type="text" id="projectCost_NoVAT" name="projectCost_NoVAT" required>
+                        
+                            <label for="projectCost">지분율</label>
+                            <input type="text" id="ContributionRate" name="ContributionRate " required>
+                        </div>
+
+                        <div id="right-div">
+                            <label for="startDate">계약일</label>
+                            <input type="date" id="startDate" name="startDate" required>
+                        
+                            <label for="endDate">종료일</label>
+                            <input type="date" id="endDate" name="endDate" required>
+                        
+                            <label for="orderPlace">발주처</label>
+                            <input type="text" id="orderPlace" name="orderPlace" required>
+                        
+                            <label for="manager">담당자</label>
+                            <input type="text" id="manager" name="manager">
+                        
+                            <label for="projectDetails">사업개요</label>
+                            <textarea id="projectDetails" name="projectDetails" rows="4" style="height: 150px;"></textarea>
+                        </div>
+                    </div>
+    
+                    <button id="saveTransfer" type="submit">저장</button>
+                </form>
+            </div>
+        </div>
+    </div>
+   
+
+
+    
+
+    <!-- 추출 결과 모달창 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2>추출된 데이터</h2>
+            <div style="max-height: 60vh; overflow-y: auto;"> <!-- 스크롤 영역 설정 -->
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>사업코드</th>
+                            <th>사업 명</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalTableBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <button class="modal_save-btn" style="width: 48%;" onclick="saveExcelModal()">저장</button>
+                <button class="modal_save-btn" style="width: 48%; background-color: red;" onclick="closeModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 파일 업로드 -->
+    <div id="dataSelect">
+        <h1 id="dataText" style="color: #ccc; margin-top: 60px;">★PMS리스트 끌어오기 및 선택</h1>
+        <p id="dataText2" style="color: #ccc;">★PMS리스트 파일을 추출하기 위한 페이지 입니다.</p>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+    </div>
+
+ <!-- 로딩 표시 -->
+ <div id="loading">파일 처리 중...</div>
+
+    <!-- 메인 바디 -->
+    <div class="main-section" style="width: 100%; background-color: white;">
+        <h2 style="text-align: center;">사업 목록</h2>
+        <hr style="width: 100%;">
+
+        <div class="table-container">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">사업번호</th>
+                        <th style="width: 65%;">사업 명</th>
+                    </tr>
+                </thead>
+                <tbody id="transferList_tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 페이지네이션 버튼 -->
+        <div id="pagination" class="pagination"></div>
+    </div>
+
+    <footer>
+        <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
+            style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px;">
+    </footer>
+
+    <script src="{{ url_for('static', filename='PMS_dataTransfer.js') }}"></script>
+</body>
+
+</html>

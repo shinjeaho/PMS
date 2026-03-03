@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사업 참여기술자 모아보기</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_annualProject.css') }}">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='PMS_annualProject_engineers.js') }}" defer></script>
+</head>
+
+<body>
+    <header style="display: flex; align-items: center; position: relative;">
+        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
+            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+        </button>
+        <h1 style="flex: 1; text-align: center;" id="projectName">참여기술자 모아보기</h1>
+    </header>
+
+    
+    <div class="engineers-toolbar">
+        <div class="engineers-toolbar-left">
+            
+            <label for="engineersYearSelect">연도</label>
+            <select id="engineersYearSelect" class="settingSelect" style="width: 180px; height: 40px;">
+                <option value="">전체</option>
+                {% for year in available_years %}
+                <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>{{ year }}년</option>
+                {% endfor %}
+            </select>
+            <label for="engineersStatusSelect">사업현황</label>
+            <select id="engineersStatusSelect" class="settingSelect" style="width: 140px; height: 40px;">
+                <option value="">전체</option>
+                <option value="진행중">진행중</option>
+                <option value="준공">준공</option>
+                <option value="용역중지">용역중지</option>
+            </select>
+            <label for="engineersSearchField">검색</label>
+            <select id="engineersSearchField" class="settingSelect" style="width: 140px; height: 40px;">
+                <option value="contract">사업번호</option>
+                <option value="project">사업명</option>
+                <option value="name">이름</option>
+            </select>
+            <input id="engineersSearchInput" type="text" class="settingSelect" placeholder="검색어 입력" style="width: 220px;">
+            <button type="button" class="search-button" id="engineersSearchBtn">검색</button>
+        </div>
+        <div class="engineers-toolbar-right">
+            <button type="button" class="excel-export-btn" id="engineersExportBtn">엑셀 보기</button>
+            <button type="button" class="search-button" id="engineersEditBtn">수정</button>
+            <button type="button" class="search-button" id="engineersSaveBtn" style="display: none;">저장</button>
+        </div>
+    </div>
+
+    <div class="engineers-status-row">
+        <div class="engineers-result-count" id="engineersResultCount">검색결과 : 0개</div>
+        <div class="engineers-status-legend">
+            <div class="engineers-status-legend-item">
+                <span class="engineers-status-dot engineers-status-dot-complete"></span>
+                <span>준공사업</span>
+            </div>
+            <div class="engineers-status-legend-item">
+                <span class="engineers-status-dot engineers-status-dot-stop"></span>
+                <span>용역중지 사업</span>
+            </div>
+        </div>
+    </div>
+
+    <main class="table-container" id="table-container">
+        <table class="custom-table no_wrap" id="engineers-table">
+            <thead></thead>
+            <tbody id="engineers-tbody"></tbody>
+        </table>
+    </main>
+
+    <div class="fake-scrollbar" id="fake-scrollbar"></div>
+    <footer>
+        <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo">
+    </footer>
+    <script>
+        window.projects = {{ projects | tojson }};
+    </script>
+</body>
+
+</html>

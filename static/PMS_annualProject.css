@@ -1,0 +1,699 @@
+.engineers-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 8px 0 12px;
+    padding: 10px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.engineers-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    flex-wrap: wrap;
+}
+
+.engineers-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.engineers-toolbar select,
+.engineers-toolbar input[type="text"],
+.engineers-toolbar .search-button,
+.engineers-toolbar .excel-export-btn {
+    height: 40px;
+    border-radius: 12px;
+}
+
+.engineers-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+}
+
+.engineers-result-count {
+    color: #111;
+}
+
+.engineers-status-legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+}
+
+.engineers-status-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.engineers-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+    border: 1px solid #cfcfcf;
+}
+
+.engineers-status-dot-complete {
+    background-color: #E8F3FF;
+}
+
+.engineers-status-dot-stop {
+    background-color: #F9E3E3;
+}
+
+/* 기존 스타일 유지 */
+body {
+    font-family: 'Arial', sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+    color: #000000;
+}
+
+body::-webkit-scrollbar {
+    display: none;
+    /* 웹킷 기반 브라우저에서 스크롤바를 숨깁니다. */
+}
+
+header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+h1#projectName {
+    flex: 1;
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+main {
+    width: 100%;
+    margin: 0 auto;
+    min-height: 600px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    font-family: '맑은 고딕', sans-serif;
+    font-size: 13px;
+}
+
+footer {
+    width: 100%;
+    text-align: center;
+    background: none;
+    border: none;
+    margin-bottom: 10px;
+}
+
+footer img {
+    height: 60px;
+    margin-right: 20px;
+    margin-top: 30px;
+    margin-bottom: 25px;
+}
+
+.header-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.header-text {
+    margin: 0;
+    padding: 0;
+    font-size: 24px;
+    height: 30px;
+    line-height: 30px;
+}
+
+.header-input {
+    display: none;
+    font-size: 24px;
+}
+
+.editing .header-text {
+    display: none;
+}
+
+.editing .header-input {
+    display: inline-block;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.2s;
+}
+
+.back-button:hover {
+    opacity: 0.7;
+}
+
+.back-button img {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+}
+
+h1#projectName {
+    flex: 1;
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: bold;
+    margin: 0;
+    letter-spacing: 1px;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* 기본 테이블 스타일 */
+.custom-table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+
+}
+
+.custom-table tbody tr:nth-child(even) td {
+    background-color: #f9f9f9;
+}
+
+.custom-table tbody tr {
+    transition: transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s;
+}
+.custom-table tbody tr:hover {
+    transform: scale(1.001);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    z-index: 20;
+    background: #f6fbff;
+    outline: 2px solid #ff0000; /* 파란색으로 변경 */
+    outline-offset: -1px;
+    position: relative; /* 추가 */
+}
+
+/* hover 시 sticky 컬럼의 outline 제거 */
+#engineers-table tbody tr:hover .sticky-col-a,
+#engineers-table tbody tr:hover .sticky-col-b,
+#engineers-table tbody tr:hover .sticky-col-c,
+#engineers-table tbody tr:hover .sticky-col-d,
+#engineers-table tbody tr:hover .sticky-col-e,
+#engineers-table tbody tr:hover .sticky-col-f,
+.custom-table tbody tr:hover .sticky-col-3,
+.custom-table tbody tr:hover .sticky-col,
+.custom-table tbody tr:hover .sticky-col-2 {
+    z-index: 20;
+    background: #f6fbff; /* 배경색만 변경 */
+    outline: none; /* outline 제거 */
+}
+
+.custom-table th,
+.custom-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    /* white-space: nowrap; */
+    /* 줄넘김을 방지하는 스타일 */
+}
+
+/* engineers 테이블도 기본 짝수행 배경 유지 */
+
+.completed-row td {
+    background-color: #E8F3FF !important;
+}
+
+/* 프로젝트 리스크 존재 시 강조 (연한 빨간색) */
+.risk-row td {
+    background-color: #fc6868 !important;
+}
+
+/* 테이블 헤더 색상 및 글꼴 굵기 */
+.custom-table thead th {
+    background-color: #e9ecea;
+    color: black;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* 상단 제목 줄 (구분/예상진행비/실제진행비) */
+.custom-table thead tr:first-child th {
+    position: sticky;
+    top: 0;
+    background-color: #e9ecea;
+    z-index: 12;
+}
+
+/* 항목 줄 (사업명/사업비 등) */
+.custom-table thead tr:nth-child(2) th {
+    position: sticky;
+    top: 32px;
+    /* 위에 있는 첫 줄의 높이만큼 조절 */
+    background-color: #e9ecea;
+    z-index: 12;
+}
+
+.no_wrap {
+    white-space: nowrap;
+    /* 줄넘김을 방지하는 스타일 */
+}
+
+/* 그룹 경계선(좌측 굵은 선)은 thead 에만 적용: tbody에서는 제거 */
+/* 그룹 시작 열 인덱스 수정: 예상(12), 실제(21), 수령내역(30) */
+.custom-table thead tr:nth-child(2) th:nth-child(12) { border-left: 3px solid #999; }
+.custom-table thead tr:nth-child(2) th:nth-child(21) { border-left: 3px solid #999; }
+.custom-table thead tr:nth-child(2) th:nth-child(30) { border-left: 3px solid #999; }
+
+a {
+    color: black;
+    text-decoration: none;
+}
+
+.table-container {
+    width: 100%;
+    max-height: 70vh;
+    /* 원하는 높이로 조절 */
+    overflow-y: auto;
+    /* 부모 크기에 맞춤 */
+    overflow-x: auto;
+    /* 가로 스크롤 활성화 */
+    white-space: nowrap;
+    /* 테이블이 한 줄로 유지됨 */
+    padding-bottom: 22px; /* 하단 고정 스크롤바가 합계를 가리지 않도록 여백 추가 */
+}
+
+input[name="marginFilter"] {
+    display: none;
+}
+
+.summary-row {
+    font-weight: bold;
+    background-color: #f5f5f5;
+    text-align: right;
+}
+
+/* 헤더의 sticky 컬럼만 z-index를 높게 */
+#engineers-table thead th.sticky-col-a,
+#engineers-table thead th.sticky-col-b,
+#engineers-table thead th.sticky-col-c,
+.custom-table thead th.sticky-col-3,
+.custom-table thead th.sticky-col,
+.custom-table thead th.sticky-col-2 {
+    z-index: 15 !important;
+    /* 가장 높게 */
+}
+
+.summary-row td {
+    padding: 8px;
+    color: #000;
+    /* 글씨는 기본색 */
+}
+
+/* No. 열 */
+.sticky-col-3 {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 5;
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+    border: 1px solid #ddd;
+    /* 실제 No. 열의 width로 맞추세요 */
+}
+
+/* 사업번호 열 */
+.sticky-col {
+    position: sticky;
+    left: 46px;
+    /* No. 열의 width */
+    background: #fff;
+    z-index: 5;
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+    border: 1px solid #ddd;
+    /* 실제 사업번호 열의 width */
+}
+
+/* 사업명 열 */
+.sticky-col-2 {
+    position: sticky;
+    left: 160px;
+    /* No.열 + 사업번호 열의 width */
+    background: #fff;
+    z-index: 5;
+    width: 330px;
+    min-width: 330px;
+    max-width: 330px;
+    border: 1px solid #ddd;
+    /* 실제 사업명 열의 width */
+
+    overflow: hidden;
+    white-space: nowrap;
+}
+/* Fix: sticky 사업명 열 우측 경계선이 스크롤 시 사라지는 문제를 pseudo-element로 해결 */
+.custom-table thead th.sticky-col-2,
+.custom-table tbody td.sticky-col-2 {
+    border-right: none; /* 기본 경계 제거 (겹침 방지) */
+    position: sticky; /* 명시적 유지 */
+}
+.custom-table thead th.sticky-col-2::after,
+.custom-table tbody td.sticky-col-2::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: #999;
+    z-index: 9; /* 인접 일반 셀 위로 */
+    pointer-events: none;
+}
+
+.fake-scrollbar {
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    height: 16px;
+    background: #f5f5f5;
+    overflow-x: auto;
+    z-index: 100;
+}
+
+.fake-scrollbar-content {
+    height: 1px;
+}
+
+.table-container::-webkit-scrollbar {
+    display: none;
+    /* 진짜 스크롤 바 숨김 (크롬) */
+}
+
+/* 엑셀 변환 버튼 스타일 */
+.excel-export-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.excel-export-btn:hover {
+    background-color: #218838;
+}
+
+.excel-export-btn:active {
+    background-color: #1e7e34;
+    transform: translateY(1px);
+}
+
+.excel-export-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+}
+
+/* 오른쪽 굵은 경계선 지정: 사업명(3), 사업비(총괄,VAT제외)(11), 손익비율 예상(20), 손익비율 실제(29) */
+.custom-table thead tr:nth-child(2) th:nth-child(3),
+.custom-table tbody td:nth-child(3) {
+    border-right: 2px solid #999;
+}
+
+.custom-table thead tr:nth-child(2) th:nth-child(11),
+.custom-table tbody td:nth-child(11) {
+    border-right: 2px solid #999;
+}
+
+.custom-table thead tr:nth-child(2) th:nth-child(20),
+.custom-table tbody td:nth-child(20) {
+    border-right: 2px solid #999;
+}
+
+.custom-table thead tr:nth-child(2) th:nth-child(29),
+.custom-table tbody td:nth-child(29) {
+    border-right: 2px solid #999;
+}
+
+/* 참여기술자 모아보기: 굵은선 기본 제거 */
+#engineers-table thead th,
+#engineers-table tbody td {
+    border-right: 1px solid #ddd;
+}
+
+#engineers-table thead th::after,
+#engineers-table tbody td::after {
+    content: none;
+}
+
+#engineers-table .engineers-participant-header,
+#engineers-table .engineers-participant-cell {
+    border-right: 1px solid #ddd;
+    border-left: 0;
+}
+
+.engineers-group-split::after,
+#engineers-table thead th.engineers-total-col::after,
+#engineers-table tbody td.engineers-total-col::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: #999;
+    z-index: 9;
+    pointer-events: none;
+}
+
+/* 참여기술자 모아보기 전용 sticky 컬럼 */
+#engineers-table {
+    --eng-col-a: 140px;
+    --eng-col-b: 420px;
+    --eng-col-c: 80px;
+    --eng-col-d: 80px;
+    --eng-col-e: 80px;
+    --eng-col-f: 90px;
+}
+
+#engineers-table .sticky-col-a {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-a);
+    min-width: var(--eng-col-a);
+    max-width: var(--eng-col-a);
+    border: 1px solid #ddd;
+}
+
+#engineers-table .sticky-col-b {
+    position: sticky;
+    left: var(--eng-col-a);
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-b);
+    min-width: var(--eng-col-b);
+    max-width: var(--eng-col-b);
+    border: 1px solid #ddd;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#engineers-table .sticky-col-c {
+    position: sticky;
+    left: calc(var(--eng-col-a) + var(--eng-col-b));
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-c);
+    min-width: var(--eng-col-c);
+    max-width: var(--eng-col-c);
+    border: 1px solid #ddd;
+}
+
+#engineers-table .sticky-col-d {
+    position: sticky;
+    left: calc(var(--eng-col-a) + var(--eng-col-b) + var(--eng-col-c));
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-d);
+    min-width: var(--eng-col-d);
+    max-width: var(--eng-col-d);
+    border: 1px solid #ddd;
+}
+
+#engineers-table .sticky-col-e {
+    position: sticky;
+    left: calc(var(--eng-col-a) + var(--eng-col-b) + var(--eng-col-c) + var(--eng-col-d));
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-e);
+    min-width: var(--eng-col-e);
+    max-width: var(--eng-col-e);
+    border: 1px solid #ddd;
+}
+
+#engineers-table .sticky-col-f {
+    position: sticky;
+    left: calc(var(--eng-col-a) + var(--eng-col-b) + var(--eng-col-c) + var(--eng-col-d) + var(--eng-col-e));
+    background: #fff;
+    z-index: 5;
+    width: var(--eng-col-f);
+    min-width: var(--eng-col-f);
+    max-width: var(--eng-col-f);
+    border: 1px solid #ddd;
+}
+
+#engineers-table thead th.sticky-col-a,
+#engineers-table thead th.sticky-col-b,
+#engineers-table thead th.sticky-col-c,
+#engineers-table thead th.sticky-col-d,
+#engineers-table thead th.sticky-col-e,
+#engineers-table thead th.sticky-col-f {
+    background-color: #e9ecea;
+}
+
+.engineers-input {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 13px;
+    background: #ffffff;
+    text-overflow: ellipsis;
+    position: relative;
+    z-index: 6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.settingSelect {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+.settingSelect input{
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    height: 40px;
+}
+
+
+.engineers-name-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 80px;
+}
+
+.engineers-name-header {
+    min-width: 80px;
+}
+
+#engineers-table.is-editing .engineers-name-cell,
+#engineers-table.is-editing .engineers-name-header {
+    min-width: 80px;
+}
+
+.engineers-name-match {
+    background-color: #fff3bf !important;
+    box-shadow: inset 0 0 0 1px #f59f00;
+    font-weight: 700;
+}
+
+#engineers-table tbody tr.engineers-status-complete td {
+    background-color: #E8F3FF !important;
+}
+
+#engineers-table tbody tr.engineers-status-stop td {
+    background-color: #F9E3E3 !important;
+}
+
+#engineers-table tbody tr.engineers-status-complete td.engineers-name-match,
+#engineers-table tbody tr.engineers-status-stop td.engineers-name-match,
+#engineers-table tbody tr td.engineers-name-match {
+    background-color: #fff3bf !important;
+}
+
+.search-button {
+    background-color: #007bff;
+    color: #ffffff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s;
+    width: 70px;
+    text-align: center;
+}
+
+.search-button:hover {
+    background-color: #0056b3;
+}
+
+.engineers-group-split,
+#engineers-table thead th.engineers-total-col,
+#engineers-table tbody td.engineers-total-col {
+    border-right: none;
+    position: sticky;
+}
+
+.engineers-group-split::after,
+#engineers-table thead th.engineers-total-col::after,
+#engineers-table tbody td.engineers-total-col::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 100%;
+    background: #999;
+    z-index: 9;
+    pointer-events: none;
+}

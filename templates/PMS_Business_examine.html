@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Overview & Budget</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_examine.css') }}">
+    <script src="{{ url_for('static', filename='PMS_Business_examine.js') }}" defer></script>
+</head>
+
+<body>
+    <!-- 헤더 -->
+    <header style="display: flex; align-items: center; position: relative;">
+        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
+            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+        </button>
+        <h1 style="flex: 1; text-align: center;" id="projectName"></h1>
+    </header>
+
+    <!-- 탭 -->
+    <div class="tabs">
+        <button class="tablinks" onclick="openTab(event, 'Details')">상세 정보</button>
+        <button class="tablinks" onclick="openTab(event, 'Budget')">예상 진행비</button>
+    </div>
+    <!-- JS 넘김 데이터 -->
+    <input type="hidden" id="headerName" value="{{ examine['ProjectName'] }}">
+    <input type="hidden" id="project-year" value="{{ examine['StartDate'].strftime('%Y') }}">
+    <input type="hidden" id="project-contractCode" value="{{ examine['ContractCode'] }}">
+    <input type="hidden" id="project-id" value="{{ examine['ProjectID'] }}">
+    <input type="hidden" id="projectBaseCost" value="{{ examine['ProjectCost'] }}">
+    <input type="hidden" id="BidPrice_NoVAT" value="{{ examine['BidPrice_NoVAT'] }}">
+    <input type="hidden" id="sessionDep" value="{{ session['user']['department'] }}">
+
+    <div class="content">
+        <!-- 상세 정보 탭 -->
+        <div id="Details" class="tabcontent">
+            <div class="view-mode">
+                <div class="flex-container">
+                    <div class="main-info" id="main-info">
+
+                        <div class="edit-button-group">
+                            <h2 style="margin: 0;">사업 개요</h2>
+
+                            <div id="every_BTN" style="display: none;">
+                                <button class="edit-button" onclick="toggleEdit()">수정</button>
+                                <button id="clone-project-btn" class="edit-button" onclick="goToCloneProject()">수행사업
+                                    전환</button>
+                            </div>
+
+                            <div id="department_BTN" style="display: none;">
+                                <button class="delete-button" onclick="deleteProject()">삭제</button>
+                                <button class="edit-button" onclick="toggleEdit()">수정</button>
+                                <button id="clone-project-btn" class="edit-button" onclick="goToCloneProject()">수행사업
+                                    전환</button>
+                            </div>
+                        </div>
+                        <hr style="width: 100%;">
+                        <!--프로젝트 개요 영역 -->
+                        <div style="display: flex; gap: 20px; justify-content: space-between;">
+                            <div style="width: 50%;">
+                                <table class="custom-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 30%;">구분</th>
+                                            <th>내용</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>사업명</td>
+                                            <td>{{ examine['ProjectName'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>사업 번호</td>
+                                            <td>{{ examine['ContractCode'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>계약 형식</td>
+                                            <td>
+                                                {% set yp = examine['yearProject'] %}
+                                                {% if yp == 0 %}단일사업{% elif yp == 1 %}연차사업{% elif yp == 2 %}이월사업{% elif
+                                                yp == 3 %}단일사업 , 이월사업{% elif yp == 4 %}연차사업 , 이월사업{% else %}-{% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>발주 형태</td>
+                                            <td>{{ examine['procurementType'] or '' }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>사업비</td>
+                                            <td>{{ examine['ProjectCost'] | format_currency }}원</td>
+                                        </tr>
+                                        <tr>
+                                            <td>투찰금액(원)</td>
+                                            <td>{{ examine['BidPrice'] | format_currency }}원</td>
+                                        </tr>
+                                        <tr>
+                                            <td>투찰금액(VAT제외)</td>
+                                            <td>{{ examine['BidPrice_NoVAT'] | format_currency }}원</td>
+                                        </tr>
+
+
+                                        <tr>
+                                            <td>계약일</td>
+                                            <td>{{ examine['StartDate'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>종료일</td>
+                                            <td>{{ examine['EndDate'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>발주처</td>
+                                            <td>{{ examine['orderPlace'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>담당자</td>
+                                            <td>{{ examine['Manager'] }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>지분율</td>
+                                            <td id="ContributionRate">{{ examine['ContributionRate'] }}%</td>
+                                        </tr>
+                                        <tr>
+
+
+                                        </tr>
+                                        <tr>
+                                            <td>관련 파일</td>
+                                            <td id="file_list" style="text-align: left;">
+                                                <div class="file-upload-container"
+                                                    style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; position: relative;"
+                                                    id="drop-zone">
+                                                    <!-- 설명 텍스트 -->
+                                                    <div id="drop-text"
+                                                        style="text-align: center; color: #999; margin-bottom: 8px;">
+                                                        이 영역에 파일을 드래그하거나 <strong>파일 선택</strong> 버튼을 눌러 업로드하세요.
+                                                    </div>
+                                                    <!-- 현재 업로드된 파일 목록 -->
+                                                    <div id="uploaded-files" style="width: 100%;">
+                                                        <!-- 여기에 파일 목록이 표시됩니다 -->
+                                                    </div>
+
+                                                    <!-- 파일 업로드 버튼을 오른쪽으로 정렬 -->
+                                                    <div class="file-upload-button" style="text-align: right;">
+                                                        <input type="file" id="file-input" multiple
+                                                            style="display: none;">
+                                                        <button type="button" class="btn btn-primary"
+                                                            onclick="document.getElementById('file-input').click()">
+                                                            파일 선택
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>참조사업</td>
+                                            <td style="text-align: left;">
+                                                {% for i in range(1, 6) %}
+                                                {% set code = examine['referenceProject' + i|string] %}
+                                                {% if code and reference_projects.get(code) %}
+                                                <a href="/project_detail/{{ reference_projects[code]['project_id'] }}"
+                                                    class="reference-link">
+                                                    {{ code }} - {{ reference_projects[code]['project_name'] }}
+                                                </a><br>
+                                                {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style="width: 50%;">
+                                <table class="custom-table">
+                                    <thead>
+                                        <th style="width: 30%;">구분</th>
+                                        <th>내용</th>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>프로젝트 개요</td>
+                                            <td style="text-align: left; overflow-y: auto; display: block;">
+                                                {{ examine['ProjectDetails'].replace('\n','<br>')|safe }}</td>
+                                        </tr>
+
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="edit-button-group" style="margin-bottom: 0px;">
+                                <h2 style="margin: 0;">검토사안</h2>
+                                <div
+                                    style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 10px;">
+                                    <button class="btn btn-primary" onclick="saveNote()">저장</button>
+                                    <button id="addNoteRow" class="add-row-btn addRowBTN"
+                                        data-target="Dep_fir_Budget_tbody">+</button>
+                                    <button id="removeNoteRow" class="remove-row-btn removeRowBTN"
+                                        data-target="Dep_fir_Budget_tbody">-</button>
+                                </div>
+                            </div>
+                            <hr>
+                            <table class="custom-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 20%;">부서명</td>
+                                        <th>내 용</td>
+                                    </tr>
+                                </thead>
+                                <tbody id="note_tbody">
+                                    {% if note and note|length > 0 %}
+                                    {% for row in note %}
+                                    <tr>
+                                        <td class="note" onclick="inputText(this, 'note')">{{ row['department'] }}</td>
+                                        <td class="note" onclick="inputText(this, 'note')">{{ row['note'] }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('note_tbody', 1);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="right-column" id="right-column" style="display: flex; justify-content: space-between;">
+                        <div class="right-top " style="max-width: 48%;">
+                            <h2>직영 예상 사업수행비 현황</h2>
+                            <!-- 사전비용 -->
+                            <input type="hidden" id="AcademicResearchRate"
+                                value="{{ examine['AcademicResearchRate'] }}">
+                            <!-- 운영비용 -->
+                            <input type="hidden" id="OperationalRate" value="{{ examine['OperationalRate'] }}">
+                            <!-- 공정비용 -->
+                            <input type="hidden" id="EquipmentRate" value="{{ examine['EquipmentRate'] }}">
+                            <hr style="margin-bottom: 20px;">
+
+                            <table class="custom-table" id="EX_fee_table">
+                                <thead>
+                                </thead>
+                                <tbody id="EX_fee_tbody">
+                                </tbody>
+                            </table>
+
+                            <!-- 예상진행비 요약 합산 테이블 -->
+                            <div class="get_flex-container">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">직급</th>
+                                            <th style="width: 100px;">인원</th>
+                                            <th style="width: 120px;">투입일자</th>
+                                            <th style="width: 120px;">투입인력</th>
+                                            <th style="width: 200px;">합계</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="budget_result_tbody">
+                                    </tbody>
+                                </table>
+                                <table class="custom-table" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 100px;">경비</th>
+                                            <th style="width: 150px;">금액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="record_result_tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+
+
+                        <div class="right-bottom" style="max-width: 48%;">
+                            <h2>외주 예상 사업수행비 현황</h2>
+
+                            <hr style="margin-bottom: 20px;">
+                            <table class="custom-table" id="out_fee_table">
+                                <thead>
+
+                                </thead>
+                                <tbody id="out_fee_tbody">
+
+                                </tbody>
+                            </table>
+                            <div class="get_flex-container">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">직급</th>
+                                            <th style="width: 100px;">인원</th>
+                                            <th style="width: 120px;">투입일자</th>
+                                            <th style="width: 120px;">투입인력</th>
+                                            <th style="width: 200px;">합계</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="out_budget_result_tbody">
+                                    </tbody>
+                                </table>
+                                <table class="custom-table" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 100px;">경비</th>
+                                            <th style="width: 150px;">금액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="out_record_result_tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 예상 진행비 탭 -->
+        <div id="Budget" class="tabcontent">
+            <div style="height: 50px;">
+                <div class="sub-tabcontent">
+                    <button class="ex_tablinks" onclick="EX_openTab(event, 'examine')">직영검토</button>
+                    <button class="ex_tablinks" onclick="EX_openTab(event, 'outsouce_examine')">외주검토</button>
+                </div>
+                <button id="class_edit" onclick="toggleLayout()">사업부 수정</button>
+                <button class="class_save" id="layout_save" onclick="saveExamine()">내용 저장</button>
+
+                <button class="cancle_btn" id="cancel_dept" style="display: none; right: 200px;"
+                    onclick="cancelEdit()">취소</button>
+                <button class="class_save" id="add_dept" style="display: none; right: 80px;"
+                    onclick="addLayout()">추가</button>
+                <button class="class_save" id="save_dept" style="display: none;"
+                    onclick="saveDepartmentLayout()">저장</button>
+            </div>
+
+            <div id="examine" class="ex_tabcontent">
+                <div class="view-mode" style="margin-top: 3px;">
+                    <div>
+                        <!-- 첫 번째 부서 -->
+                        <div id="Department_first">
+                            <div class="header-container" id="Dep_fir_header">
+                                <h2 class="header-text Dep_fir_header_text" id="Dep_fir_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="Dep_fir_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="기업부설연구소">기업부설연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <!-- 인건비 테이블 -->
+                                <table class="custom-table Budget_table" id="Dep_fir_table" data-type="budget">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="addBudgetRow" class="add-row-btn addRowBTN"
+                                                        data-target="Dep_fir_Budget_tbody">+</button>
+                                                    <button id="removeBudgetRow" class="remove-row-btn removeRowBTN"
+                                                        data-target="Dep_fir_Budget_tbody">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Dep_fir_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="fir_PersonSum">0</td>
+                                            <td id="fir_MDsum">0.00</td>
+                                            <td id="fir_budgetSum">0</td>
+                                        </tr>
+                                        {% if first_budget %}
+                                        {% for row in first_budget %}
+                                        <tr>
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row['Position']=="이사" %}selected{% endif
+                                                        %}>이사</option>
+                                                    <option value="부장" {% if row['Position']=="부장" %}selected{% endif
+                                                        %}>부장</option>
+                                                    <option value="차장" {% if row['Position']=="차장" %}selected{% endif
+                                                        %}>차장</option>
+                                                    <option value="과장" {% if row['Position']=="과장" %}selected{% endif
+                                                        %}>과장</option>
+                                                    <option value="대리" {% if row['Position']=="대리" %}selected{% endif
+                                                        %}>대리</option>
+                                                    <option value="주임" {% if row['Position']=="주임" %}selected{% endif
+                                                        %}>주임</option>
+                                                    <option value="사원" {% if row['Position']=="사원" %}selected{% endif
+                                                        %}>사원</option>
+                                                    <option value="계약직" {% if row['Position']=="계약직" %}selected{% endif
+                                                        %}>계약직</option>
+                                                </select>
+                                            </td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['person'] |
+                                                int }}</td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['M_D'] |
+                                                int }}</td>
+                                            <td class="amount-cell">{{ "{:,.0f}".format(row['amount']) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('Dep_fir_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+
+                                <!-- 직영 첫 번째 부서 진행 경비 -->
+                                <table class="custom-table specific-table" id="LeftRecords_table" data-type="record">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="addRecordRow" class="add-row-btn addRowBTN"
+                                                        data-target="Dep_fir_Record_tbody">+</button>
+                                                    <button id="removeRecordRow" class="remove-row-btn"
+                                                        data-target="Dep_fir_Record_tbody">-</button>
+                                                    <button id="EXrecordsModal_fir" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="fir"
+                                                        onclick="openRecordModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if first_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if first_records %}
+                                    <tbody id="Dep_fir_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="fir_recordSum">0</td>
+                                        </tr>
+                                        {% for item in first_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | round(0) | format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'fir')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% else %}
+                                    <tbody id="Dep_fir_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="fir_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('Dep_fir_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+
+                            </div>
+                        </div>
+
+                        <!-- 두 번째 부서 -->
+                        <div id="Department_second">
+                            <div class="header-container" id="Dep_sec_header">
+                                <h2 class="header-text Dep_sec_header_text" id="Dep_sec_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="Dep_sec_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="기업부설연구소">기업부설연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <!-- 인건비 테이블 -->
+                                <table class="custom-table Budget_table" id="Dep_sec_table" data-type="budget">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="sec_addBudgetRow" class="add-row-btn addRowBTN"
+                                                        data-target="Dep_sec_Budget_tbody">+</button>
+                                                    <button id="sec_removeBudgetRow" class="remove-row-btn removeRowBTN"
+                                                        data-target="Dep_sec_Budget_tbody">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Dep_sec_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="sec_PersonSum">0</td>
+                                            <td id="sec_MDsum">0.00</td>
+                                            <td id="sec_budgetSum">0</td>
+                                        </tr>
+                                        {% if second_budget %}
+                                        {% for row in second_budget %}
+                                        <tr>
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row['Position']=="이사" %}selected{% endif
+                                                        %}>이사</option>
+                                                    <option value="부장" {% if row['Position']=="부장" %}selected{% endif
+                                                        %}>부장</option>
+                                                    <option value="차장" {% if row['Position']=="차장" %}selected{% endif
+                                                        %}>차장</option>
+                                                    <option value="과장" {% if row['Position']=="과장" %}selected{% endif
+                                                        %}>과장</option>
+                                                    <option value="대리" {% if row['Position']=="대리" %}selected{% endif
+                                                        %}>대리</option>
+                                                    <option value="주임" {% if row['Position']=="주임" %}selected{% endif
+                                                        %}>주임</option>
+                                                    <option value="사원" {% if row['Position']=="사원" %}selected{% endif
+                                                        %}>사원</option>
+                                                    <option value="계약직" {% if row['Position']=="계약직" %}selected{% endif
+                                                        %}>계약직</option>
+                                                </select>
+                                            </td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['person'] |
+                                                int }}</td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['M_D'] |
+                                                int }}</td>
+                                            <td class="amount-cell">{{ "{:,.0f}".format(row['amount']) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('Dep_sec_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+
+                                </table>
+
+                                <!-- 직영 두 번째 부서 진행 경비 -->
+                                <table class="custom-table specific-table" id="SecondRecords_table" data-type="record">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="sec_addRecordRow" class="add-row-btn addRowBTN"
+                                                        data-target="Dep_sec_Record_tbody">+</button>
+                                                    <button id="sec_removeRecordRow" class="remove-row-btn"
+                                                        data-target="Dep_sec_Record_tbody">-</button>
+                                                    <button id="EXrecordsModal_sec" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="sec"
+                                                        onclick="openRecordModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if second_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if second_records %}
+                                    <tbody id="Dep_sec_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="sec_recordSum">0</td>
+                                        </tr>
+                                        {% for item in second_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | round(0) | format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'sec')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% else %}
+                                    <tbody id="Dep_sec_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="sec_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('Dep_sec_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- 외주 검토 -->
+            <div id="outsouce_examine" class="ex_tabcontent">
+                <div class="view-mode" style="margin-top: 3px;">
+                    <div>
+                        <div id="outsource_dept">
+                            <table class="custom-table" id="outsource_table" data-type="outsourcing">
+                                <thead>
+                                    <tr>
+                                        <th colspan="6" class="header-text">
+                                            <span>외주 예상비</span>
+                                            <span class="button-wrapper">
+                                                <button id="out_addoutRow" class="add-row-btn addRowBTN"
+                                                    data-target="outsource_tbody">+</button>
+                                                <button id="out_removeoutRow" class="remove-row-btn removeRowBTN"
+                                                    data-target="outsource_tbody">-</button>
+                                            </span>
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        <th colspan="6" style="text-align:left; font-size:14px; color:#666; padding:6px 8px;">
+                                            * 체크박스 선택 후 '-' 버튼을 누르면 해당 행이 삭제됩니다.
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        <th style="width: 4%;"></th>
+                                        <th style="width: 10%;">구분</th>
+                                        <th style="width: 12%;">업체명</th>
+                                        <th style="width: 36%;">물량</th>
+                                        <th style="width: 19%;">금액(VAT제외)</th>
+                                        <th style="width: 19%;">금 액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="outsource_tbody">
+                                    <tr>
+                                        <td colspan="4">총 계</td>
+                                        <td id="outsourceSum_NoVAT">0</td>
+                                        <td id="outsourceSum">0</td>
+                                    </tr>
+
+                                    {% if outsourcing %}
+                                    {% for row in outsourcing %}
+                                    <tr>
+                                        <td style="text-align:center;"><input type="checkbox" class="row-check"></td>
+                                        <td>
+                                            {% set out_type = row['outsourcing_type'] if row['outsourcing_type'] else '외주없음' %}
+                                            <select>
+                                                <option value="외주없음" {% if out_type == '외주없음' %}selected{% endif %}>외주없음</option>
+                                                <option value="전량외주" {% if out_type == '전량외주' %}selected{% endif %}>전량외주</option>
+                                                <option value="부분외주" {% if out_type == '부분외주' %}selected{% endif %}>부분외주</option>
+                                            </select>
+                                        </td>
+                                        <td class="edit_cell" onclick="inputText(this, 'outsourcing')">{{
+                                            row['outsourcing_company'] }}</td>
+                                        <td class="edit_cell multiline" onclick="inputText(this, 'textarea')">
+                                            {{ row['outsourcing_quantity'].replace('\n', '<br>')|safe if
+                                            row['outsourcing_quantity'] else '-' }}
+                                        </td>
+                                        <td class="amount-cell">{{ "{:,.0f}".format(row['outsourcing_cost_NoVAT']) }}
+                                        </td>
+                                        <td class="amount-cell" onclick="inputText(this, 'outsourcing')">{{ "{:,.0f}".format(row['outsourcing_cost']) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% else %}
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('outsource_tbody', 1);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 첫 번째 부서 -->
+                        <div id="out_Department_first" class="Department_first">
+                            <div class="header-container" id="out_Dep_fir_header">
+                                <h2 class="header-text Dep_fir_header_text" id="out_Dep_fir_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="out_Dep_fir_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="기업부설연구소">기업부설연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <!-- 인건비 테이블 -->
+                                <table class="custom-table Budget_table" id="out_Dep_fir_table"
+                                    style="white-space: nowrap;" data-type="budget">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="out_addBudgetRow" class="add-row-btn addRowBTN"
+                                                        data-target="out_Dep_fir_Budget_tbody">+</button>
+                                                    <button id="out_removeBudgetRow" class="remove-row-btn removeRowBTN"
+                                                        data-target="out_Dep_fir_Budget_tbody">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="out_Dep_fir_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="out_fir_PersonSum">0</td>
+                                            <td id="out_fir_MDsum">0.00</td>
+                                            <td id="out_fir_budgetSum">0</td>
+                                        </tr>
+                                        {% if out_first_budget %}
+                                        {% for row in out_first_budget %}
+                                        <tr>
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row['Position']=="이사" %}selected{% endif
+                                                        %}>이사</option>
+                                                    <option value="부장" {% if row['Position']=="부장" %}selected{% endif
+                                                        %}>부장</option>
+                                                    <option value="차장" {% if row['Position']=="차장" %}selected{% endif
+                                                        %}>차장</option>
+                                                    <option value="과장" {% if row['Position']=="과장" %}selected{% endif
+                                                        %}>과장</option>
+                                                    <option value="대리" {% if row['Position']=="대리" %}selected{% endif
+                                                        %}>대리</option>
+                                                    <option value="주임" {% if row['Position']=="주임" %}selected{% endif
+                                                        %}>주임</option>
+                                                    <option value="사원" {% if row['Position']=="사원" %}selected{% endif
+                                                        %}>사원</option>
+                                                    <option value="계약직" {% if row['Position']=="계약직" %}selected{% endif
+                                                        %}>계약직</option>
+                                                </select>
+                                            </td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['person'] |
+                                                int }}</td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['M_D'] |
+                                                int }}</td>
+                                            <td class="amount-cell">{{ "{:,.0f}".format(row['amount']) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('out_Dep_fir_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+
+                                </table>
+
+                                <!-- 진행경비 테이블 -->
+                                <table class="custom-table specific-table" id="out_LeftRecords_table"
+                                    data-type="record">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="out_addRecordRow" class="add-row-btn addRowBTN"
+                                                        data-target="out_Dep_fir_Record_tbody">+</button>
+                                                    <button id="out_removeRecordRow" class="remove-row-btn removeRowBTN"
+                                                        data-target="out_Dep_fir_Record_tbody">-</button>
+                                                    <button id="out_EXrecordsModal_fir" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="out_fir"
+                                                        onclick="openRecordModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if out_first_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if out_first_records %}
+                                    <tbody id="out_Dep_fir_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="out_fir_recordSum">0</td>
+                                        </tr>
+                                        {% for item in out_first_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | round(0) | format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'out_fir')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% else %}
+                                    <tbody id="out_Dep_fir_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="out_fir_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('out_Dep_fir_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 두 번째 부서 -->
+                        <div id="out_Department_second" class="Department_first">
+                            <div class="header-container" id="out_Dep_sec_header">
+                                <h2 class="header-text Dep_sec_header_text" id="out_Dep_sec_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="out_Dep_sec_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="기업부설연구소">기업부설연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <!-- 인건비 테이블 -->
+                                <table class="custom-table Budget_table" id="out_Dep_sec_table"
+                                    style="white-space: nowrap;" data-type="budget">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="out_sec_addBudgetRow" class="add-row-btn addRowBTN"
+                                                        data-target="out_Dep_sec_Budget_tbody">+</button>
+                                                    <button id="out_sec_removeBudgetRow"
+                                                        class="remove-row-btn removeRowBTN"
+                                                        data-target="out_Dep_sec_Budget_tbody">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="out_Dep_sec_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="out_sec_PersonSum">0</td>
+                                            <td id="out_sec_MDsum">0.00</td>
+                                            <td id="out_sec_budgetSum">0</td>
+                                        </tr>
+                                        {% if out_second_budget %}
+                                        {% for row in out_second_budget %}
+                                        <tr>
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row['Position']=="이사" %}selected{% endif
+                                                        %}>이사</option>
+                                                    <option value="부장" {% if row['Position']=="부장" %}selected{% endif
+                                                        %}>부장</option>
+                                                    <option value="차장" {% if row['Position']=="차장" %}selected{% endif
+                                                        %}>차장</option>
+                                                    <option value="과장" {% if row['Position']=="과장" %}selected{% endif
+                                                        %}>과장</option>
+                                                    <option value="대리" {% if row['Position']=="대리" %}selected{% endif
+                                                        %}>대리</option>
+                                                    <option value="주임" {% if row['Position']=="주임" %}selected{% endif
+                                                        %}>주임</option>
+                                                    <option value="사원" {% if row['Position']=="사원" %}selected{% endif
+                                                        %}>사원</option>
+                                                    <option value="계약직" {% if row['Position']=="계약직" %}selected{% endif
+                                                        %}>계약직</option>
+                                                </select>
+                                            </td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['person'] |
+                                                int }}</td>
+                                            <td class="edit_cell" onclick="inputText(this, 'budget')">{{ row['M_D'] |
+                                                int }}</td>
+                                            <td class="amount-cell">{{ "{:,.0f}".format(row['amount']) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('out_Dep_sec_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+
+                                </table>
+
+                                <!-- 진행경비 테이블 -->
+                                <table class="custom-table specific-table" id="out_SecondRecords_table"
+                                    data-type="record">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="out_addRecordRow_sec" class="add-row-btn addRowBTN"
+                                                        data-target="out_Dep_sec_Record_tbody">+</button>
+                                                    <button id="out_removeRecordRow_sec"
+                                                        class="remove-row-btn removeRowBTN"
+                                                        data-target="out_Dep_sec_Record_tbody">-</button>
+                                                    <button id="out_EXrecordsModal_sec" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="out_sec"
+                                                        onclick="openRecordModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if out_second_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if out_second_records %}
+                                    <tbody id="out_Dep_sec_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="out_sec_recordSum">0</td>
+                                        </tr>
+                                        {% for item in out_second_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | int | format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'out_sec')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    {% else %}
+                                    <tbody id="out_Dep_sec_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="out_sec_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('out_Dep_sec_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    </div>
+    </div>
+
+
+    <!-- 사업 검색 모달 -->
+    <div id="searchProjectModal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <span class="modal_close" onclick="closeSearchModal()">&times;</span>
+            <h2>사업 검색</h2>
+            <hr class="modal_hr">
+
+            <div class="modal-body">
+                <!-- 검색 영역 -->
+                <div class="search-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="searchProjectInput" placeholder="계약코드 또는 사업명 입력"
+                        style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <button onclick="searchProject()" style="padding: 4px 20px; background-color: #007bff; color: white; 
+                               border: none; border-radius: 4px; cursor: pointer; height: 35px;">
+                        검색
+                    </button>
+                </div>
+
+                <!-- 검색 결과 영역 -->
+                <div id="searchResultsContainer" style="border: 1px solid #ccc; 
+                        border-radius: 4px; 
+                        height: 400px; 
+                        overflow-y: auto; 
+                        padding: 20px;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        color: #666;">
+                    계약코드 검색
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 예상 진행비 수정 창 -->
+    <div id="modal_EXrecordsModal" class="modal">
+        <div class="modal-content" style="width: 800px;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2>예상 진행비 수정</h2>
+            <hr class="modal_hr" style="width: 100%;">
+
+            <div class="modal-body">
+                <!-- 수행부서 섹션 -->
+                <div class="modal_section">
+                    <table class="custom-table specific-table modify-table" id="ModifyRecords_table"
+                        data-type="addRecord">
+
+                        <thead>
+                            <tr>
+                                <th colspan="7" class="header-text">
+                                    <span>진행 경비</span>
+                                    <span class="button-wrapper">
+                                        <button id="modify_addRecordRow" class="add-row-btn addRowBTN"
+                                            data-target="Dep_Modify_Record_tbody">+</button>
+                                        <button id="modify_removeRecordRow" class="remove-row-btn">-</button>
+                                    </span>
+                                </th>
+                            </tr>
+                            <tr>
+                                <th style="width: 30%;">항 목</th>
+                                <th style="width: 5%;">인 원</th>
+                                <th style="width: 5%;">횟 수</th>
+                                <th style="width: 5%;">일 수</th>
+                                <th style="width: 15%;">단 가</th>
+                                <th style="width: 25%;">금 액</th>
+                                <th style="width: 25%;">비 고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="Dep_Modify_Record_tbody">
+
+                        </tbody>
+                    </table>
+                </div>
+
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" id="modifySave_BTN"
+                    onclick="saveExpenseRecords()">저장</button>
+            </div>
+        </div>
+    </div>
+</body>
+<script>
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementsByClassName("tablinks")[0].click();
+        document.getElementsByClassName("ex_tablinks")[0].click();
+    });
+
+    const firstRecords = JSON.parse('{{ first_records | tojson | safe }}');
+    const secondRecords = JSON.parse('{{ second_records | tojson | safe }}');
+    const out_first_records = JSON.parse('{{ out_first_records | tojson | safe }}');
+    const out_second_records = JSON.parse('{{ out_second_records | tojson | safe }}');
+
+    const firstBudget = JSON.parse('{{ first_budget | tojson | safe }}');
+    const secondBudget = JSON.parse('{{ second_budget | tojson | safe }}');
+    const out_first_Budget = JSON.parse('{{ out_first_budget | tojson | safe }}');
+    const out_second_Budget = JSON.parse('{{ out_second_budget | tojson | safe }}');
+</script>
+
+<script id="outsourcing-data" type="application/json">
+    {{ outsourcing | tojson }}
+    
+</script>
+
+</html>

@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Detail</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Detail.css') }}">
+
+    <!-- 1. 외부 라이브러리들 먼저 로드 -->
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+
+    <!-- 2. 마지막으로 커스텀 JS 로드 -->
+    <script src="{{ url_for('static', filename='PMS_Business_Detail.js') }}" defer></script>
+</head>
+
+<body>
+
+
+
+    <header style="display: flex; align-items: center; gap: 12px;">
+        <button onclick="window.location.href='/'" class="back-button" style="margin-left: 20px;">
+            <!-- 삼인 -->
+            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+            <!-- BIT -->
+            <!-- <img src="{{ url_for('static', filename='img/BIT_home.png') }}" alt="뒤로" style="width: 150px; height: 80px;"> -->
+        </button>
+        <h1 style="flex: 1; text-align: center; margin: 0;" id="projectName"></h1>
+        <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
+            <button class="edit-button" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
+
+        </div>
+
+        <input type="hidden" id="headerName" value="{{ project['ProjectName'] }}">
+    </header>
+
+    <!-- ===================================탭 버튼=================================== -->
+    <ul id="contextMenu" class="context-menu" style="display: none; position: absolute; z-index: 1000;">
+        <li onclick="insertRowAtContextTarget('above')">위에 행 삽입</li>
+        <li onclick="insertRowAtContextTarget('below')">아래에 행 삽입</li>
+    </ul>
+
+    <div class="tabs" style="margin-bottom: 0;">
+        <button class="tablinks" onclick="openTab(event, 'Details')">상세 정보</button>
+        <button class="tablinks" onclick="openTab(event, 'project_change')">사업 관리</button>
+        <button class="tablinks" onclick="openTab(event, 'Budget')">예상 진행비</button>
+        <button class="tablinks" onclick="openTab(event, 'Dep_fir_Money')">실제 진행비</button>
+        <button class="tablinks" onclick="openTab(event, 'comparison')">통 계</button>
+        <button class="tablinks" onclick="openTab(event, 'MeetingMinutes')">회의록</button>
+        <!-- 새로 추가한 "물량 입력" 버튼 -->
+        <div class="quantity-btn-container"> <!-- 새로 추가된 컨테이너 -->
+            <button class="quantity-btn" id="quantityModal" onclick="openModal(this)">사업물량 입력</button>
+            <button class="quantity-btn" id="itemModal" onclick="saveEditTable()">작업물량 입력</button>
+        </div>
+    </div>
+
+    <div id="modal_statusModal" class="modal">
+        <div class="modal-content" style="top: 50px; width: 450px; height: 350px;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2>현황수정</h2>
+            <hr class="modal_hr">
+
+            <div class="modal-body">
+                <div class="modal_section">
+                    <label style="font-weight: bold; display: block; margin-bottom: 10px;">프로젝트 현황</label>
+                    <div style="display: flex; gap: 20px; align-items: center;">
+                        <label><input type="radio" name="project_status" value="진행중" checked> 진행중</label>
+                        <label><input type="radio" name="project_status" value="용역중지"> 용역중지</label>
+                        <label><input type="radio" name="project_status" value="준공"> 준공</label>
+                    </div>
+                    <select id="year_select" class="modal_custom-select"
+                        style="margin-top: 20px; margin-bottom: 0; display: none;">
+                    </select>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" onclick="saveProjectStatus()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 사업물량 입력 창 HTML -->
+    <div id="modal_quantityModal" class="modal">
+        <div class="modal-content" style="width: 650px;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2>사업물량 입력</h2>
+            <hr class="modal_hr">
+
+            <div class="modal-body">
+                <!-- 수행부서 섹션 -->
+                <div class="modal_section">
+                    <label for="modal_item1">부서</label>
+                    <select id="modal_item1" name="modal_item1" class="modal_custom-select" required>
+                        <option value="">선택하세요</option>
+                        <option value="기업부설연구소">기업부설연구소</option>
+                        <option value="공간정보사업부">공간정보사업부</option>
+                        <option value="GIS사업부">GIS사업부</option>
+                        <option value="GIS사업지원부">GIS사업지원부</option>
+                    </select>
+                </div>
+
+                <!-- 사업보할 입력 섹션 (부서 선택 아래, A부서 위) -->
+                <div class="modal_section" id="modal_projectBohal_section" style="display: none;">
+                    <h3 style="margin: 8px 0;">사업보할</h3>
+                    <div class="project-bohal-wrap">
+                        <input type="number" style="width: 100%;" id="modal_projectBohal"
+                            class="modal_input project-bohal-input" placeholder="예: 100" min="0" max="100" step="1" />
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <!-- A 부서 -->
+                <div id="modal_ASection" class="modal_form-section">
+                    <div class="modal_label-button-group">
+                        <h3 id="modal_ALabel">A 부서(Atextbox 값)</h3>
+                        <div class="modal_button-group">
+                            <button id="modal_addA" class="add-row-btn"
+                                onclick="addRows('quantityModal_A_tbody', 1)">+</button>
+                            <button id="modal_removeA" class="remove-row-btn"
+                                onclick="removeCheckedRows('quantityModal_A_tbody')">-</button>
+                        </div>
+                    </div>
+                    <hr class="section-divider">
+                    <!-- 테이블 -->
+                    <div id="modal_AContainer" style="text-align: center;">
+                        <table class="custom-table" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;"></th>
+                                    <th style="width: 50%;">항목</th>
+                                    <th style="width: 15%;">수량</th>
+                                    <th style="width: 15%;">단위</th>
+                                    <th style="width: 15%;">보할(%)</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5"
+                                        style="text-align:left; font-size:14px; color:#666; padding:6px 8px;">
+                                        * 체크박스 선택 후 '-' 버튼을 누르면 해당 행이 삭제됩니다.
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="quantityModal_A_tbody" onpaste="handlePasteAndAddRows(this)">
+                                <!-- 행이 여기에 추가됩니다 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" onclick="saveTaskQuantity()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+
+
+    <!-- 수행물량 입력 창 HTML -->
+    <div id="modal_itemModal" class="modal">
+        <div class="modal-content" style="height: 700px; width: 600px;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2 style="margin-bottom: 0;">작업물량 입력</h2>
+            <hr class="modal_hr">
+
+            <div class="modal-body"> <!-- 스크롤이 적용되는 내용 부분 -->
+                <!-- 수행부서 섹션 -->
+                <div class="modal_section">
+                    <label for="modal_department">부서</label>
+                    <select id="modal_department" name="modal_department" class="modal_custom-select" required
+                        onchange="addRows('itemModal_A_tbody', 1)">
+                        <option value="">선택하세요</option>
+                        <option value="기업부설연구소">기업부설연구소</option>
+                        <option value="공간정보사업부">공간정보사업부</option>
+                        <option value="GIS사업부">GIS사업부</option>
+                        <option value="GIS사업지원부">GIS사업지원부</option>
+                    </select>
+                </div>
+
+                <!-- 작업 시간 섹션 -->
+                <div class="modal_section">
+                    <label for="work_time" style="margin-bottom: 0;">작업 시간</label><br> <!-- 줄바꿈 추가 -->
+                    <div style="display: flex; gap: 10px;">
+                        <label>
+                            <input type="radio" name="work_time" value="day" checked> 주간
+                        </label>
+                        <label>
+                            <input type="radio" name="work_time" value="night"> 야간
+                        </label>
+                        <label>
+                            <input type="radio" name="work_time" value="holiday"> 휴일
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 작업물량 작성 -->
+                <div id="modal_ASection" class="modal_form-section">
+                    <div class="modal_label-button-group">
+                        <h3 id="modal_ALabel">작업물량 작성</h3>
+                        <div class="modal_button-group">
+                            <button id="modal_item_addA" class="add-row-btn"
+                                onclick="addRows('itemModal_A_tbody', 1)">+</button>
+                            <button id="modal_removeA" class="remove-row-btn"
+                                onclick="removeRow('itemModal_A_tbody')">-</button>
+                        </div>
+                    </div>
+                    <hr class="section-divider"> <!-- 구분선 추가 -->
+                    <!-- 테이블 -->
+                    <div id="modal_item_AContainer" style="text-align: center;">
+                        <table class="custom-table" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45%;">항목</th>
+                                    <th style="width: 15%;">작업 물량</th>
+                                    <th style="width: 15%;">작업 시간</th>
+                                    <th style="width: 25%;">직 급</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemModal_A_tbody">
+                                <!-- 행이 여기에 추가됩니다 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 사용 경비 -->
+                <div id="modal_BSection" class="modal_form-section">
+                    <div class="modal_label-button-group">
+                        <h3 id="modal_BLabel">사용경비 작성</h3>
+                        <div class="modal_button-group">
+                            <button id="modal_addB" class="add-row-btn"
+                                onclick="addRows('moneyModal_tbody', 1)">+</button>
+                            <button id="modal_removeB" class="remove-row-btn"
+                                onclick="removeRow('moneyModal_tbody')">-</button>
+                        </div>
+                    </div>
+                    <hr class="section-divider"> <!-- 구분선 추가 -->
+                    <!-- 테이블 -->
+                    <div id="modal_BContainer" style="text-align: center;">
+                        <table class="custom-table" style="width: 100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40%;">항목</th>
+                                    <th style="width: 20%;">내역</th>
+                                    <th style="width: 20%;">유형</th>
+                                    <th style="width: 20%;">금액</th>
+                                </tr>
+                            </thead>
+                            <tbody id="moneyModal_tbody">
+                                <!-- 행이 여기에 추가됩니다 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div> <!-- modal-body 종료 -->
+
+            <div class="modal-footer"> <!-- 고정된 저장 버튼 -->
+                <button type="button" class="modal_save-btn" onclick="saveTaskItemModal()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 외주 입력 창 HTML -->
+    <div id="modal_outsourceModal" class="modal">
+        <div class="modal-content" style="width: 150vh; height: 80vh;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2 style="margin-bottom: 0;">외주 관리</h2>
+            <hr class="modal_hr">
+
+            <!-- 하위 탭 메뉴 -->
+            <div class="sub-settings-tabs">
+                <button class="sub-tab-button active" data-tab="sub_settings">외주 설정</button>
+                <button class="sub-tab-button" data-tab="sub_edit">외주 수정</button>
+                <button class="sub-tab-button" data-tab="outsource_process">외주 진행률 입력</button>
+                <button class="sub-tab-button" data-tab="outsource_moneyPayment">외주 금액 지급</button>
+            </div>
+
+            <!-- 하위 탭 컨텐츠 -->
+            <div class="sub-tab-content">
+                <!-- 외주 설정 탭 -->
+                <div id="sub_settings" class="sub-tab-pane active">
+                    <div class="modal-body">
+                        <!-- 부서 선택 제거: 업서트 시 외주 업체명을 department로 사용 -->
+
+                        <!-- 외주 형태 -->
+                        <div class="modal_section">
+                            <label>외주 형태</label>
+                            <div style="display: flex; gap: 10px;">
+                                <label><input type="radio" name="work_time" value="day" checked> 전량 외주</label>
+                                <label><input type="radio" name="work_time" value="night"> 부분 외주</label>
+                                <label><input type="radio" name="work_time" value="addQuantity"> 추가 제안</label>
+                            </div>
+                        </div>
+
+                        <br>
+
+                        <!-- 2x2 입력 필드 -->
+                        <div class="input-grid">
+                            <div class="input-group">
+                                <label for="outsource_company">외주 업체</label>
+                                <input type="text" id="outsource_company" name="outsource_company" placeholder="외주 업체"
+                                    autocomplete="off" spellcheck="false" required>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="bohal">보할</label>
+                                <input type="text" id="bohal" name="bohal" placeholder="보할(%) 입력" autocomplete="off"
+                                    spellcheck="false">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="outsource_amount">외주 금액</label>
+                                <input type="text" id="outsource_amount" name="outsource_amount" placeholder="외주 금액"
+                                    autocomplete="off" spellcheck="false" oninput="calculateVATExcluded()" required>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="outsource_amount_vat_excluded">외주 금액 (VAT 제외)</label>
+                                <input type="text" id="outsource_amount_vat_excluded"
+                                    name="outsource_amount_vat_excluded" placeholder="VAT 제외 금액" readonly>
+                            </div>
+                        </div>
+
+                        <br>
+
+                        <!-- 외주 물량 -->
+                        <div class="modal_form-section input-group">
+                            <label for="projectDetails">외주 물량</label>
+                            <textarea id="projectDetails" class="out_textarea" name="projectDetails"
+                                placeholder="외주 물량 작성" rows="4" spellcheck="false" autocomplete="off"
+                                required></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal_save-btn" onclick="saveOutsourceModal()">저장</button>
+                    </div>
+                </div>
+
+                <!-- 외주 수정 탭 -->
+                <div id="sub_edit" class="sub-tab-pane">
+                    <div class="modal-body">
+                        <h3>외주 수정</h3>
+                        <table class="custom-table no_wrap">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%;">외주 형태</th>
+                                    <th style="width: 15%;">외주 업체</th>
+                                    <th style="width: 10%;">보할(%)</th>
+                                    <th style="width: 15%;">외주 금액</th>
+                                    <th style="width: 15%;">외주 금액 (VAT 제외)</th>
+                                    <th style="width: 40%;">외주 물량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="edit_outsourcing_result_tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal_save-btn"
+                            onclick="saveEditableOutsourcingTable()">저장</button>
+                    </div>
+                </div>
+
+                <!-- 외주 진행률 탭 -->
+                <div id="outsource_process" class="sub-tab-pane">
+                    <div class="modal-body">
+                        <h3>외주 진행률 작성</h3>
+                        <table class="custom-table no_wrap">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%;">외주 형태</th>
+                                    <th style="width: 15%;">외주 업체</th>
+                                    <th style="width: 10%;">보할(%)</th>
+                                    <th style="width: 15%;">외주 진행률(%)</th>
+                                    <th style="width: 40%;">외주 물량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outsourcing_process_tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal_save-btn" onclick="saveProcessOutsourcingTable()">저장</button>
+                    </div>
+                </div>
+
+                <!-- 외주 금액 지급 탭 -->
+                <div id="outsource_moneyPayment" class="sub-tab-pane">
+                    <div class="modal-body">
+                        <div class="header-container"
+                            style="display:flex; align-items:center; justify-content: space-between;">
+                            <h3 style="margin: 0;">외주 금액 지급</h3>
+                            <span class="button-box">
+                                <button class="add-row-btn" onclick="addMoneyPaymentRow()">+</button>
+                                <button class="remove-row-btn"
+                                    onclick="removeCheckedRows('outsourcing_moneyPayment_tbody')">-</button>
+                            </span>
+                        </div>
+                        <hr class="section-divider">
+                        <table class="custom-table th-no-wrap no_wrap">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;"></th>
+                                    <th style="width: 15%;">업체명</th>
+                                    <th style="width: 15%;">구분</th>
+                                    <th style="width: 10%;">금액</th>
+                                    <th style="width: 10%;">금액(VAT 제외)</th>
+                                    <th style="width: 10%;">잔액</th>
+                                    <th style="width: 10%;">지급일자</th>
+                                    <th style="width: 25%;">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outsourcing_moneyPayment_tbody">
+                                <!-- JavaScript로 동적 생성 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="modal_save-btn"
+                            onclick="saveOutsourcingMoneyPayments()">저장</button>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 외부 인력 단가 산정 모달 -->
+    <div id="externalLaborModal" class="modal">
+        <div class="modal-content">
+            <!-- 닫기 버튼 -->
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <div class="header-container">
+                <h2 class="header-text" style="margin-bottom: 15px; margin-top: 60px;">외부인력 설정</h2><br>
+                <span class="button-box" style="margin-top: 60px;">
+                    <button class="add-row-btn" onclick="addRows('externalTable_tbody', 1, true)">+</button>
+                    <button class="remove-row-btn" onclick="removeRow('externalTable_tbody')">-</button>
+                </span>
+            </div>
+            <hr class="section-divider"> <!-- 구분선 추가 -->
+            <!-- 테이블 -->
+            <div class="modal-body">
+                <table id="externalLaborTable" class="custom-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #ccc; padding: 8px;">직 급</th>
+                            <th style="border: 1px solid #ccc; padding: 8px;">월 급</th>
+                            <th style="border: 1px solid #ccc; padding: 8px;">일 급</th>
+                            <th style="border: 1px solid #ccc; padding: 8px;">계약일자</th>
+                        </tr>
+                    </thead>
+                    <tbody id="externalTable_tbody">
+                        {% if external %}
+                        {% for row in external %}
+                        <tr>
+                            <!-- 직급 -->
+                            <td style="border: 1px solid #ccc; padding: 8px; height: 28px;"
+                                onclick="TextChange(this, true)">
+                                {{ row[0] }}
+                            </td>
+                            <!-- 월급: 필터 적용 -->
+                            <td style="border: 1px solid #ccc; padding: 8px; height: 28px;"
+                                onclick="externalWithCalculation(this)">
+                                {{ row[1] | format_currency }}
+                            </td>
+                            <!-- 일급: 필터 적용 -->
+                            <td style="border: 1px solid #ccc; padding: 8px; height: 28px;">
+                                {{ row[2] | format_currency }}
+                            </td>
+                            <!-- 계약 일자 -->
+                            <td style="border: 1px solid #ccc; padding: 8px; height: 28px;">
+                                {{ row[3] }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                    </tbody>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            addRows('externalTable_tbody', 1);
+                        });
+                    </script>
+                    <tbody>
+                        {% endif %}
+                    </tbody>
+                </table>
+                <p style="margin-top: 0; text-align: right;">* 해당 데이터는 예상 및 실제 진행비에 반영됩니다.</p>
+                <input type="hidden" id="hasExternalLaborData" name="hasExternalLaborData"
+                    value="{{ 'true' if external else 'false' }}">
+            </div>
+
+            <!-- 저장 버튼 -->
+            <div class="modal-footer">
+                <button class="modal_save-btn" onclick="saveExternalLaborData()">저장</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- 예상 진행비 수정 창 -->
+    <div id="modal_EXrecordsModal" class="modal">
+        <div class="modal-content" style="width: 800px;">
+            <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
+            <h2>예상 진행비 수정</h2>
+            <hr class="modal_hr" style="width: 100%;">
+
+            <div class="modal-body">
+                <!-- 수행부서 섹션 -->
+                <div class="modal_section">
+                    <table class="custom-table specific-table modify-table no_wrap" id="ModifyRecords_table">
+
+                        <thead>
+                            <tr>
+                                <th colspan="8" class="header-text">
+                                    <span>진행 경비</span>
+                                    <span class="button-wrapper">
+                                        <button id="modify_addRecordRow" class="add-row-btn">+</button>
+                                        <button id="modify_removeRecordRow" class="remove-row-btn">-</button>
+                                    </span>
+                                </th>
+                            </tr>
+                            <tr>
+                                <th colspan="8" style="text-align:left; font-size:14px; color:#666; padding:6px 8px;">
+                                    * 체크박스 선택 후 '-' 버튼을 누르면 해당 행이 삭제됩니다.
+                                </th>
+                            </tr>
+                            <tr>
+                                <th style="width:4%;"></th>
+                                <th style="width: 28%;">항 목</th>
+                                <th style="width: 5%;">인 원</th>
+                                <th style="width: 5%;">횟 수</th>
+                                <th style="width: 5%;">일 수</th>
+                                <th style="width: 15%;">단 가</th>
+                                <th style="width: 17%;">금 액</th>
+                                <th style="width: 21%;">비 고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="Dep_Modify_Record_tbody">
+
+                        </tbody>
+
+                    </table>
+                </div>
+
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="modal_save-btn" id="modifySave_BTN"
+                    onclick="saveModifyExpenseRecords()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================상세정보 탭=================================== -->
+    <div class="content">
+        <div id="Details" class="tabcontent">
+            <div class="button_group"
+                style="display: flex; justify-content: flex-end;margin-top: 0; margin-bottom: 5px;">
+                <button class="info-button" style="height: 37px;" id="outsourceModal" onclick="openModal(this)">외주
+                    관리</button>
+                <button class="info-button" style="width: 60px; height: 37px;" onclick="toggleEdit()">수정</button>
+                <button id="project_delete-button" style="width: 60px; height: 37px;" onclick="deleteProject()"
+                    style="display: none;">삭제</button>
+            </div>
+            <div style="display: flex; justify-content: center; margin-bottom: 5px;">
+                <!-- <div id="progress_bar">
+                    <span id="progress_text">사업 전체 진행률 : {{ total_progress }}</span>
+                    <input type="hidden" id="project_processing" value="{{ total_progress }}">
+                </div> -->
+            </div>
+            <div class="view-mode">
+                <div class="flex-container">
+                    <div class="main-info" id="main-info">
+                        <div style="display: flex; gap: 10px;">
+                            <h2>사업 개요</h2>
+                            <!-- <h3 style="margin-left: 10px; padding-top: 5.5px;">사업 진행률 : {{ '%.2f' |
+                                format(total_progress) }}%</h3> -->
+
+                            <!-- <div id="every_BTN" class="button_group" style="margin-left: auto;">
+                                <button id="externalModal" class="info-button" onclick="openModal(this)">외부인력
+                                    설정</button>
+                                <button class="info-button" id="outsourceModal" onclick="openModal(this)">외주사업</button>
+                                <button class="info-button" onclick="toggleEdit()">수정</button>
+                                <button id="project_delete-button" onclick="deleteProject()"
+                                    style="display: none;">삭제</button>
+                            </div>
+
+                            <div id="department_BTN" class="button_group" style="display: none;">
+                                <button class="info-button" id="outsourceModal" onclick="openModal(this)">외주사업</button>
+                                <button class="info-button" id="Dep_printModal" onclick="openModal(this)">인쇄</button>
+                                <button class="info-button" onclick="toggleEdit()">수정</button>
+                                <button class="delete-button" onclick="deleteProject()">삭제</button>
+                            </div>
+
+                            <div id="every_BTN" class="button_group" style="display: none;">
+                                <button class="edit-button" id="EV_Edit" onclick="toggleEdit()">수정</button>
+                                <button class="edit-button" id="EV_printModal" style="margin-right: 63px;"
+                                    onclick="openModal(this)">인쇄</button>
+                                <button class="edit-button" id="EV_outsourceModal" style="margin-right: 126px;" data-type="outsource"
+                                    onclick="openModal(this)">외주사업</button>
+                                <button id="EV_externalModal" class="edit-button" onclick="openModal(this)"
+                                    style="margin-right: 213px;">외부인력 설정</button>
+                            </div>
+
+                            <div id="department_BTN" class="button_group" style="display: none;">
+                                <button class="edit-button" id="Dep_outsourceModal" style="margin-right: 188px;" data-type="outsource"
+                                    onclick="openModal(this)">외주사업</button>
+                                <button class="edit-button" id="Dep_printModal" style="margin-right: 126px;"
+                                    onclick="openModal(this)">인쇄</button>
+                                <button class="edit-button" style="margin-right: 63px;" id="Dep_Edit"
+                                    onclick="toggleEdit()">수정</button>
+                                <button class="delete-button" onclick="deleteProject()">삭제</button>
+                            </div> -->
+
+                        </div>
+
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table" style="margin-bottom: 50px;">
+                            <!-- JS로 DATA 넘기는 숨겨진 input -->
+                            <input type="hidden" id="project-year" value="{{ project['StartDate'].strftime('%Y') }}">
+                            <input type="hidden" id="project-contractCode" value="{{ project['ContractCode'] }}">
+                            <input type="hidden" id="outsourceCheck" value="{{ project['outsourcingCheck'] }}">
+                            <input type="hidden" id="project-id" value="{{ project['ProjectID'] }}">
+                            <input type="hidden" id="costNoVAT" value="{{ project['ProjectCost_NoVAT'] }}">
+                            <input type="hidden" id="yearProject_data" value="{{ project['yearProject'] }}">
+                            <input type="hidden" id="outsource_money">
+                            <input type="hidden" id="outsource_changeMoney">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">구분</th>
+                                    <th>정보</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>사업명</td>
+                                    <td>{{ project['ProjectName'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>사업 번호</td>
+                                    <td>{{ project['ContractCode'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>계약 형식</td>
+                                    <td>
+                                        {% set yp = project['yearProject'] %}
+                                        {% if yp == 0 %}단일사업{% elif yp == 1 %}연차사업{% elif yp == 2 %}이월사업{% elif yp == 3
+                                        %}단일사업 , 이월사업{% elif yp == 4 %}연차사업 , 이월사업{% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>발주 형태</td>
+                                    <td>{{ project['procurementType'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>사업비</td>
+                                    <td>{{ project['ProjectCost'] | format_currency }}원</td>
+                                </tr>
+                                <tr>
+                                    <td>사업비(VAT 제외)</td>
+                                    <td id="ProjectCost_NoVAT">{{ project['ChangeProjectCost'] | format_currency }}원
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>계약일</td>
+                                    <td>
+                                        {% if project['StartDate'] %}
+                                        {{ project['StartDate'].strftime('%Y-%m-%d') if project['StartDate'].strftime is
+                                        defined else project['StartDate'] }}
+                                        {% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>종료일</td>
+                                    <td>
+                                        {% if project['EndDate'] %}
+                                        {{ project['EndDate'].strftime('%Y-%m-%d') if project['EndDate'].strftime is
+                                        defined else project['EndDate'] }}
+                                        {% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>발주처</td>
+                                    <td>{{ project['orderPlace'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>담당자</td>
+                                    <td>{{ project['Manager'] }}</td>
+                                </tr>
+                                <tr>
+                                    <td>지분율</td>
+                                    <td id="ContributionRate">{{ project['ContributionRate'] }}%</td>
+                                </tr>
+                                <tr>
+                                <tr>
+                                    <td>프로젝트 개요</td>
+                                    <td style="text-align: left; overflow-y: auto; display: block; ">
+                                        {{ project['ProjectDetails'].replace('\n','<br>')|safe }}</td>
+                                </tr>
+
+                                </tr>
+                                <tr>
+                                    <td>관련 파일</td>
+                                    <td id="file_list" style="text-align: left;">
+                                        <div class="file-upload-container"
+                                            style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; position: relative;"
+                                            id="drop-zone">
+                                            <!-- 설명 텍스트 -->
+                                            <div id="drop-text"
+                                                style="text-align: center; color: #999; margin-bottom: 8px;">
+                                                이 영역에 파일을 드래그하거나 <strong>파일 선택</strong> 버튼을 눌러 업로드하세요.
+                                            </div>
+                                            <!-- 현재 업로드된 파일 목록 -->
+                                            <div id="uploaded-files" style="width: 100%;">
+                                                <!-- 여기에 파일 목록이 표시됩니다 -->
+                                            </div>
+
+                                            <!-- 파일 업로드 버튼을 오른쪽으로 정렬 -->
+                                            <div class="file-upload-button" style="text-align: right;">
+                                                <input type="file" id="file-input" multiple style="display: none;">
+                                                <button type="button" class="btn btn-primary"
+                                                    onclick="document.getElementById('file-input').click()">
+                                                    파일 선택
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>참조사업</td>
+                                    <td style="text-align: left;">
+                                        {% if project.referenceProject1 and
+                                        reference_projects.get(project.referenceProject1) %}
+                                        <a href="/project_detail/{{ reference_projects[project.referenceProject1]['project_id'] }}"
+                                            class="reference-link">
+                                            {{ project.referenceProject1 }} - {{
+                                            reference_projects[project.referenceProject1]['project_name'] }}
+                                        </a><br>
+                                        {% endif %}
+                                        {% if project.referenceProject2 and
+                                        reference_projects.get(project.referenceProject2) %}
+                                        <a href="/project_detail/{{ reference_projects[project.referenceProject2]['project_id'] }}"
+                                            class="reference-link">
+                                            {{ project.referenceProject2 }} - {{
+                                            reference_projects[project.referenceProject2]['project_name'] }}
+                                        </a><br>
+                                        {% endif %}
+                                        {% if project.referenceProject3 and
+                                        reference_projects.get(project.referenceProject3) %}
+                                        <a href="/project_detail/{{ reference_projects[project.referenceProject3]['project_id'] }}"
+                                            class="reference-link">
+                                            {{ project.referenceProject3 }} - {{
+                                            reference_projects[project.referenceProject3]['project_name'] }}
+                                        </a><br>
+                                        {% endif %}
+                                        {% if project.referenceProject4 and
+                                        reference_projects.get(project.referenceProject4) %}
+                                        <a href="/project_detail/{{ reference_projects[project.referenceProject4]['project_id'] }}"
+                                            class="reference-link">
+                                            {{ project.referenceProject4 }} - {{
+                                            reference_projects[project.referenceProject4]['project_name'] }}
+                                        </a><br>
+                                        {% endif %}
+                                        {% if project.referenceProject5 and
+                                        reference_projects.get(project.referenceProject5) %}
+                                        <a href="/project_detail/{{ reference_projects[project.referenceProject5]['project_id'] }}"
+                                            class="reference-link">
+                                            {{ project.referenceProject5 }} - {{
+                                            reference_projects[project.referenceProject5]['project_name'] }}
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+
+                            </tbody>
+                        </table>
+
+                        <input type="hidden" id="sessionDep" value="{{ session['user']['department'] }}">
+                        <input type="hidden" id="sessionName" value="{{ session['user']['name'] }}">
+                        <input type="hidden" id="project_num" value="{{ project['ProjectID'] }}">
+
+
+
+                        <h2>사업 변경내역</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                            <thead>
+                                <tr>
+                                    <th>구분</th>
+                                    <th>계약일자</th>
+                                    <th>전체(VAT포함)</th>
+                                    <th>전체(VAT제외)</th>
+                                    <th>당사(지분율)</th>
+                                    <th>변경내용</th>
+                                </tr>
+                            </thead>
+                            <tbody id="chage_result_tbody">
+
+                            </tbody>
+                        </table>
+                        <h2>성과심사</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 140px;">구분</th>
+                                    <th style="width: 150px;">금액</th>
+                                    <th style="width: 140px;">날짜</th>
+                                    <th style="width: 120px;">현황</th>
+                                    <th style="width: 200px;">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="performance_result_tbody">
+                            </tbody>
+                        </table>
+
+                        <h2>사업비 수령내역</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">구분</th>
+                                    <th style="width: 150px;">금액</th>
+                                    <th style="width: 150px;">금액(VAT제외)</th>
+                                    <th style="width: 150px;">잔액</th>
+                                    <th style="width: 120px;">수령일자</th>
+                                    <th style="width: 200px;">내용</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projectCost_result_tbody">
+                            </tbody>
+                        </table>
+
+                        <h2>외주 현황</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>외주 구분</th>
+                                    <th>외주 업체</th>
+                                    <th>외주 금액</th>
+                                    <th>외주 금액(VAT제외)</th>
+                                    <th>외주 물량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outsourcing_result_tbody">
+
+                            </tbody>
+                        </table>
+
+
+
+                        <h2>추가제안</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th>구 분</th>
+                                    <th>업체</th>
+                                    <th>금액</th>
+                                    <th>금액(VAT제외)</th>
+                                    <th>물량</th>
+                                </tr>
+                            </thead>
+                            <tbody id="addQuantity_result_tbody">
+
+                            </tbody>
+                        </table>
+                    </div>
+
+
+
+                    <div class="right-column" id="right-column">
+                        <div class="right-top">
+                            <h2>사업 진행률</h2>
+                            <hr>
+                            <!-- 서버 계산 전체 진행률 전달 (JS에서 사용) -->
+                            <input type="hidden" id="project_processing" value="{{ '%.2f' | format(total_progress) }}">
+                            <table id="project_progress_overview_table" class="custom-table no_wrap"
+                                style="border: 1px solid #ccc; border-collapse: collapse; margin-left: auto; width: 100%;">
+                                <thead id="progress_overview_thead"></thead>
+                                <tbody id="progress_overview_tbody"><!-- JS 동적 렌더링 --></tbody>
+                            </table>
+                            <h2>예상 사업수행비 현황</h2>
+                            <!-- 사전비용 -->
+                            <input type="hidden" id="AcademicResearchRate"
+                                value="{{ project['AcademicResearchRate'] }}">
+                            <!-- 운영비용 -->
+                            <input type="hidden" id="OperationalRate" value="{{ project['OperationalRate'] }}">
+                            <!-- 공정비용 -->
+                            <input type="hidden" id="EquipmentRate" value="{{ project['EquipmentRate'] }}">
+                            <hr style="margin-bottom: 20px;">
+
+                            <table class="custom-table" id="EX_fee_table">
+                                <thead>
+
+                                </thead>
+                                <tbody id="EX_fee_tbody">
+
+                                </tbody>
+                            </table>
+
+                            <!-- 예상진행비 요약 합산 테이블 -->
+                            <div class="get_flex-container">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">직급</th>
+                                            <th style="width: 100px;">인원</th>
+                                            <th style="width: 120px;">투입일자</th>
+                                            <th style="width: 120px;">투입인력</th>
+                                            <th style="width: 200px;">합계</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="budget_result_tbody">
+                                    </tbody>
+                                </table>
+                                <table class="custom-table" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 100px;">경비</th>
+                                            <th style="width: 150px;">금액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="record_result_tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+
+
+                        <div class="right-bottom">
+                            <h2>실제 사업수행비 현황</h2>
+
+                            <hr style="margin-bottom: 20px;">
+                            <table class="custom-table" id="actual_fee_table">
+                                <thead>
+
+                                </thead>
+                                <tbody id="actual_fee_tbody">
+
+                                </tbody>
+                            </table>
+                            <div class="get_flex-container">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">직급</th>
+                                            <th style="width: 120px;">투입현황(일)</th>
+                                            <th style="width: 200px;">금액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Real_budget_result_tbody">
+                                    </tbody>
+                                </table>
+                                <table class="custom-table" style="margin-bottom: 50px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 100px;">경비항목</th>
+                                            <th style="width: 150px;">금액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Real_record_result_tbody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <h2>외주비 지급현황</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <!-- 카드 형식 대신 테이블 형식으로 표시 (사업비 수령내역과 동일한 스타일/형식) -->
+                        <table class="custom-table" style="margin-bottom: 50px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">업체명</th>
+                                    <th style="width: 120px;">구분</th>
+                                    <th style="width: 150px;">금액</th>
+                                    <th style="width: 150px;">금액(VAT제외)</th>
+                                    <th style="width: 150px;">잔액</th>
+                                    <th style="width: 120px;">지급일자</th>
+                                    <th style="width: 200px;">비고</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outsourcing_moneyPayment_view_tbody">
+                            </tbody>
+                        </table>
+
+
+                        <!-- <h2>비교 그래프</h2>
+                        <hr style="margin-bottom: 20px;">
+                        <div style="width: 80%; margin: 20px auto;">
+                            <canvas id="expectedCostChart"></canvas>
+                        </div>
+                        <div style="width: 80%; margin: 20px auto;">
+                            <canvas id="actualCostChart"></canvas>
+                        </div> -->
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ===================================사업 관리 탭=================================== -->
+        <div id="project_change" class="tabcontent">
+            <div class="budget-toolbar"
+                style="min-height: 50px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <button class="class_save" id="change_save" onclick="saveProjectChange()">내용 저장</button>
+            </div>
+            <div class="view-mode">
+                <div>
+                    <div class="Department_first">
+                        <div class="header-container">
+                            <h2 class="header-text" style="margin-bottom: 15px; margin-top: 15px;">사업 변경내역</h2>
+                            <span class="button-box">
+                                <button class="add-row-btn"
+                                    onclick="addRows('project_change_table', 1, true)">+</button>
+                                <button class="remove-row-btn" onclick="removeRow('project_change_table')">-</button>
+                            </span>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <table id="project_change_table" class="custom-table no_wrap">
+                            <colgroup>
+                                <col class="checkbox-col">
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                            </colgroup>
+                            <thead></thead>
+                            <tbody id="project_change_tbody"></tbody>
+                        </table>
+
+                        <div class="header-container">
+                            <h2 class="header-text " style="margin-bottom: 15px; margin-top: 30px;">성과심사</h2>
+                            <span class="button-box">
+                                <button class="add-row-btn" onclick="addRows('design_review_tbody', 1, true)">+</button>
+                                <button class="remove-row-btn" onclick="removeRow('design_review_tbody')">-</button>
+                            </span>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <table id="design_review_table" class="custom-table no_wrap">
+                            <colgroup>
+                                <col class="checkbox-col">
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                            </colgroup>
+                            <thead></thead>
+                            <tbody id="design_review_tbody"></tbody>
+                        </table>
+
+                        <div class="header-container">
+                            <h2 class="header-text" style="margin-bottom: 15px; margin-top: 15px;">사업비 수령내역</h2>
+                            <span class="button-box">
+                                <button class="add-row-btn"
+                                    onclick="addRows('project_receipt_tbody', 1, true)">+</button>
+                                <button class="remove-row-btn" onclick="removeRow('project_receipt_tbody')">-</button>
+                            </span>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <table id="project_receipt_table" class="custom-table no_wrap">
+                            <colgroup>
+                                <col class="checkbox-col">
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                            </colgroup>
+                            <thead></thead>
+                            <tbody id="project_receipt_tbody"></tbody>
+                        </table>
+
+                        <div class="header-container">
+                            <h2 class="header-text" style="margin-bottom: 15px; margin-top: 15px;">사업 관리 이슈사항</h2>
+                            <span class="button-box">
+                                <button type="button" class="add-row-btn"
+                                    onclick="addRows('issue_prediction_tbody', 1, true)">+</button>
+                                <button type="button" class="remove-row-btn"
+                                    onclick="removeRow('issue_prediction_tbody')">-</button>
+                            </span>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <table id="issue_prediction_table" class="custom-table no_wrap">
+                            <colgroup>
+                                <col class="checkbox-col">
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                            </colgroup>
+                            <thead></thead>
+                            <tbody id="issue_prediction_tbody"></tbody>
+                        </table>
+
+                        <div class="header-container">
+                            <h2 class="header-text" style="margin-bottom: 15px; margin-top: 15px;">참여 기술자</h2>
+                            <span class="button-box"><button type="button" class="excel-export-btn"
+                                    onclick="exportParticipantEngineersToExcel()">엑셀 변환</button><button type="button"
+                                    class="add-row-btn"
+                                    onclick="addRows('participant_engineers_tbody', 1, true)">+</button><button
+                                    type="button" class="remove-row-btn"
+                                    onclick="removeRow('participant_engineers_tbody')">-</button></span>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <table id="participant_engineers_table" class="custom-table no_wrap">
+                            <colgroup>
+                                <col class="checkbox-col">
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                                <col>
+                            </colgroup>
+                            <thead></thead>
+                            <tbody id="participant_engineers_tbody"></tbody>
+                        </table>
+
+
+                        <!-- 초기 행 생성은 JS(createProjectChangeTable)에서 처리 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================회의록 탭=================================== -->
+        <div id="MeetingMinutes" class="tabcontent">
+            <div class="budget-toolbar"
+                style="min-height: 50px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <button class="class_save" id="minutesWriteBtn" type="button">회의록 작성</button>
+            </div>
+
+            <div class="view-mode">
+                <table class="custom-table" style="margin-bottom: 0;">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%; text-align:center;">문서번호</th>
+                            <th style="width: 14%; text-align:center;">사업번호</th>
+                            <th style="width: 30%;">제목</th>
+                            <th style="width: 12%; text-align:center;">작성자</th>
+                            <th style="width: 12%; text-align:center;">작성일</th>
+                            <th style="width: 8%; text-align:center;">조회수</th>
+                        </tr>
+                    </thead>
+                    <tbody id="meetingList_tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 회의록 업로드 모달 -->
+        <div id="meetingUploadModal" class="modal">
+            <div class="modal-content meeting-upload-modal">
+                <div class="modal-header">
+                    <h2>회의록 업로드</h2>
+                    <span class="close" onclick="closeMeetingUploadModal()">&times;</span>
+                </div>
+                <hr class="modal-divider">
+                <div class="modal-body">
+                    <input type="hidden" id="meetingDocNumber">
+                    <input type="hidden" id="meetingCreatedAt">
+                    <input type="hidden" id="meetingAuthor">
+                    <table class="meeting-form-table">
+                        <colgroup>
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th>관련사업번호</th>
+                                <td class="meeting-suggest-cell">
+                                    <input type="text" id="meetingProjectNumber" class="meeting-form-input"
+                                        placeholder="사업번호 입력(사업과 관련 없을 시 공란)" autocomplete="off">
+                                </td>
+                                <th>사업명</th>
+                                <td>
+                                    <input type="text" id="meetingProjectName" class="meeting-form-input" readonly>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>회의 일자</th>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <input type="date" id="meetingDateStart" class="meeting-form-input"
+                                            style="flex:1; min-width:0;">
+                                        <div style="display:flex; align-items:center; gap:4px; flex:0 0 auto;">
+                                            <input type="text" id="meetingTimeStartHour" class="meeting-form-input"
+                                                style="width:34px; text-align:center; padding:0 4px;" placeholder="HH"
+                                                maxlength="2" inputmode="numeric">
+                                            <span>:</span>
+                                            <input type="text" id="meetingTimeStartMinute" class="meeting-form-input"
+                                                style="width:34px; text-align:center; padding:0 4px;" placeholder="MM"
+                                                maxlength="2" inputmode="numeric">
+                                        </div>
+                                        <span style="white-space:nowrap;">~</span>
+                                        <div style="display:flex; align-items:center; gap:4px; flex:0 0 auto;">
+                                            <input type="text" id="meetingTimeEndHour" class="meeting-form-input"
+                                                style="width:34px; text-align:center; padding:0 4px;" placeholder="HH"
+                                                maxlength="2" inputmode="numeric">
+                                            <span>:</span>
+                                            <input type="text" id="meetingTimeEndMinute" class="meeting-form-input"
+                                                style="width:34px; text-align:center; padding:0 4px;" placeholder="MM"
+                                                maxlength="2" inputmode="numeric">
+                                        </div>
+                                    </div>
+                                </td>
+                                <th>회의장소</th>
+                                <td>
+                                    <input type="text" id="meetingPlace" class="meeting-form-input"
+                                        placeholder="회의 장소 입력" autocomplete="off">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>제목(안건)</th>
+                                <td colspan="3">
+                                    <input type="text" id="meetingAgendaTitle" class="meeting-form-input"
+                                        placeholder="제목(안건)을 입력하세요" autocomplete="off">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>주관</th>
+                                <td colspan="3">
+                                    <input type="text" id="meetingOrganizer" class="meeting-form-input"
+                                        placeholder="주관 입력" autocomplete="off">
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>참석자</th>
+                                <td colspan="3">
+                                    <input type="text" id="meetingAttendees" class="meeting-form-input"
+                                        placeholder="참석자 입력" autocomplete="off">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="meeting-upload-section">
+                        <div class="meeting-dropzone" id="meetingDropzone">
+                            <div class="meeting-dropzone-title">PDF 파일을 드래그 앤 드랍하거나 클릭해서 업로드</div>
+                            <div class="meeting-dropzone-sub">PDF만 허용됩니다.</div>
+                            <button type="button" class="search-button" id="meetingPickFileBtn">파일 선택</button>
+                        </div>
+                        <input type="file" id="meetingPdfInput" accept="application/pdf" style="display:none;">
+                        <div id="meetingUploadList" class="meeting-upload-list"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="modal_save-btn" onclick="submitMeetingUpload()">저장</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 회의록 보기 모달 -->
+        <div id="meetingViewModal" class="modal">
+            <div class="modal-content meeting-view-modal">
+                <div class="modal-header">
+                    <h2>회의록 보기</h2>
+                    <span class="close" onclick="closeMeetingViewModal()">&times;</span>
+                </div>
+                <hr class="modal-divider">
+                <div class="modal-body">
+                    <div class="meeting-view-toolbar">
+                        <button type="button" class="meeting-view-action" onclick="openMeetingViewerModal()"
+                            aria-label="조회자 정보">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" fill="none" stroke="currentColor"
+                                    stroke-width="2" />
+                                <path d="M4 20c1.8-3.2 5-5 8-5s6.2 1.8 8 5" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                            <span>조회자</span>
+                        </button>
+                        <button type="button" class="meeting-view-action" onclick="meetingViewDownload()"
+                            aria-label="다운로드">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 3v10m0 0l4-4m-4 4l-4-4" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M5 15v4h14v-4" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                            <span>다운로드</span>
+                        </button>
+                        <!-- <button type="button" class="meeting-view-action" onclick="meetingViewPrint()" aria-label="인쇄">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M6 9V4h12v5" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                                <rect x="6" y="14" width="12" height="6" fill="none" stroke="currentColor"
+                                    stroke-width="2" />
+                                <rect x="4" y="9" width="16" height="6" fill="none" stroke="currentColor"
+                                    stroke-width="2" />
+                            </svg>
+                            <span>인쇄</span>
+                        </button> -->
+                    </div>
+                    <table class="meeting-form-table" style="margin-bottom:8px;">
+                        <colgroup>
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th>작성일</th>
+                                <td id="meetingViewCreatedAt">-</td>
+                                <th>작성자</th>
+                                <td id="meetingViewAuthor">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="meeting-form-table meeting-view-summary">
+                        <colgroup>
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                            <col style="width: 12%;">
+                            <col style="width: 38%;">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th>회의 일자</th>
+                                <td id="meetingViewMeetingDate">-</td>
+                                <th>회의장소</th>
+                                <td id="meetingViewMeetingPlace">-</td>
+                            </tr>
+                            <tr>
+                                <th>사업번호</th>
+                                <td id="meetingViewContract">-</td>
+                                <th>사업명</th>
+                                <td id="meetingViewProjectName">-</td>
+                            </tr>
+                            <tr>
+                                <th>제목(안건)</th>
+                                <td colspan="3" id="meetingViewTitle">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="meeting-view-tip-wrap">
+                        <button type="button" class="meeting-view-tip-btn" aria-label="PDF 표시 도움말">화면이 보이지 않을 시</button>
+                        <div class="meeting-view-tip-box" role="tooltip">
+                            Chrom <br> 우측상단 ⋮ 클릭 &gt; 설정 &gt; 좌측 개인정보 보호 및 보안 &gt; 사이트 설정 &gt; 추가 콘텐츠 설정 &gt; PDF 문서
+                            &gt; Chrom에서 PDF 열기 체크<br><br>
+                            Edge <br> 우측상단 ⋯ 클릭 &gt; 설정 &gt; 개인 정보, 검색 및 서비스 &gt; 사이트 사용 권한 &gt; 모든 사용 권한 &gt; PDF 문서 &gt; 항상 PDF 파일 다운로드 체크
+                            해제<br><br><br>
+                            혹은 파일 다운로드 후 PDF 뷰어로 열기
+                        </div>
+                    </div>
+                    <iframe id="meetingViewFrame" class="meeting-view-frame" title="회의록 PDF"></iframe>
+                </div>
+                <div class="modal-footer" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- 회의록 조회자 모달 -->
+        <div id="meetingViewerModal" class="modal">
+            <div class="modal-content meeting-viewer-modal">
+                <div class="modal-header">
+                    <h2>회의록 조회자</h2>
+                    <span class="close" onclick="closeMeetingViewerModal()">&times;</span>
+                </div>
+                <hr class="modal-divider">
+                <div class="modal-body">
+                    <table class="meeting-viewer-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 28%;">조회시간</th>
+                                <th style="width: 24%;">이름</th>
+                                <th style="width: 24%;">부서</th>
+                                <th style="width: 24%;">직급</th>
+                            </tr>
+                        </thead>
+                        <tbody id="meetingViewerTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================예상 진행비 탭=================================== -->
+        <div id="Budget" class="tabcontent">
+            <div class="budget-toolbar"
+                style="min-height: 50px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <select id="Dep_fir_record_select" style="display: none;" size="5">
+                    <option value="">선택하세요.</option>
+                    {% for record in records_price %}
+                    <option value="{{ record }}">{{ record }}</option>
+                    {% endfor %}
+                </select>
+                <div class="sub-tabcontent" style="display: flex; gap: 8px; align-items: center;">
+                    <button class="ex_tablinks" onclick="EX_openTab(event, 'examine')">검토 예상진행비</button>
+                    <!-- <button class="ex_tablinks" onclick="EX_openTab(event, 'expenses')">예상진행비</button> -->
+                </div>
+                <div class="budget-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap;">
+                    <button id="externalModal" class="class_save" onclick="openModal(this)">외부인력 설정</button>
+                    <button id="class_edit" onclick="toggleLayout()">사업부 수정</button>
+                    <button class="class_save" id="layout_save" onclick="savePersonnelBudget()">내용 저장</button>
+
+                    <button class="cancle_btn" id="cancel_dept" style="display: none;"
+                        onclick="cancelEdit()">취소</button>
+                    <button class="class_save" id="add_dept" style="display: none;" onclick="addLayout()">추가</button>
+                    <button class="class_save" id="save_dept" style="display: none;"
+                        onclick="saveDepartmentLayout()">저장</button>
+                </div>
+            </div>
+            <div id="examine" class="ex_tabcontent">
+                <div class="view-mode" style="margin-top: 3px;">
+                    <div>
+                        <!-- 첫 번째 부서 -->
+                        <div id="Department_first">
+                            <div class="header-container" id="Dep_fir_header">
+                                <h2 class="header-text Dep_fir_header_text" id="Dep_fir_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="Dep_fir_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="기업부설연구소">기업부설연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <table class="custom-table Budget_table" id="Dep_fir_table">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="addBudgetRow" class="add-row-btn">+</button>
+                                                    <button id="removeBudgetRow" class="remove-row-btn">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Dep_fir_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="fir_PersonSum">0</td>
+                                            <td id="fir_MDsum">0.00</td>
+                                            <td id="fir_budgetSum">0</td>
+                                        </tr>
+                                        {% if first_budget %}
+                                        {% for row in first_budget %}
+                                        <tr>
+                                            <!-- 직급 선택 (select) -->
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row[1]=="이사" %}selected{% endif %}>이사
+                                                    </option>
+                                                    <option value="부장" {% if row[1]=="부장" %}selected{% endif %}>부장
+                                                    </option>
+                                                    <option value="차장" {% if row[1]=="차장" %}selected{% endif %}>차장
+                                                    </option>
+                                                    <option value="과장" {% if row[1]=="과장" %}selected{% endif %}>과장
+                                                    </option>
+                                                    <option value="대리" {% if row[1]=="대리" %}selected{% endif %}>대리
+                                                    </option>
+                                                    <option value="주임" {% if row[1]=="주임" %}selected{% endif %}>주임
+                                                    </option>
+                                                    <option value="사원" {% if row[1]=="사원" %}selected{% endif %}>사원
+                                                    </option>
+                                                    <option value="계약직" {% if row[1]=="계약직" %}selected{% endif %}>계약직
+                                                    </option>
+                                                </select>
+                                            </td>
+
+                                            <!-- 수정 가능한 셀 -->
+                                            <td class="edit_cell" onclick="makeEditable(this)">{{ row[4] }}</td>
+                                            <td class="edit_cell" onclick="makeEditable(this)">{{ row[3] }}</td>
+
+                                            <!-- 금액 셀 -->
+                                            <td class="amount-cell">{{ row[5] }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('Dep_fir_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                                <!-- 진행 경비 -->
+                                <table class="custom-table specific-table" id="LeftRecords_table">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="addRecordRow" class="add-row-btn">+</button>
+                                                    <button id="removeRecordRow" class="remove-row-btn">-</button>
+                                                    <button id="EXrecordsModal_fir" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="fir" onclick="openModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if first_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if first_records %}
+                                    <tbody id="Dep_fir_Record_tbody">
+                                        <!--  총 계 행을 여기에서 한 번만 생성 -->
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="fir_recordSum">0</td>
+                                        </tr>
+
+                                        <!--  first_expense_list를 반복하여 출력 -->
+                                        {% for item in first_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | int |
+                                                    format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'fir')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+
+                                    {% else %}
+                                    <tbody id="Dep_fir_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="fir_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('Dep_fir_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+
+                            </div>
+                        </div>
+
+                        <!-- 두 번째 부서 -->
+                        <div id="Department_second">
+                            <div class="header-container" id="Dep_sec_header">
+                                <h2 class="header-text Dep_sec_header_text" id="Dep_sec_header_text"
+                                    style="margin-bottom: 15px; margin-top: 15px;">예상 인건비 및 경비</h2>
+                                <select id="Dep_sec_select" class="header-select"
+                                    style="width: 300px; height: 50px; display: none; border: 1px solid black;">
+                                    <option value="" selected>선택하세요</option>
+                                    <option value="GIS사업부">GIS사업부</option>
+                                    <option value="GIS사업지원부">GIS사업지원부</option>
+                                    <option value="공간정보사업부">공간정보사업부</option>
+                                    <option value="연구소">연구소</option>
+                                </select>
+                                <button class="delete-btn" style="right: 20px;" onclick="removeLayout(this)">삭제</button>
+                            </div>
+                            <hr style="margin-bottom: 20px;">
+
+                            <div class="get_flex-container">
+                                <table class="custom-table Budget_table" id="Dep_sec_table">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="5" class="header-text">
+                                                <span>인건비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="sec_addBudgetRow" class="add-row-btn">+</button>
+                                                    <button id="sec_removeBudgetRow" class="remove-row-btn">-</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th>직 위</th>
+                                            <th>인 원</th>
+                                            <th>M/D</th>
+                                            <th>금 액</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="Dep_sec_Budget_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td id="sec_PersonSum">0</td>
+                                            <td id="sec_MDsum">0.00</td>
+                                            <td id="sec_budgetSum">0</td>
+                                        </tr>
+                                        {% if second_budget %}
+                                        {% for row in second_budget %}
+                                        <tr>
+                                            <!-- 직급 선택 (select) -->
+                                            <td>
+                                                <select class="position-select"
+                                                    onchange="updateAmount(this.parentElement.parentElement);">
+                                                    <option value="이사" {% if row[1]=="이사" %}selected{% endif %}>이사
+                                                    </option>
+                                                    <option value="부장" {% if row[1]=="부장" %}selected{% endif %}>부장
+                                                    </option>
+                                                    <option value="차장" {% if row[1]=="차장" %}selected{% endif %}>차장
+                                                    </option>
+                                                    <option value="과장" {% if row[1]=="과장" %}selected{% endif %}>과장
+                                                    </option>
+                                                    <option value="대리" {% if row[1]=="대리" %}selected{% endif %}>대리
+                                                    </option>
+                                                    <option value="주임" {% if row[1]=="주임" %}selected{% endif %}>주임
+                                                    </option>
+                                                    <option value="사원" {% if row[1]=="사원" %}selected{% endif %}>사원
+                                                    </option>
+                                                    <option value="계약직" {% if row[1]=="계약직" %}selected{% endif %}>계약직
+                                                    </option>
+                                                </select>
+                                            </td>
+
+                                            <!-- 수정 가능한 셀 -->
+                                            <td class="edit_cell" onclick="makeEditable(this)">{{ row[4] }}</td>
+                                            <td class="edit_cell" onclick="makeEditable(this)">{{ row[3] }}</td>
+
+                                            <!-- 금액 셀 -->
+                                            <td class="amount-cell">{{ row[5] }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                addRows('Dep_sec_Budget_tbody', 3);
+                                            });
+                                        </script>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+
+                                <!-- 진행 경비 -->
+                                <table class="custom-table specific-table" id="SecondRecords_table">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="7" class="header-text">
+                                                <span>진행 경비</span>
+                                                <span class="button-wrapper">
+                                                    <button id="sec_addRecordRow" class="add-row-btn">+</button>
+                                                    <button id="sec_removeRecordRow" class="remove-row-btn">-</button>
+                                                    <button id="EXrecordsModal_sec" class="add-row-btn modal-open"
+                                                        style="display: none; margin-bottom: 30px; margin-left: 20px;"
+                                                        data-department="sec" onclick="openModal(this)">수정</button>
+                                                </span>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            {% if second_records %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th colspan="5" style="width: 70%;">금 액</th>
+                                            {% else %}
+                                            <th style="width: 30%;">항 목</th>
+                                            <th style="width: 5%;">인 원</th>
+                                            <th style="width: 5%;">횟 수</th>
+                                            <th style="width: 5%;">일 수</th>
+                                            <th style="width: 15%;">단 가</th>
+                                            <th style="width: 25%;">금 액</th>
+                                            <th style="width: 15%;">비 고</th>
+                                            {% endif %}
+                                        </tr>
+                                    </thead>
+
+                                    {% if second_records %}
+                                    <tbody id="Dep_sec_Record_tbody">
+                                        <!--  총 계 행을 여기에서 한 번만 생성 -->
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="sec_recordSum">0</td>
+                                        </tr>
+
+                                        <!--  second_expense_list를 반복하여 출력 -->
+                                        {% for item in second_expense_list %}
+                                        <tr class="expense-row" data-account="{{ item['account'] }}">
+                                            <td>{{ item['account'] }}</td>
+                                            <td colspan="4">
+                                                <span>&#8203;{{ item['amount'] | int | format_currency }}원</span>
+                                                <button class="no-style-button" style="float: right;"
+                                                    onclick="recordsDetail(this, 'sec')">▼</button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+
+                                    {% else %}
+                                    <tbody id="Dep_sec_Record_tbody">
+                                        <tr>
+                                            <td>총 계</td>
+                                            <td colspan="7" id="sec_recordSum">0</td>
+                                        </tr>
+                                    </tbody>
+                                    <script>
+                                        document.addEventListener('DOMContentLoaded', function () {
+                                            addRows('Dep_sec_Record_tbody', 3);
+                                        });
+                                    </script>
+                                    {% endif %}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="edit-mode" id="edit-buttons" style="display:none;">
+
+        <input type="hidden" id="Project_year" value="{{ project['StartDate'] }}">
+        <input type="hidden" id="project-contractDate" value="{{ project['StartDate'].strftime('%Y-%m-%d') }}">
+        <input type="hidden" id="project-contributionRate" value="{{ project['ContributionRate'] }}">
+    </div>
+
+
+
+    <!-- ===================================실제 부서 진행비 탭=================================== -->
+    <div id="Dep_fir_Money" class="tabcontent">
+        <div style="height: 30px; margin-bottom: 8px;">
+            <div class="sub-tab">
+                {% for department in department %}
+                <button class="sub_tablinks" value="{{ department }}"
+                    onclick="fetchDepartmentData(this.value, 'Dep_fir_Money')" style="margin-top: 0px;">{{
+                    department }}</button>
+                {% endfor %}
+            </div>
+            <button class="class_save" id="useMoney_Save" style="display: none;" onclick="saveBudgetData()">내용
+                저장</button>
+        </div>
+
+        <!-- 인건비 -->
+        <div class="view-mode">
+            <div>
+                <div class="Department_first Sub_content" id="Dep_fir_Budget_Tab" style="margin-top: 23px;">
+                    <!-- 헤더 영역 -->
+                    <div class="header-container" id="Dep_fir_header"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 class="header-text Dep_fir_header_text" id="Dep_fir_Bud_header_text">인건비</h2>
+                        <button class="view-log-btn" id="view_quantity_log" onclick="toggleQuantityLog()">물량 로그
+                            보기</button>
+                    </div>
+                    <hr style="margin-bottom: 20px;">
+
+                    <!-- 월별 버튼 영역 -->
+                    <div id="month_button_div" class="month-buttons" style="display: none;">
+                        {% for month in available_months %}
+                        <button class="month-btn" value="{{ month }}"
+                            onclick="fetchMonthlyData('{{ month }}', '{{ department }}')" style="margin-top: 0px;">
+                            {{ month }}월
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <div class="table-container">
+                        <table class="custom-table" id="Dep_fir_RealBudget" style="border: 1px solid black;">
+                            <thead></thead>
+                            <tbody class="Dep_budget_tbody" id="Dep_fir_Budget_data">
+                                <!-- 인건비 데이터가 여기에 동적으로 추가됨 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 물량 로그 테이블 -->
+                    <table class="log-table" id="Dep_fir_LogTable" style="border: 1px solid black; display: none;">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">날짜</th>
+                                <th style="width: 20%;">공정</th>
+                                <th style="width: 10%;">물량</th>
+                                <th style="width: 10%;">근로시간</th>
+                                <th style="width: 10%;">작업시간</th>
+                                <th style="width: 10%;">직 위</th>
+                                <th style="width: 35%;">비고</th>
+                                <th style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="Dep_fir_Log_data">
+                            <!-- 물량 로그 데이터가 여기에 동적으로 추가됨 -->
+                        </tbody>
+                    </table>
+
+                    <!-- 페이지 버튼 컨테이너 추가 -->
+                    <div id="pagination-container" class="pagination-container"
+                        style="margin-top: 10px; text-align: center; display:none">
+                        <!-- 페이지 버튼이 동적으로 추가됨 -->
+                    </div>
+                </div>
+
+                <!-- 경비 -->
+                <div class="Department_first Sub_content" id="Dep_fir_specific_Tab">
+                    <div class="header-container" id="Dep_fir_header"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 class="header-text Dep_fir_header_text" id="Dep_sec_spec_header_text">경비</h2>
+                        <button class="view-log-btn" id="excel_download" style="display: none;"
+                            onclick="downloadExcel()">엑셀 저장</button>
+                        <span id="BTN_Box" class="button-box" style="display: none;">
+                            <button class="add-row-btn" onclick="addRows('Dep_fir_Specific_data', 1, true)">+</button>
+                            <button class="remove-row-btn" onclick="removeRow('Dep_fir_Specific_data')">-</button>
+                        </span>
+                    </div>
+
+                    <!-- 경비 입력 -->
+                    <hr style="margin-bottom: 20px;">
+                    <table class="custom-table" id="Dep_fir_Specific" style="border: 1px solid black;">
+                        <thead>
+                            <tr></tr>
+                            <tr></tr>
+                        </thead>
+                        <tbody class="Dep_budget_tbody" id="Dep_fir_Specific_data">
+                        </tbody>
+                    </table>
+
+                    <!-- 경비 로그 -->
+                    <table class="log-table" id="Dep_Log_Specific" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>항목</th>
+                                <th>내역</th>
+                                <th>유형</th>
+                                <th style="width: 10%;">금액</tH>
+                                <th colspan="2" style="width: 40%;">비고</tH>
+                                <th style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="Dep_budget_tbody" id="Dep_Log_Specific_data">
+
+                        </tbody>
+
+                    </table>
+                </div>
+
+            </div>
+            <!-- 외주 버전 DIV -->
+            <div id="Outsourcing_process_div" class="Department_first Sub_content"
+                style="display: none; margin-top: 23px;">
+                <!-- 헤더 영역 -->
+                <div class="header-container" id="Dep_fir_header"
+                    style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2 class="header-text Dep_fir_header_text" id="Dep_fir_out_header_text">외주 진행률</h2>
+                </div>
+                <hr style="margin-bottom: 20px;">
+                <table class="custom-table" style="border: 1px solid black;">
+                    <thead>
+                        <tr>
+                            <th>외주 유형</th>
+                            <th>외주 업체</th>
+                            <th>외주 물량</th>
+                            <th>진행률</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outsourcing_processing_Tbody">
+                        <!-- 물량 로그 데이터가 여기에 동적으로 추가됨 -->
+                    </tbody>
+                </table>
+            </div>
+
+
+        </div>
+    </div>
+
+
+
+
+    <!-- ===================================통계 탭=================================== -->
+    <div id="comparison" class="tabcontent">
+        <div>
+            <div class="total_flex-container">
+                <div id="comparison_DIV">
+                    <div id="comparison_header">
+                        <h2 id="comparison_header_Text" class="header-text">통 계</h2>
+                        <hr style="margin-bottom: 20px;">
+                    </div>
+
+                    <div class="get_flex-container" style="margin-bottom: 20px; height: 750px;">
+                        <table class="custom-table" id="comparison_Table">
+                            <thead>
+
+                            </thead>
+                            <tbody>
+
+                            </tbody>
+                        </table>
+                    </div>
+
+
+                    <div class="stick-bottom">
+                        <div class="header_section">
+                            <h2 class="header-text">코멘트</h2>
+                            <!-- <span class="button-box">
+                                <button class="add-row-btn" onclick="addRows('comment_tbody', 1, true)">+</button>
+                                <button class="remove-row-btn" onclick="removeRow('comment_tbody')">-</button>
+                            </span> -->
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <div>
+                            <table class="custom-table" style="min-width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 150px;">부서</th>
+                                        <th>코멘트</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comment_tbody">
+                                    <tr>
+                                        <td data-department="공공사업부" style="height: 19px; text-align: center;">
+                                            공공사업부
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-department="공정관리부" style="height: 19px; text-align: center;">
+                                            공정관리부
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-department="GIS사업부" style="height: 19px; text-align: center;">
+                                            GIS사업부
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-department="공간정보사업부" style="height: 19px; text-align: center;">
+                                            공간정보사업부
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-department="기업부설연구소" style="height: 19px; text-align: center;">
+                                            기업부설연구소
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td data-department="경영본부" style="height: 19px; text-align: center;">
+                                            경영본부
+                                        </td>
+                                        <td style="height: 19px; text-align: left;" onclick="maybeEditComment(this)">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="modal_save-btn" onclick="saveComment()">코멘트 저장</button>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div id="Graph_DIV">
+                    <div id="comparison_header">
+                        <h2 id="comparison_header_Text" class="header-text">그래프</h2>
+                    </div>
+                    <hr style="margin-bottom: 20px;">
+                    <!-- 차트 컨테이너 -->
+                    <div class="chart-container" style="margin-bottom: 20px; height: 710px;">
+                        <div class="pie_flex">
+                            <div id="pieChart1"></div>
+                            <div id="pieChart2"></div>
+                        </div>
+                        <div id="barChart"></div>
+                    </div>
+
+                    <div class="stick-bottom">
+                        <div class="header_section">
+                            <h2 class="header-text">통계분석</h2>
+                        </div>
+                        <hr style="margin-bottom: 20px;">
+                        <div>
+                            <table class="custom-table" style="min-width: 100%;">
+                                <tbody id="result_tbody">
+                                    <tr>
+                                        <td style="height: 25px; text-align: left;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="height: 25px; text-align: left;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="height: 25px; text-align: left;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="height: 25px; text-align: left;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="height: 25px; text-align: left;"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementsByClassName("tablinks")[0].click();
+            document.getElementsByClassName("ex_tablinks")[0].click();
+            initFileUpload({
+                dropZoneId: "drop-zone",
+                inputId: "file-input",
+                outputId: "uploaded-files"
+            });
+            setupFileUploadListener();
+        });
+
+        // firstRecords 데이터를 Jinja2에서 JSON으로 변환하여 JavaScript에서 사용
+        const firstRecords = JSON.parse(document.getElementById('first-records-json')?.textContent || '[]');
+        const secondRecords = JSON.parse(document.getElementById('second-records-json')?.textContent || '[]');
+        const performance_result = JSON.parse(document.getElementById('performance-result-json')?.textContent || '[]');
+        const OUTSOURCING_PAYMENTS = JSON.parse(document.getElementById('outsourcing-payments-json')?.textContent || '[]');
+        const DEPARTMENT_BOHAL = JSON.parse(document.getElementById('department-bohal-json')?.textContent || '[]');
+
+        // ---------- comments JSON 삽입 (문제 해결된 버전) ----------
+        // Jinja2가 생성한 JSON을 HTML 내 application/json으로 안전하게 삽입
+    </script>
+
+    <script id="first-records-json" type="application/json">{{ first_records | tojson | safe }}</script>
+    <script id="second-records-json" type="application/json">{{ second_records | tojson | safe }}</script>
+    <script id="performance-result-json" type="application/json">{{ performance_result | tojson | safe }}</script>
+    <script id="outsourcing-payments-json" type="application/json">{{ outsourcing_payments | tojson | safe }}</script>
+    <script id="department-bohal-json" type="application/json">{{ department_bohal | tojson | safe }}</script>
+
+    <script id="comments-json" type="application/json">
+{{ comments | tojson | default('[]') | safe }}
+</script>
+
+    <script>
+        let commentsData = [];
+
+        // JSON parse 안전 처리
+        try {
+            const raw = document.getElementById('comments-json').textContent;
+            commentsData = JSON.parse(raw);
+
+            if (!Array.isArray(commentsData)) {
+                console.warn('commentsData 형식이 배열이 아닙니다:', commentsData);
+                commentsData = [];
+            }
+        } catch (e) {
+            console.error('commentsData JSON 파싱 실패:', e);
+            commentsData = [];
+        }
+
+        function normalizeDept(d) {
+            if (!d) return '';
+            const s = String(d).trim();
+            if (s === '총무부' || s === '경영지원부' || s === '임원실') return '경영본부';
+            if (s === 'GIS사업지원부') return 'GIS사업부';
+            return s;
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function populateComments() {
+            const map = {};
+
+            (commentsData || []).forEach(item => {
+                const dep = normalizeDept(item.department || '');
+                if (!dep) return;
+
+                const txt = String(item.comment || '');
+                if (!map[dep]) map[dep] = txt;
+                else map[dep] += '\n' + txt;
+            });
+
+            const tbody = document.getElementById('comment_tbody');
+            if (!tbody) return;
+
+            Array.from(tbody.rows).forEach(row => {
+                const deptTd = row.querySelector('td[data-department]');
+                const commentTd = row.cells[1];
+                if (!deptTd || !commentTd) return;
+
+                const dep = normalizeDept(deptTd.dataset.department || deptTd.textContent || '');
+                const text = map[dep] || '';
+
+                commentTd.innerHTML = text
+                    ? escapeHtml(text).replace(/\r?\n/g, '<br>')
+                    : '';
+            });
+        }
+
+        // commentsData 생성 이후 안전하게 호출
+        document.addEventListener('DOMContentLoaded', populateComments);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</body>
+
+</html>
