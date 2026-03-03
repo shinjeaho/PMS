@@ -148,29 +148,6 @@ def upload_meeting_pdf():
     file_path = os.path.join(year_folder, final_name)
 
     try:
-        if contractcode:
-            conn = create_connection()
-            if conn is None:
-                return jsonify({'success': False, 'message': 'DB connection failed'}), 500
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    """
-                    SELECT 1
-                    FROM projects
-                    WHERE ContractCode = %s
-                    LIMIT 1
-                    """,
-                    (contractcode,),
-                )
-                project_exists = cursor.fetchone() is not None
-            finally:
-                cursor.close()
-                conn.close()
-
-            if not project_exists:
-                return jsonify({'success': False, 'message': '일치하는 사업번호가 없습니다.'}), 400
-
         file.save(file_path)
         file_url = f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/{final_name}"
         file_size = os.path.getsize(file_path)

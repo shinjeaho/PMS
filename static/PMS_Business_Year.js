@@ -4003,9 +4003,6 @@ function openMeetingUploadModal() {
     const createdAtInput = document.getElementById('meetingCreatedAt');
     if (createdAtInput) createdAtInput.value = formatDateYMD(new Date());
 
-    const projectNumberInput = document.getElementById('meetingProjectNumber');
-    if (projectNumberInput) projectNumberInput.value = '';
-
     const projectNameInput = document.getElementById('meetingProjectName');
     if (projectNameInput) projectNameInput.value = '';
 
@@ -4182,11 +4179,7 @@ function uploadMeetingPdf(file) {
                 item.appendChild(actions);
                 uploadList.appendChild(item);
             }
-            alert('저장 완료');
             closeMeetingUploadModal();
-            if (currentView === 'meeting') {
-                viewMeetingMinutes();
-            }
         })
         .catch(err => {
             console.error('[meeting] upload failed:', err);
@@ -4247,9 +4240,6 @@ function deleteMeetingFile(recordId) {
             }
             const uploadList = document.getElementById('meetingUploadList');
             if (uploadList) uploadList.innerHTML = '';
-            if (currentView === 'meeting') {
-                viewMeetingMinutes();
-            }
         })
         .catch(err => {
             console.error('[meeting] delete failed:', err);
