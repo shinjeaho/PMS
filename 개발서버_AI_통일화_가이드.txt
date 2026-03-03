@@ -20,10 +20,16 @@
 
 [현재 준비 상태]
 1) 신규 통일 저장소 생성 완료
-   - 경로: c:\Users\User\Desktop\PMS_git_unified
+   - 경로: c:\Users\User\Desktop\PMS_git_codeonly
    - 기본 브랜치: main
-   - 초기 커밋: 4a62b1d
+   - 초기 커밋: ca52ff3
 2) 개발서버 AI 가이드 파일 포함 완료
+3) 제외 정책 적용 완료
+   - 제외됨: backups/, static/uploads/, uploads/, Logs/, venv/, __pycache__/
+4) 원격 업로드 완료
+   - 원격: https://github.com/shinjeaho/PMS.git
+   - 브랜치: main
+   - 상태: origin/main 추적 연결 완료
 
 [기준 원칙(중요)]
 1) 운영 코드(main/release)가 기준(SSOT)이다.
@@ -37,7 +43,7 @@
 PowerShell 명령:
 
 $git = "C:\Program Files\Git\cmd\git.exe"
-$dst = "c:\Users\User\Desktop\PMS_git_unified"
+$dst = "c:\Users\User\Desktop\PMS_git_codeonly"
 
 # 1) 원격 저장소 연결
 & $git -C $dst remote add origin <원격저장소URL>
@@ -116,7 +122,7 @@ $dst = "c:\Users\User\Desktop\PMS_git_unified"
 [E. 최종 체크리스트]
 ====================================================
 
-- [ ] 원격 저장소에 main 업로드 완료
+- [x] 원격 저장소에 main 업로드 완료
 - [ ] 개발서버 clone 완료
 - [ ] sync 브랜치에서 선별 반영 완료
 - [ ] 스모크 테스트 통과
