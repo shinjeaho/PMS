@@ -63,8 +63,9 @@ def data_transfer():
 
 
 @bp.route('/testmove')
+@bp.route('/doc_editor')
 def testmove():
-    return render_template('test.html')
+    return render_template('doc_editor.html')
 
 
 def extract_yellow_rows(file_stream):

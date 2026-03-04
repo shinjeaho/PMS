@@ -144,11 +144,6 @@ function setupEventListeners() {
     document.getElementById('modify_addRecordRow').addEventListener('click', () => addRows('Dep_Modify_Record_tbody', 1, true));
     document.getElementById('modify_removeRecordRow').addEventListener('click', () => removeRow('Dep_Modify_Record_tbody'));
 
-    const minutesWriteBtn = document.getElementById('minutesWriteBtn');
-    if (minutesWriteBtn) {
-        minutesWriteBtn.addEventListener('click', openMeetingUploadModal);
-    }
-
     const qtyTbody = document.getElementById('quantityModal_A_tbody');
     if (qtyTbody) {
         qtyTbody.addEventListener('click', (e) => {
@@ -190,17 +185,88 @@ function setupEventListeners() {
 
     // 파일 업로드
     setupFileUploadListener();
+
     // =========================
     // 회의록 탭
     // =========================
     initMeetingUploadModal();
     loadMeetingMinutesList();
+
+    const minutesWriteBtn = document.getElementById('minutesWriteBtn');
+    if (minutesWriteBtn) {
+        minutesWriteBtn.addEventListener('click', () => {
+            openMeetingUploadModal();
+        });
+    }
 }
 
-// =========================
-// 회의록 업로드/조회
-// =========================
-let meetingSelectedFile = null;
+function updateParticipantEngineersHeader(engineers) {
+    const table = document.getElementById('participant_engineers_table');
+    if (!table) return;
+    const headerContainer = table.previousElementSibling?.previousElementSibling;
+    const headerEl = headerContainer?.querySelector('.header-text');
+    if (!headerEl) return;
+
+    const counts = { '사책': 0, '분책': 0, '분참': 0 };
+    (engineers || []).forEach(eng => {
+        const key = eng?.work_position;
+        if (key && Object.prototype.hasOwnProperty.call(counts, key)) {
+            counts[key] += 1;
+        }
+    });
+
+    const total = counts['사책'] + counts['분책'] + counts['분참'];
+    headerEl.textContent = `참여기술자(사책 : ${counts['사책']} 분책 : ${counts['분책']} 분참 : ${counts['분참']} / 총원 : ${total})`;
+}
+
+function exportParticipantEngineersToExcel() {
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    const projectName = document.getElementById('headerName')?.value || '';
+    const tbody = document.getElementById('participant_engineers_tbody');
+    if (!tbody || typeof XLSX === 'undefined') return;
+
+    const groups = { '사책': [], '분책': [], '분참': [] };
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach(row => {
+        const cells = row.cells;
+        if (!cells || cells.length < 3) return;
+        const role = cells[1]?.querySelector('select')?.value || '';
+        const name = (cells[2]?.textContent || '').trim();
+        if (!role || role === '선택하세요.') return;
+        if (!name) return;
+        if (Object.prototype.hasOwnProperty.call(groups, role)) {
+            groups[role].push(name);
+        }
+    });
+
+    const headers = ['사업번호', '사업명', '사책', '분책'];
+    const row = [
+        contractCode,
+        projectName,
+        groups['사책'].join(', '),
+        groups['분책'].join(', ')
+    ];
+
+    const partNames = groups['분참'];
+    if (partNames.length === 0) {
+        headers.push('분참');
+        row.push('');
+    } else {
+        partNames.forEach((name, idx) => {
+            headers.push(`분참${idx + 1}`);
+            row.push(name);
+        });
+    }
+
+    const data = [headers, row];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, '참여기술자');
+
+    const safeCode = contractCode || 'project';
+    XLSX.writeFile(wb, `${safeCode}_참여기술자.xlsx`);
+}
 
 function escapeHtmlSafe(str) {
     return String(str ?? '')
@@ -211,32 +277,25 @@ function escapeHtmlSafe(str) {
         .replace(/'/g, '&#39;');
 }
 
+// =========================
+// 회의록 업로드/조회
+// =========================
+let meetingSelectedFile = null;
+
 function loadMeetingMinutesList() {
     const tbody = document.getElementById('meetingList_tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
 
     const currentContract = (document.getElementById('project-contractCode')?.value || '').trim();
-    const normalizeContractCode = (value) => String(value || '')
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, '');
-    const currentContractNorm = normalizeContractCode(currentContract);
 
     fetch('/doc_editor_api/meeting/list')
         .then(res => res.json())
         .then(data => {
             const items = Array.isArray(data.items) ? data.items : [];
-            let filtered = items;
-
-            if (currentContractNorm) {
-                filtered = items.filter(it => {
-                    const itemCodeNorm = normalizeContractCode(it.contractcode);
-                    if (!itemCodeNorm) return false;
-                    if (itemCodeNorm === currentContractNorm) return true;
-                    return itemCodeNorm.includes(currentContractNorm) || currentContractNorm.includes(itemCodeNorm);
-                });
-            }
+            const filtered = currentContract
+                ? items.filter(it => String(it.contractcode || '').trim() === currentContract)
+                : items;
 
             if (filtered.length === 0) {
                 const row = document.createElement('tr');
@@ -601,9 +660,9 @@ function uploadMeetingPdf(file) {
                 item.appendChild(actions);
                 uploadList.appendChild(item);
             }
-            alert('저장 완료');
             closeMeetingUploadModal();
             loadMeetingMinutesList();
+            alert('저장되었습니다.');
         })
         .catch(err => {
             console.error('[meeting] upload failed:', err);
@@ -908,6 +967,64 @@ function meetingViewBackdropHandler(event) {
     }
 }
 
+// 참여 기술자 명단 로드 함수
+async function loadParticipantEngineers() {
+    const contractCode = document.getElementById('project-contractCode')?.value;
+    if (!contractCode) return;
+    try {
+        const res = await fetch(`/api/get_project_engineers?contract_code=${encodeURIComponent(contractCode)}`);
+        const data = await res.json();
+        if (!data.success) return;
+        const tbody = document.getElementById('participant_engineers_tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        const engineers = data.engineers || [];
+        updateParticipantEngineersHeader(engineers);
+        if (engineers.length === 0) {
+            // 기본 한 줄 생성 (빈 입력을 위해)
+            addRows('participant_engineers_tbody', 1, true);
+            return;
+        }
+        engineers.forEach(eng => {
+            const tr = document.createElement('tr');
+            // 0 체크박스
+            const tdCb = document.createElement('td');
+            tdCb.style.textAlign = 'center';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'row-check';
+            tdCb.appendChild(cb);
+            tr.appendChild(tdCb);
+            // 1 담당업무 select
+            const tdWork = document.createElement('td');
+            const sel = document.createElement('select');
+            ['선택하세요.', '사책', '분책', '분참'].forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v; opt.textContent = v;
+                if (v === (eng.work_position || '')) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            tdWork.appendChild(sel);
+            tr.appendChild(tdWork);
+            // 2 성명
+            const tdName = document.createElement('td');
+            tdName.className = 'edit_cell';
+            tdName.textContent = eng.name || '';
+            tdName.onclick = function () { TextChange(this, true); };
+            tr.appendChild(tdName);
+            // 3 비고
+            const tdRemark = document.createElement('td');
+            tdRemark.className = 'edit_cell';
+            tdRemark.textContent = eng.remark || '';
+            tdRemark.onclick = function () { TextChange(this, true); };
+            tr.appendChild(tdRemark);
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.warn('[WARN] 참여 기술자 로드 실패:', e);
+    }
+}
+
 // 2. 초기 데이터 로딩 함수
 async function loadInitialData() {
     await Promise.all([
@@ -1097,7 +1214,7 @@ function formatCurrency(input) {
 function cancelEdit(id) {
     // window.location.reload();
     reloadWithCurrentState();
-    document.getElementsByClassName("tablinks")[1].click();
+    clickMainTab('project_change');
     goToBudgetTab(id);
     hideEditButtons();
 }
@@ -1105,11 +1222,18 @@ function cancelEdit(id) {
 //작업 후 탭 이동 함수
 function goToBudgetTab(id) {
     if (id === 'Details') {
-        document.getElementsByClassName("tablinks")[0].click(); // "예상 진행비" 탭으로 이동
+        clickMainTab('Details');
     }
     else if (id === 'Budget') {
-        document.getElementsByClassName("tablinks")[1].click(); // "예상 진행비" 탭으로 이동
+        clickMainTab('Budget');
     }
+}
+
+// 메인 탭 버튼을 인덱스가 아닌 tabName으로 클릭(탭 추가/순서 변경에 안전)
+function clickMainTab(tabName) {
+    const btns = Array.from(document.getElementsByClassName('tablinks'));
+    const btn = btns.find(b => (b.getAttribute('onclick') || '').includes(`'${tabName}'`));
+    if (btn) btn.click();
 }
 
 //수정 모드 아닐 시 버튼 감춤 함수
@@ -1653,6 +1777,7 @@ function getCurrentYear() {
 function TextChange(td, isText = false) {
     // 이미 input이 있는 경우 return
     if (td.querySelector('input, textarea')) return;
+
     let allowNewline = false;
 
     // input 생성 및 설정
@@ -2370,6 +2495,7 @@ function addRows(tableID, rowCount, BTN = false) {
         // applyWorkFieldRowspan();
     }
     // 문제예상 테이블 행 추가
+     // 문제예상 테이블 행 추가
     if (tableID === 'issue_prediction_tbody') {
         const tableBody = tableBodies;
         for (let i = 0; i < rowCount; i++) {
@@ -2782,7 +2908,7 @@ function removeRow(tableID) {
         });
         // 참여 기술자 테이블인 경우 rowspan 재계산
         if (tableID.includes('participant_engineers')) {
-            // applyWorkFieldRowspan();
+            applyWorkFieldRowspan();
         }
         return;
     }
@@ -2793,7 +2919,7 @@ function removeRow(tableID) {
             tableBody.deleteRow(tableBody.rows.length - 1);
         }
         if (tableID.includes('participant_engineers')) {
-            // applyWorkFieldRowspan();
+            applyWorkFieldRowspan();
         }
         return;
     }
@@ -2806,7 +2932,7 @@ function removeRow(tableID) {
     }
     if (tableID.includes('participant_engineers')) {
         // 로드 후 표시 단계에서만 병합 적용
-        // applyWorkFieldRowspan();
+        applyWorkFieldRowspan();
     }
 }
 
@@ -4191,10 +4317,7 @@ function createCharts() {
         resultPerformance: Number(actualtable.querySelector('tbody tr:nth-child(10) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         performance: 0
     };
-    const performanceItems = Array.isArray(globalThis.performance_result?.filtered_data)
-        ? globalThis.performance_result.filtered_data
-        : [];
-    performanceItems.forEach(item => {
+    performance_result.filtered_data.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 expectedData.performance = item.amount;
@@ -5954,7 +6077,7 @@ function createProjectChangeTable() {
         `;
     }
 
-    // 문제예상 테이블 thead 구성 (참여 기술자와 동일한 체크박스 열 포함)
+     // 문제예상 테이블 thead 구성 (참여 기술자와 동일한 체크박스 열 포함)
     const issueHead = document.querySelector('#issue_prediction_table thead');
     if (issueHead) {
         issueHead.innerHTML = `
@@ -6452,7 +6575,7 @@ function recalculateReceiptBalances() {
 // 텍스트박스로 전환 시 금액 처리 포함
 function TextChangeWithreceipts(td) {
     // 이미 input이 있는 경우 return
-    if (td.querySelector('input, textarea')) return;
+    if (td.querySelector('input')) return;
     // input 생성 및 설정
     const input = document.createElement('input');
     const currentValue = td.textContent.replace(/[^\d]/g, '').trim(); // 금액만 추출
@@ -6901,6 +7024,14 @@ async function loadParticipantEngineers() {
         if (!tbody) return;
         tbody.innerHTML = '';
         const engineers = data.engineers || [];
+        updateParticipantEngineersHeader(engineers);
+        const workOrder = { '사책': 1, '분책': 2, '분참': 3 };
+        engineers.sort((a, b) => {
+            const aKey = workOrder[a.work_position] || 99;
+            const bKey = workOrder[b.work_position] || 99;
+            if (aKey !== bKey) return aKey - bKey;
+            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+        });
         if (engineers.length === 0) {
             addRows('participant_engineers_tbody', 1, true);
             return;
@@ -6949,6 +7080,8 @@ async function loadParticipantEngineers() {
 function applyWorkFieldRowspan() {
     const tbody = document.getElementById('participant_engineers_tbody');
     if (!tbody) return;
+    const firstRow = tbody.querySelector('tr');
+    if (firstRow && firstRow.cells[1] && firstRow.cells[1].querySelector('select')) return;
     // 편집 모드(수정 중)에서는 병합하지 않음
     const editToggle = document.getElementById('class_edit');
     if (editToggle && editToggle.dataset.mode === 'editing') return;
@@ -9606,10 +9739,7 @@ function generateOutsourcingRows(flag = false) {
     let real_performance = 0;
 
     // 성과심사비 분기
-    const performanceItems = Array.isArray(globalThis.performance_result?.filtered_data)
-        ? globalThis.performance_result.filtered_data
-        : [];
-    performanceItems.forEach(item => {
+    performance_result.filtered_data.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 ex_performance = item.amount;
@@ -9934,10 +10064,7 @@ async function generateComparisonTable() {
         outsourcing: actualOutsource.outsourceTotalCost,
         performance: 0
     };
-    const performanceItems = Array.isArray(globalThis.performance_result?.filtered_data)
-        ? globalThis.performance_result.filtered_data
-        : [];
-    performanceItems.forEach(item => {
+    performance_result.filtered_data.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 expectedData.performance = item.amount;
