@@ -15,11 +15,17 @@ bp = Blueprint('doc_editor_api', __name__, url_prefix='/doc_editor_api')
 BASE_DIR = Path(__file__).resolve().parents[2]
 MEETING_UPLOAD_FOLDER = str(BASE_DIR / 'static' / 'uploads' / 'meeting_minutes')
 MEETING_STATIC_ROOT = (BASE_DIR / 'static' / 'uploads' / 'meeting_minutes').resolve()
+MEETING_ATTACHMENT_ALLOWED_EXTENSIONS = {'.hwp', '.hwpx', '.xls', '.xlsx', '.pdf'}
 
 
 def _sanitize_filename(filename: str) -> str:
     filename = re.sub(r"[^\w가-힣._-]", "", filename)
     return filename.replace(" ", "_")
+
+
+def _is_allowed_meeting_attachment(filename: str) -> bool:
+    suffix = Path(filename or '').suffix.lower()
+    return suffix in MEETING_ATTACHMENT_ALLOWED_EXTENSIONS
 
 
 def _get_viewer_info():
@@ -109,6 +115,11 @@ def upload_meeting_pdf():
     if not filename_lower.endswith('.pdf'):
         return jsonify({'success': False, 'message': 'PDF 파일만 업로드할 수 있습니다.'}), 400
 
+    attachment_files = [f for f in request.files.getlist('attachments') if f and f.filename]
+    for attachment in attachment_files:
+        if not _is_allowed_meeting_attachment(attachment.filename):
+            return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
+
     doc_number = (request.form.get('docNumber') or '').strip()
     contractcode = (request.form.get('contractcode') or '').strip()
     project_name = (request.form.get('projectName') or '').strip()
@@ -143,13 +154,35 @@ def upload_meeting_pdf():
 
     safe_name = _sanitize_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    current_year = datetime.now().strftime('%Y')
     name_parts = [p for p in (doc_number, contractcode, timestamp, safe_name) if p]
     final_name = "_".join(name_parts)
     file_path = os.path.join(year_folder, final_name)
+    attachment_folder = os.path.join(year_folder, 'attachments')
+    os.makedirs(attachment_folder, exist_ok=True)
+
+    saved_attachments = []
+    attachment_saved_paths: list[str] = []
+    for attachment in attachment_files:
+        safe_attachment_name = _sanitize_filename(attachment.filename)
+        attachment_name_parts = [
+            p for p in (doc_number, contractcode, timestamp, 'att', safe_attachment_name) if p
+        ]
+        final_attachment_name = "_".join(attachment_name_parts)
+        attachment_path = os.path.join(attachment_folder, final_attachment_name)
+        attachment.save(attachment_path)
+        attachment_saved_paths.append(attachment_path)
+        attachment_url = f"/static/uploads/meeting_minutes/{current_year}/attachments/{final_attachment_name}"
+        attachment_size = os.path.getsize(attachment_path)
+        saved_attachments.append({
+            'fileUrl': attachment_url,
+            'originalName': attachment.filename,
+            'fileSize': attachment_size,
+        })
 
     try:
         file.save(file_path)
-        file_url = f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/{final_name}"
+        file_url = f"/static/uploads/meeting_minutes/{current_year}/{final_name}"
         file_size = os.path.getsize(file_path)
 
         conn = create_connection()
@@ -182,6 +215,23 @@ def upload_meeting_pdf():
                 ),
             )
             record_id = cursor.lastrowid
+
+            if saved_attachments:
+                for attachment in saved_attachments:
+                    cursor.execute(
+                        """
+                        INSERT INTO meeting_file_attachments
+                        (meeting_id, file_path, original_name, file_size, create_at)
+                        VALUES (%s, %s, %s, %s, NOW())
+                        """,
+                        (
+                            record_id,
+                            attachment.get('fileUrl'),
+                            attachment.get('originalName'),
+                            attachment.get('fileSize'),
+                        ),
+                    )
+
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -197,8 +247,20 @@ def upload_meeting_pdf():
             'recordId': record_id,
             'title': agenda_title,
             'projectName': project_name,
+            'attachments': saved_attachments,
         })
     except Exception as e:
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+        for p in attachment_saved_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -226,6 +288,37 @@ def list_meeting_files():
         )
         items = cursor.fetchall() or []
         return jsonify({'items': items})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/meeting/attachments', methods=['GET'])
+def list_meeting_attachments():
+    meeting_id = request.args.get('meeting_id')
+    if not meeting_id:
+        return jsonify({'success': False, 'message': 'meeting_id가 필요합니다.'}), 400
+
+    conn = create_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'DB connection failed'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT id, meeting_id, file_path,
+                   original_name,
+                   COALESCE(file_size, 0) AS file_size,
+                   DATE_FORMAT(create_at, '%Y-%m-%d %H:%i') AS create_at
+            FROM meeting_file_attachments
+            WHERE meeting_id = %s
+            ORDER BY id ASC
+            """,
+            (meeting_id,),
+        )
+        items = cursor.fetchall() or []
+        return jsonify({'success': True, 'items': items})
     finally:
         cursor.close()
         conn.close()
@@ -418,6 +511,13 @@ def delete_meeting_file():
         if not row:
             return jsonify({'success': False, 'message': '파일을 찾을 수 없습니다.'}), 404
 
+        attachment_rows = []
+        cursor.execute(
+            "SELECT file_path FROM meeting_file_attachments WHERE meeting_id = %s",
+            (record_id,),
+        )
+        attachment_rows = cursor.fetchall() or []
+
         cursor.execute("DELETE FROM meeting_files WHERE id = %s", (record_id,))
         conn.commit()
 
@@ -427,6 +527,17 @@ def delete_meeting_file():
             try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
+            except Exception:
+                pass
+
+        for attachment in attachment_rows:
+            attachment_url = (attachment or {}).get('file_path')
+            if not attachment_url:
+                continue
+            attachment_path = os.path.normpath(os.path.join(BASE_DIR, attachment_url.lstrip('/')))
+            try:
+                if os.path.exists(attachment_path):
+                    os.remove(attachment_path)
             except Exception:
                 pass
 
