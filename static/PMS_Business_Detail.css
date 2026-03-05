@@ -443,6 +443,10 @@ header {
     background: #eff6ff;
 }
 
+.meeting-dropzone-attachment{
+    border-style: dashed;
+}
+
 .meeting-dropzone-title{
     font-weight: 700;
     color: #1f2937;
@@ -453,6 +457,20 @@ header {
     color: #6b7280;
 }
 
+.meeting-upload-section .search-button{
+    padding: 8px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.meeting-upload-section .search-button:hover{
+    background-color: #0052a3;
+}
+
 .meeting-upload-list{
     border: 1px solid #e5e7eb;
     border-radius: 6px;
@@ -461,6 +479,79 @@ header {
     min-height: 40px;
     font-size: 13px;
     color: #475569;
+}
+
+.meeting-upload-block + .meeting-upload-block{
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.meeting-upload-block-title{
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.meeting-upload-inner{
+    min-height: 20px;
+}
+
+.meeting-upload-empty{
+    font-size: 12px;
+    color: #64748b;
+}
+
+.meeting-view-attachments-wrap{
+    margin: 8px 0 4px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    padding: 8px;
+}
+
+.meeting-view-attachments-title{
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.meeting-view-attachments-list{
+    min-height: 24px;
+}
+
+.meeting-view-attachments-empty{
+    font-size: 12px;
+    color: #64748b;
+}
+
+.meeting-view-attachment-item{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.meeting-view-attachment-item:last-child{
+    border-bottom: none;
+}
+
+.meeting-view-attachment-link{
+    font-size: 12px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.meeting-view-attachment-link:hover{
+    background: #f1f5f9;
 }
 
 .meeting-upload-item{

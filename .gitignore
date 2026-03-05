@@ -24,3 +24,6 @@ static/uploads/
 # Test / cache
 .pytest_cache/
 .mypy_cache/
+
+# Local git operation notes
+Git_배포_운영_절차.txt
