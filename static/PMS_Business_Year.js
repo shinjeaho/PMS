@@ -326,10 +326,10 @@ function setTableHead(mode) {
     } else if (mode === 'meeting') {
         thead.innerHTML = `
             <tr>
-                <th style="width: 12%; text-align:center;">문서번호</th>
-                <th style="width: 18%; text-align:center; white-space:nowrap;">사업번호</th>
-                <th style="width: 34%;">제목</th>
-                <th style="width: 12%; text-align:center;">작성자</th>
+                <th style="width: 10%; text-align:center;">문서번호</th>
+                <th style="width: 5%; text-align:center; white-space:nowrap;">사업번호</th>
+                <th style="width: 36%;">제목</th>
+                <th style="width: 8%; text-align:center;">작성자</th>
                 <th style="width: 16%; text-align:center;">작성일</th>
                 <th style="width: 8%; text-align:center;">조회수</th>
             </tr>

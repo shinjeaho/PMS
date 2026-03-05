@@ -965,9 +965,15 @@ main {
     background: #f3f4f6;
 }
 
-/* 회의록 목록: 작성일은 작은 폰트 + 한 줄 고정 */
+/* 회의록 목록: 행 폰트 크기 통일 */
+.projectList tbody tr[data-meeting-id] td{
+    font-size: 18px;
+    padding: 10px 12px;
+}
+
+/* 회의록 목록: 작성일 한 줄 고정 */
 .meeting-date-cell{
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1.3;
     white-space: nowrap;
 }
