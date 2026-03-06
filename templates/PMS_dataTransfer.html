@@ -14,7 +14,7 @@
             데이터 이관 페이지
         </h1>
     </header>
-   
+
 
     <!-- 설정관리 모달 -->
     <div id="transferModal" class="modal">
@@ -68,10 +68,6 @@
             </div>
         </div>
     </div>
-   
-
-
-    
 
     <!-- 추출 결과 모달창 -->
     <div id="modal" class="modal">
@@ -95,36 +91,100 @@
         </div>
     </div>
 
-
-    <!-- 파일 업로드 -->
-    <div id="dataSelect">
-        <h1 id="dataText" style="color: #ccc; margin-top: 60px;">★PMS리스트 끌어오기 및 선택</h1>
-        <p id="dataText2" style="color: #ccc;">★PMS리스트 파일을 추출하기 위한 페이지 입니다.</p>
-        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+    <div id="engineerExtractModal" class="modal">
+        <div class="modal-content engineer-extract-modal">
+            <div class="modal-header">
+                <h2>참여기술자 추출 결과</h2>
+                <span class="close" onclick="closeEngineerExtractModal()">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <div class="engineer-contract-table-wrap">
+                    <table class="engineer-contract-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 8%;">선택</th>
+                                <th style="width: 28%;">계약번호</th>
+                                <th style="width: 58%;">사업명</th>
+                                <th style="width: 6%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="engineerContractList"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; gap: 10px;">
+                <button type="button" class="modal_save-btn" style="margin-top: 0;" onclick="insertEngineerTransferData()">데이터 삽입하기</button>
+                <button type="button" class="modal_save-btn" style="margin-top: 0; background-color: red;" onclick="closeEngineerExtractModal()">닫기</button>
+            </div>
+        </div>
     </div>
 
- <!-- 로딩 표시 -->
- <div id="loading">파일 처리 중...</div>
-
-    <!-- 메인 바디 -->
-    <div class="main-section" style="width: 100%; background-color: white;">
-        <h2 style="text-align: center;">사업 목록</h2>
-        <hr style="width: 100%;">
-
-        <div class="table-container">
-            <table class="custom-table">
-                <thead>
-                    <tr>
-                        <th style="width: 35%;">사업번호</th>
-                        <th style="width: 65%;">사업 명</th>
-                    </tr>
-                </thead>
-                <tbody id="transferList_tbody"></tbody>
-            </table>
+    <div class="transfer-layout">
+        <div class="transfer-topbar">
+            <button type="button" class="transfer-menu-button active" data-target="engineerTransferSection">참여기술자 이관하기</button>
+            <button type="button" class="transfer-menu-button" data-target="projectTransferSection">사업 데이터 이관하기</button>
         </div>
 
-        <!-- 페이지네이션 버튼 -->
-        <div id="pagination" class="pagination"></div>
+        <div class="transfer-content">
+            <section id="engineerTransferSection" class="transfer-panel is-active">
+                <div class="main-section" style="width: 100%; background-color: white;">
+                    <h2 style="text-align: center;">참여기술자 이관하기</h2>
+                    <hr style="width: 100%;">
+                    <div id="engineerDataSelect" class="transfer-dropzone">
+                        <h1 id="engineerDataText" style="color: #ccc; margin-top: 12px; margin-bottom: 10px;">참여기술자 엑셀 파일</h1>
+                        <p id="engineerDataText2" style="color: #ccc; margin: 0 0 10px 0;">엑셀 파일을 드래그 앤 드랍 또는 클릭해서 업로드</p>
+                        <button type="button" class="search-button" id="engineerPickFileBtn">파일 선택</button>
+                    </div>
+                    <input type="file" id="engineerFileInput" accept=".xlsx,.xls" style="display: none;">
+
+                    <div class="transfer-guide-box">
+                        <div class="transfer-guide-line">* 누락된 데이터가 존재 할 수 있습니다.</div>
+                        <div class="transfer-guide-line">* 엑셀파일만 허용됩니다.</div>
+                        <div class="transfer-guide-line">* 각 업무별 인원을 각각의 셀로 분할해 주세요.</div>
+                        <div class="transfer-guide-line">&nbsp;&nbsp;&nbsp;&nbsp;예시 ) 사책 분책(1) 분참(1) 분참(2)<br>&nbsp;&nbsp;&nbsp;&nbsp;또는 사책 분책(1) 분책(2) 분참(1)</div>
+                        <div class="transfer-guide-line">* 예시 이미지</div>
+                        <img src="{{ url_for('static', filename='img/example.png') }}" alt="참여기술자 엑셀 예시 이미지" class="transfer-guide-image">
+                    </div>
+                </div>
+            </section>
+
+            <section id="projectTransferSection" class="transfer-panel">
+                <!-- 파일 업로드 -->
+                <div id="dataSelect" class="transfer-dropzone">
+                    <h1 id="dataText" style="color: #ccc; margin-top: 60px;">★PMS리스트 끌어오기 및 선택</h1>
+                    <p id="dataText2" style="color: #ccc;">★PMS리스트 파일을 추출하기 위한 페이지 입니다.</p>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+                </div>
+
+                <!-- 로딩 표시 -->
+                <div id="loading">
+                    <div class="loading-spinner" aria-hidden="true"></div>
+                    <div id="loadingText">파일 처리 중...</div>
+                </div>
+
+                <!-- 메인 바디 -->
+                <div class="main-section" style="width: 100%; background-color: white;">
+                    <h2 style="text-align: center;">사업 목록</h2>
+                    <hr style="width: 100%;">
+
+                    <div class="table-container">
+                        <table class="custom-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%;">사업번호</th>
+                                    <th style="width: 65%;">사업 명</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transferList_tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- 페이지네이션 버튼 -->
+                    <div id="pagination" class="pagination"></div>
+                </div>
+            </section>
+        </div>
     </div>
 
     <footer>

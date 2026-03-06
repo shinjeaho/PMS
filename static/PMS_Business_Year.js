@@ -1184,11 +1184,22 @@ function renderTable(projects) {
     };
 
     projects.forEach(project => {
-        const outsourcingVal = Number(project.outsourcingCheck);
-        const outsourcingText = (currentView === 'examine' || currentView === 'yearly')
-            ? (outsourcingVal === 1 ? "전량외주" :
-                outsourcingVal === 2 ? "부분외주" : "")
-            : "";
+        const rawOutsourcing =
+            project.outsourcingCheck ??
+            project.outsourcingcheck ??
+            project.outsourcingType ??
+            project.outsourcing_type ??
+            '';
+
+        const normalizedOutsourcing = String(rawOutsourcing).replace(/\s/g, '');
+        const outsourcingVal = Number(rawOutsourcing);
+
+        let outsourcingText = '';
+        if (outsourcingVal === 1 || normalizedOutsourcing === '전량외주') {
+            outsourcingText = '전량외주';
+        } else if (outsourcingVal === 2 || normalizedOutsourcing === '부분외주') {
+            outsourcingText = '부분외주';
+        }
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
@@ -3915,6 +3926,48 @@ function escapeHtmlSafe(str) {
 let meetingSelectedFile = null;
 let meetingSelectedAttachments = [];
 
+function initDateYearAutoAdvance(input) {
+    if (!input || input.dataset.yearAutoAdvanceBound === '1') return;
+
+    input.dataset.yearAutoAdvanceBound = '1';
+    let typedYearDigits = 0;
+
+    input.addEventListener('focus', () => {
+        typedYearDigits = 0;
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            typedYearDigits = Math.max(0, typedYearDigits - 1);
+            return;
+        }
+
+        if (!/^\d$/.test(e.key)) return;
+        if (typedYearDigits >= 4) return;
+
+        typedYearDigits += 1;
+        if (typedYearDigits !== 4) return;
+
+        setTimeout(() => {
+            if (typeof input.setSelectionRange === 'function') {
+                try {
+                    input.setSelectionRange(5, 5);
+                    return;
+                } catch (_) {
+                }
+            }
+
+            input.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'ArrowRight',
+                code: 'ArrowRight',
+                keyCode: 39,
+                which: 39,
+                bubbles: true
+            }));
+        }, 0);
+    });
+}
+
 function initMeetingUploadModal() {
     const modal = document.getElementById('meetingUploadModal');
     if (!modal) return;
@@ -3927,7 +3980,10 @@ function initMeetingUploadModal() {
     const pickAttachmentBtn = document.getElementById('meetingPickAttachmentBtn');
     const projectInput = document.getElementById('meetingProjectNumber');
     const projectNameInput = document.getElementById('meetingProjectName');
+    const meetingDateStartInput = document.getElementById('meetingDateStart');
     const suggestCell = modal.querySelector('.meeting-suggest-cell');
+
+    initDateYearAutoAdvance(meetingDateStartInput);
 
     let suggestBox = document.getElementById('meetingProjectSuggest');
     if (!suggestBox && suggestCell) {

@@ -1125,9 +1125,8 @@
 
                         <div class="header-container">
                             <h2 class="header-text" style="margin-bottom: 15px; margin-top: 15px;">참여 기술자</h2>
-                            <span class="button-box"><button type="button" class="excel-export-btn"
-                                    onclick="exportParticipantEngineersToExcel()">엑셀 변환</button><button type="button"
-                                    class="add-row-btn"
+                            <span class="button-box">
+                                <button type="button" class="add-row-btn"
                                     onclick="addRows('participant_engineers_tbody', 1, true)">+</button><button
                                     type="button" class="remove-row-btn"
                                     onclick="removeRow('participant_engineers_tbody')">-</button></span>
@@ -1280,7 +1279,8 @@
                             <div class="meeting-dropzone-sub">한글/엑셀/PDF 파일을 드래그 앤 드랍하거나 클릭해서 업로드</div>
                             <button type="button" class="search-button" id="meetingPickAttachmentBtn">첨부파일 선택</button>
                         </div>
-                        <input type="file" id="meetingAttachmentInput" accept=".hwp,.hwpx,.xls,.xlsx,application/pdf" multiple style="display:none;">
+                        <input type="file" id="meetingAttachmentInput" accept=".hwp,.hwpx,.xls,.xlsx,application/pdf"
+                            multiple style="display:none;">
 
                         <div id="meetingUploadList" class="meeting-upload-list">
                             <div class="meeting-upload-block">
@@ -1389,7 +1389,8 @@
                         <div class="meeting-view-tip-box" role="tooltip">
                             Chrom <br> 우측상단 ⋮ 클릭 &gt; 설정 &gt; 좌측 개인정보 보호 및 보안 &gt; 사이트 설정 &gt; 추가 콘텐츠 설정 &gt; PDF 문서
                             &gt; Chrom에서 PDF 열기 체크<br><br>
-                            Edge <br> 우측상단 ⋯ 클릭 &gt; 설정 &gt; 개인 정보, 검색 및 서비스 &gt; 사이트 사용 권한 &gt; 모든 사용 권한 &gt; PDF 문서 &gt; 항상 PDF 파일 다운로드 체크
+                            Edge <br> 우측상단 ⋯ 클릭 &gt; 설정 &gt; 개인 정보, 검색 및 서비스 &gt; 사이트 사용 권한 &gt; 모든 사용 권한 &gt; PDF 문서
+                            &gt; 항상 PDF 파일 다운로드 체크
                             해제<br><br><br>
                             혹은 파일 다운로드 후 PDF 뷰어로 열기
                         </div>
@@ -2071,6 +2072,12 @@
         </div>
     </div>
 
+    <script id="first-records-json" type="application/json">{{ first_records | tojson | safe }}</script>
+    <script id="second-records-json" type="application/json">{{ second_records | tojson | safe }}</script>
+    <script id="performance-result-json" type="application/json">{{ performance_result | tojson | safe }}</script>
+    <script id="outsourcing-payments-json" type="application/json">{{ outsourcing_payments | tojson | safe }}</script>
+    <script id="department-bohal-json" type="application/json">{{ department_bohal | tojson | safe }}</script>
+
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             document.getElementsByClassName("tablinks")[0].click();
@@ -2093,12 +2100,6 @@
         // ---------- comments JSON 삽입 (문제 해결된 버전) ----------
         // Jinja2가 생성한 JSON을 HTML 내 application/json으로 안전하게 삽입
     </script>
-
-    <script id="first-records-json" type="application/json">{{ first_records | tojson | safe }}</script>
-    <script id="second-records-json" type="application/json">{{ second_records | tojson | safe }}</script>
-    <script id="performance-result-json" type="application/json">{{ performance_result | tojson | safe }}</script>
-    <script id="outsourcing-payments-json" type="application/json">{{ outsourcing_payments | tojson | safe }}</script>
-    <script id="department-bohal-json" type="application/json">{{ department_bohal | tojson | safe }}</script>
 
     <script id="comments-json" type="application/json">
 {{ comments | tojson | default('[]') | safe }}
