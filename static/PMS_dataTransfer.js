@@ -25,7 +25,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function isExcelFile(file) {
     if (!file || !file.name) return false;
-    return file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    return file.name.toLowerCase().endsWith('.xlsx');
+}
+
+function isXlsxFile(file) {
+    if (!file || !file.name) return false;
+    return file.name.toLowerCase().endsWith('.xlsx');
 }
 
 function setLoading(isVisible, message = '파일 처리 중...') {
@@ -178,7 +183,7 @@ if (engineerPickFileBtn && engineerFileInput) {
 
 function handleFileUpload(file) {
     if (!isExcelFile(file)) {
-        alert('엑셀 파일만 업로드 가능합니다.');
+        alert('.xlsx 파일만 업로드 가능합니다.');
         return;
     }
     fileName.textContent = `업로드된 파일: ${file.name}`;
@@ -188,8 +193,8 @@ function handleFileUpload(file) {
 }
 
 function handleEngineerFileUpload(file) {
-    if (!isExcelFile(file)) {
-        alert('엑셀 파일만 업로드 가능합니다.');
+    if (!isXlsxFile(file)) {
+        alert('참여기술자 추출은 .xlsx 파일만 업로드 가능합니다.');
         return;
     }
     if (engineerDataText) {
