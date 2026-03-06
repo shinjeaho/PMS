@@ -136,11 +136,11 @@
                         <p id="engineerDataText2" style="color: #ccc; margin: 0 0 10px 0;">엑셀 파일을 드래그 앤 드랍 또는 클릭해서 업로드</p>
                         <button type="button" class="search-button" id="engineerPickFileBtn">파일 선택</button>
                     </div>
-                    <input type="file" id="engineerFileInput" accept=".xlsx,.xls" style="display: none;">
+                    <input type="file" id="engineerFileInput" accept=".xlsx" style="display: none;">
 
                     <div class="transfer-guide-box">
                         <div class="transfer-guide-line">* 누락된 데이터가 존재 할 수 있습니다.</div>
-                        <div class="transfer-guide-line">* 엑셀파일만 허용됩니다.</div>
+                        <div class="transfer-guide-line">* 엑셀파일(.xlsx)만 허용됩니다.</div>
                         <div class="transfer-guide-line">* 각 업무별 인원을 각각의 셀로 분할해 주세요.</div>
                         <div class="transfer-guide-line">&nbsp;&nbsp;&nbsp;&nbsp;예시 ) 사책 분책(1) 분참(1) 분참(2)<br>&nbsp;&nbsp;&nbsp;&nbsp;또는 사책 분책(1) 분책(2) 분참(1)</div>
                         <div class="transfer-guide-line">* 예시 이미지</div>
@@ -154,13 +154,7 @@
                 <div id="dataSelect" class="transfer-dropzone">
                     <h1 id="dataText" style="color: #ccc; margin-top: 60px;">★PMS리스트 끌어오기 및 선택</h1>
                     <p id="dataText2" style="color: #ccc;">★PMS리스트 파일을 추출하기 위한 페이지 입니다.</p>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
-                </div>
-
-                <!-- 로딩 표시 -->
-                <div id="loading">
-                    <div class="loading-spinner" aria-hidden="true"></div>
-                    <div id="loadingText">파일 처리 중...</div>
+                    <input type="file" id="fileInput" accept=".xlsx" style="display: none;">
                 </div>
 
                 <!-- 메인 바디 -->
@@ -185,6 +179,12 @@
                 </div>
             </section>
         </div>
+    </div>
+
+    <!-- 로딩 표시 (공통 오버레이) -->
+    <div id="loading">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <div id="loadingText">파일 처리 중...</div>
     </div>
 
     <footer>

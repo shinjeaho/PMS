@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import re
+from zipfile import BadZipFile
 
 import mysql.connector
 from flask import Blueprint, jsonify, render_template, request
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 from io import BytesIO
 
 from ..db import create_connection
@@ -80,53 +82,77 @@ def normalize_contractcode(value) -> str:
 
 def _extract_engineer_rows_from_excel(file_stream):
     wb = load_workbook(file_stream, data_only=True)
-    ws = wb[wb.sheetnames[0]]
-
-    headers = []
-    for cell in ws[1]:
-        value = '' if cell.value is None else str(cell.value).strip()
-        headers.append(value)
-
-    contract_idx = None
-    for idx, header in enumerate(headers):
-        if header == '계약번호' or '계약번호' in header:
-            contract_idx = idx
-            break
-
-    if contract_idx is None:
-        raise ValueError('엑셀에서 계약번호 컬럼을 찾지 못했습니다.')
-
-    engineer_columns = []
-    for idx, header in enumerate(headers):
-        if any(key in header for key in ('사책', '분책', '분참')):
-            work_position = re.sub(r'\(.*?\)', '', header).strip()
-            if work_position:
-                engineer_columns.append((idx, work_position))
-
-    if not engineer_columns:
-        raise ValueError('엑셀에서 담당업무 컬럼(사책/분책/분참)을 찾지 못했습니다.')
-
     extracted_rows = []
-    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, values_only=True):
-        raw_contractcode = row[contract_idx] if contract_idx < len(row) else None
-        contractcode = normalize_contractcode(raw_contractcode)
 
-        if not contractcode:
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        if not hasattr(ws, 'iter_rows') or not hasattr(ws, 'max_row'):
             continue
-        if '소계' in contractcode:
+        if ws.max_row < 1:
             continue
 
-        for col_idx, work_position in engineer_columns:
-            if col_idx >= len(row):
-                continue
-            raw_name = row[col_idx]
-            if raw_name is None:
-                continue
-            name = str(raw_name).strip()
-            if not name or name == '-':
+        try:
+            headers = []
+            for cell in ws[1]:
+                value = '' if cell.value is None else str(cell.value).strip()
+                headers.append(value)
+
+            contract_idx = None
+            project_name_idx = None
+            for idx, header in enumerate(headers):
+                if contract_idx is None and ('계약번호' in header):
+                    contract_idx = idx
+                if project_name_idx is None and ('사업명' in header):
+                    project_name_idx = idx
+
+            if contract_idx is None:
                 continue
 
-            extracted_rows.append((contractcode, work_position, name))
+            engineer_columns = []
+            for idx, header in enumerate(headers):
+                if any(key in header for key in ('사책', '분책', '분참')):
+                    work_position = re.sub(r'\(.*?\)', '', header).strip()
+                    if work_position:
+                        engineer_columns.append((idx, work_position))
+
+            if not engineer_columns:
+                continue
+
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, values_only=True):
+                raw_contractcode = row[contract_idx] if contract_idx < len(row) else None
+                contractcode = normalize_contractcode(raw_contractcode)
+
+                if not contractcode:
+                    continue
+                if '소계' in contractcode:
+                    continue
+
+                raw_project_name = row[project_name_idx] if project_name_idx is not None and project_name_idx < len(row) else None
+                project_name = str(raw_project_name).strip() if raw_project_name is not None else ''
+
+                for col_idx, work_position in engineer_columns:
+                    if col_idx >= len(row):
+                        continue
+                    raw_name = row[col_idx]
+                    if raw_name is None:
+                        continue
+                    name = str(raw_name).strip()
+                    if not name or name == '-':
+                        continue
+
+                    extracted_rows.append(
+                        {
+                            'contractcode': contractcode,
+                            'project_name': project_name,
+                            'work_position': work_position,
+                            'name': name,
+                        }
+                    )
+        except Exception:
+            continue
+
+    if not extracted_rows:
+        raise ValueError('엑셀에서 계약번호/담당업무(사책/분책/분참) 데이터가 없습니다.')
 
     return extracted_rows
 
@@ -172,9 +198,9 @@ def upload_file():
             print('파일명이 비어 있음')
             return jsonify({'error': '파일이 선택되지 않았습니다.'}), 400
 
-        if not file.filename.endswith(('.xlsx', '.xls')):
+        if not file.filename.lower().endswith('.xlsx'):
             print('잘못된 파일 형식 업로드됨')
-            return jsonify({'error': '엑셀 파일만 업로드 가능합니다.'}), 400
+            return jsonify({'error': '.xlsx 파일만 업로드 가능합니다.'}), 400
 
         print(f'업로드된 파일: {file.filename}')
         file_stream = BytesIO(file.read())
@@ -199,16 +225,18 @@ def extract_engineer_transfer_data():
     if not file or not file.filename:
         return jsonify({'success': False, 'message': '파일이 선택되지 않았습니다.'}), 400
 
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        return jsonify({'success': False, 'message': '엑셀 파일만 업로드 가능합니다.'}), 400
+    if not file.filename.lower().endswith('.xlsx'):
+        return jsonify({'success': False, 'message': '참여기술자 추출은 .xlsx 파일만 업로드 가능합니다.'}), 400
 
     try:
         extracted_rows = _extract_engineer_rows_from_excel(BytesIO(file.read()))
+    except (InvalidFileException, BadZipFile, IndexError):
+        return jsonify({'success': False, 'message': '유효한 .xlsx 파일이 아닙니다. 파일 형식을 확인해 주세요.'}), 400
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
     except Exception as e:
-        print(f'[ERROR] 참여기술자 엑셀 추출 실패: {e}')
-        return jsonify({'success': False, 'message': '엑셀 처리 중 오류가 발생했습니다.'}), 500
+        print(f'[ERROR] 참여기술자 엑셀 추출 실패: {type(e).__name__}: {e}')
+        return jsonify({'success': False, 'message': f'엑셀 처리 중 오류가 발생했습니다. ({type(e).__name__}: {e})'}), 500
 
     db = create_connection()
     if db is None:
@@ -255,18 +283,26 @@ def extract_engineer_transfer_data():
     eligible_contractcodes = set(project_map.keys()) - existing_contractcodes
     grouped = {}
 
-    for contractcode, work_position, name in extracted_rows:
-        contractcode = normalize_contractcode(contractcode)
+    for extracted in extracted_rows:
+        contractcode = normalize_contractcode(extracted.get('contractcode'))
+        work_position = str(extracted.get('work_position') or '').strip()
+        name = str(extracted.get('name') or '').strip()
+        project_name_from_excel = str(extracted.get('project_name') or '').strip()
+
+        if not work_position or not name:
+            continue
         if contractcode not in eligible_contractcodes:
             continue
 
         if contractcode not in grouped:
             grouped[contractcode] = {
                 'contractcode': contractcode,
-                'project_name': project_map.get(contractcode, ''),
+                'project_name': project_name_from_excel or project_map.get(contractcode, ''),
                 'rows': [],
                 '_dedup': set(),
             }
+        elif not grouped[contractcode].get('project_name') and project_name_from_excel:
+            grouped[contractcode]['project_name'] = project_name_from_excel
 
         key = (work_position, name)
         if key in grouped[contractcode]['_dedup']:
