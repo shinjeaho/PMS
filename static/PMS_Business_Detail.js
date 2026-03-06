@@ -4546,7 +4546,11 @@ function createCharts() {
         resultPerformance: Number(actualtable.querySelector('tbody tr:nth-child(10) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         performance: 0
     };
-    performance_result.filtered_data.forEach(item => {
+    const performanceData = Array.isArray(performance_result?.filtered_data)
+        ? performance_result.filtered_data
+        : [];
+
+    performanceData.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 expectedData.performance = item.amount;
@@ -9968,7 +9972,11 @@ function generateOutsourcingRows(flag = false) {
     let real_performance = 0;
 
     // 성과심사비 분기
-    performance_result.filtered_data.forEach(item => {
+    const performanceData = Array.isArray(performance_result?.filtered_data)
+        ? performance_result.filtered_data
+        : [];
+
+    performanceData.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 ex_performance = item.amount;
@@ -10293,7 +10301,11 @@ async function generateComparisonTable() {
         outsourcing: actualOutsource.outsourceTotalCost,
         performance: 0
     };
-    performance_result.filtered_data.forEach(item => {
+    const comparisonPerformanceData = Array.isArray(performance_result?.filtered_data)
+        ? performance_result.filtered_data
+        : [];
+
+    comparisonPerformanceData.forEach(item => {
         switch (item.description) {
             case "당초 내역서":
                 expectedData.performance = item.amount;
