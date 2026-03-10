@@ -264,6 +264,234 @@ def upload_meeting_pdf():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@bp.route('/meeting/update', methods=['POST'])
+def update_meeting_pdf():
+    meeting_id = (request.form.get('meetingId') or '').strip()
+    if not meeting_id:
+        return jsonify({'success': False, 'message': 'meeting_id가 필요합니다.'}), 400
+
+    file = request.files.get('file')
+    if file and file.filename:
+        filename_lower = file.filename.lower()
+        if not filename_lower.endswith('.pdf'):
+            return jsonify({'success': False, 'message': 'PDF 파일만 업로드할 수 있습니다.'}), 400
+    else:
+        file = None
+
+    attachment_files = [f for f in request.files.getlist('attachments') if f and f.filename]
+    for attachment in attachment_files:
+        if not _is_allowed_meeting_attachment(attachment.filename):
+            return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
+
+    doc_number = (request.form.get('docNumber') or '').strip()
+    contractcode = (request.form.get('contractcode') or '').strip()
+    project_name = (request.form.get('projectName') or '').strip()
+    agenda_title = (request.form.get('agendaTitle') or request.form.get('title') or '').strip()
+    meeting_date_start = (request.form.get('meetingDateStart') or '').strip()
+    meeting_time_start = (request.form.get('meetingTimeStart') or '').strip()
+    meeting_time_end = (request.form.get('meetingTimeEnd') or '').strip()
+
+    meeting_datetime = (
+        (f"{meeting_date_start} {meeting_time_start}:00" if meeting_date_start and meeting_time_start else '')
+        or (request.form.get('meetingDateTimeStart') or '').strip()
+        or (request.form.get('meetingDateTime') or '').strip()
+        or None
+    )
+    meeting_end_datetime = (
+        (f"{meeting_date_start} {meeting_time_end}:00" if meeting_date_start and meeting_time_end else '')
+        or (request.form.get('meetingDateTimeEnd') or '').strip()
+        or None
+    )
+
+    meeting_place = (request.form.get('meetingPlace') or '').strip() or None
+    organizer = (request.form.get('organizer') or '').strip() or None
+    attendees = (request.form.get('attendees') or '').strip() or None
+    created_at = (request.form.get('createdAt') or '').strip() or datetime.now().strftime('%Y-%m-%d')
+    author = (request.form.get('author') or '').strip()
+    user_name = (request.form.get('userName') or '').strip()
+    if not author:
+        author = user_name
+
+    conn = create_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'DB connection failed'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+
+    old_file_url = ''
+    file_url = None
+    file_size = None
+    file_original_name = None
+    new_pdf_disk_path = None
+    saved_attachments = []
+    attachment_saved_paths: list[str] = []
+
+    try:
+        cursor.execute(
+            """
+            SELECT id, file_path, original_name, file_size
+            FROM meeting_files
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (meeting_id,),
+        )
+        existing = cursor.fetchone()
+        if not existing:
+            return jsonify({'success': False, 'message': '회의록 데이터를 찾을 수 없습니다.'}), 404
+
+        old_file_url = (existing.get('file_path') or '').strip()
+
+        current_year = datetime.now().strftime('%Y')
+        year_folder = os.path.join(MEETING_UPLOAD_FOLDER, current_year)
+        os.makedirs(year_folder, exist_ok=True)
+        attachment_folder = os.path.join(year_folder, 'attachments')
+        os.makedirs(attachment_folder, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        if file is not None:
+            safe_name = _sanitize_filename(file.filename)
+            name_parts = [p for p in (doc_number, contractcode, timestamp, safe_name) if p]
+            final_name = "_".join(name_parts)
+            new_pdf_disk_path = os.path.join(year_folder, final_name)
+            file.save(new_pdf_disk_path)
+            file_url = f"/static/uploads/meeting_minutes/{current_year}/{final_name}"
+            file_size = os.path.getsize(new_pdf_disk_path)
+            file_original_name = file.filename
+
+        for attachment in attachment_files:
+            safe_attachment_name = _sanitize_filename(attachment.filename)
+            attachment_name_parts = [
+                p for p in (doc_number, contractcode, timestamp, 'att', safe_attachment_name) if p
+            ]
+            final_attachment_name = "_".join(attachment_name_parts)
+            attachment_path = os.path.join(attachment_folder, final_attachment_name)
+            attachment.save(attachment_path)
+            attachment_saved_paths.append(attachment_path)
+            attachment_url = f"/static/uploads/meeting_minutes/{current_year}/attachments/{final_attachment_name}"
+            attachment_size = os.path.getsize(attachment_path)
+            saved_attachments.append({
+                'fileUrl': attachment_url,
+                'originalName': attachment.filename,
+                'fileSize': attachment_size,
+            })
+
+        update_fields = [
+            "doc_number = %s",
+            "contractcode = %s",
+            "project_name = %s",
+            "agenda_title = %s",
+            "meeting_datetime = %s",
+            "meeting_end_datetime = %s",
+            "meeting_place = %s",
+            "organizer = %s",
+            "attendees = %s",
+            "created_at = %s",
+            "author = %s",
+            "user_name = %s",
+        ]
+        params = [
+            doc_number,
+            contractcode or None,
+            project_name or None,
+            agenda_title or None,
+            meeting_datetime,
+            meeting_end_datetime,
+            meeting_place,
+            organizer,
+            attendees,
+            created_at,
+            author or None,
+            user_name or None,
+        ]
+
+        if file is not None:
+            update_fields.extend(["file_path = %s", "original_name = %s", "file_size = %s"])
+            params.extend([file_url, file_original_name, file_size])
+
+        params.append(meeting_id)
+        cursor.execute(
+            f"""
+            UPDATE meeting_files
+            SET {', '.join(update_fields)}
+            WHERE id = %s
+            """,
+            tuple(params),
+        )
+
+        if saved_attachments:
+            for attachment in saved_attachments:
+                cursor.execute(
+                    """
+                    INSERT INTO meeting_file_attachments
+                    (meeting_id, file_path, original_name, file_size, create_at)
+                    VALUES (%s, %s, %s, %s, NOW())
+                    """,
+                    (
+                        meeting_id,
+                        attachment.get('fileUrl'),
+                        attachment.get('originalName'),
+                        attachment.get('fileSize'),
+                    ),
+                )
+
+        cursor.execute(
+            """
+            SELECT id, meeting_id, file_path,
+                   original_name,
+                   COALESCE(file_size, 0) AS file_size,
+                   DATE_FORMAT(create_at, '%Y-%m-%d %H:%i') AS create_at
+            FROM meeting_file_attachments
+            WHERE meeting_id = %s
+            ORDER BY id ASC
+            """,
+            (meeting_id,),
+        )
+        all_attachments = cursor.fetchall() or []
+
+        conn.commit()
+
+        if file is not None and old_file_url and old_file_url != file_url:
+            old_disk_path = os.path.normpath(os.path.join(BASE_DIR, old_file_url.lstrip('/')))
+            try:
+                if os.path.exists(old_disk_path):
+                    os.remove(old_disk_path)
+            except Exception:
+                pass
+
+        current_file_url = file_url or old_file_url
+        current_original_name = file_original_name or existing.get('original_name') or '회의록.pdf'
+
+        return jsonify({
+            'success': True,
+            'fileUrl': current_file_url,
+            'originalName': current_original_name,
+            'recordId': int(meeting_id),
+            'title': agenda_title,
+            'projectName': project_name,
+            'attachments': all_attachments,
+        })
+
+    except Exception as e:
+        conn.rollback()
+        if new_pdf_disk_path:
+            try:
+                if os.path.exists(new_pdf_disk_path):
+                    os.remove(new_pdf_disk_path)
+            except Exception:
+                pass
+        for p in attachment_saved_paths:
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @bp.route('/meeting/list', methods=['GET'])
 def list_meeting_files():
     conn = create_connection()
@@ -534,6 +762,56 @@ def delete_meeting_file():
             attachment_url = (attachment or {}).get('file_path')
             if not attachment_url:
                 continue
+            attachment_path = os.path.normpath(os.path.join(BASE_DIR, attachment_url.lstrip('/')))
+            try:
+                if os.path.exists(attachment_path):
+                    os.remove(attachment_path)
+            except Exception:
+                pass
+
+        return jsonify({'success': True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/meeting/delete_attachment', methods=['POST'])
+def delete_meeting_attachment():
+    data = request.get_json() or {}
+    attachment_id = data.get('id')
+    if not attachment_id:
+        return jsonify({'success': False, 'message': 'attachment id가 필요합니다.'}), 400
+
+    conn = create_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'DB connection failed'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT id, file_path
+            FROM meeting_file_attachments
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (attachment_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'message': '첨부파일을 찾을 수 없습니다.'}), 404
+
+        cursor.execute(
+            "DELETE FROM meeting_file_attachments WHERE id = %s",
+            (attachment_id,),
+        )
+        conn.commit()
+
+        attachment_url = (row or {}).get('file_path')
+        if attachment_url:
             attachment_path = os.path.normpath(os.path.join(BASE_DIR, attachment_url.lstrip('/')))
             try:
                 if os.path.exists(attachment_path):
