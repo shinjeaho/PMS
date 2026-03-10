@@ -282,6 +282,9 @@ function escapeHtmlSafe(str) {
 // =========================
 let meetingSelectedFile = null;
 let meetingSelectedAttachments = [];
+let meetingEditingRecordId = null;
+let meetingEditExistingPdf = null;
+let meetingEditExistingAttachments = [];
 
 function loadMeetingMinutesList() {
     const tbody = document.getElementById('meetingList_tbody');
@@ -501,7 +504,7 @@ function initMeetingUploadModal() {
     });
 }
 
-function openMeetingUploadModal() {
+function openMeetingUploadModal(editMeeting = null) {
     const modal = document.getElementById('meetingUploadModal');
     if (!modal) return;
     modal.classList.add('show');
@@ -545,20 +548,66 @@ function openMeetingUploadModal() {
     const meetingAttendeesInput = document.getElementById('meetingAttendees');
     if (meetingAttendeesInput) meetingAttendeesInput.value = '';
 
+    meetingEditingRecordId = null;
+    meetingEditExistingPdf = null;
+    meetingEditExistingAttachments = [];
     meetingSelectedFile = null;
     meetingSelectedAttachments = [];
+
+    const docInput = document.getElementById('meetingDocNumber');
+
+    if (editMeeting?.id) {
+        meetingEditingRecordId = editMeeting.id;
+        meetingEditExistingPdf = {
+            original_name: editMeeting.original_name || '회의록.pdf',
+            file_path: buildMeetingFileUrl(editMeeting),
+        };
+
+        if (docInput) docInput.value = editMeeting.doc_number || '';
+        if (createdAtInput) createdAtInput.value = editMeeting.created_at || formatDateYMD(new Date());
+        if (authorInput) authorInput.value = editMeeting.author || authorName;
+        if (projectNumberInput) projectNumberInput.value = editMeeting.contractcode || currentContract;
+        if (projectNameInput) projectNameInput.value = editMeeting.project_name || currentProjectName;
+        if (agendaTitleInput) agendaTitleInput.value = editMeeting.title || '';
+        if (meetingPlaceInput) meetingPlaceInput.value = editMeeting.meeting_place || '';
+        if (meetingOrganizerInput) meetingOrganizerInput.value = editMeeting.organizer || '';
+        if (meetingAttendeesInput) meetingAttendeesInput.value = editMeeting.attendees || '';
+
+        const startRaw = String(editMeeting.meeting_datetime || '').trim();
+        const startMatch = startRaw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
+        if (meetingDateStartInput) meetingDateStartInput.value = startMatch ? startMatch[1] : '';
+        if (meetingTimeStartHourInput) meetingTimeStartHourInput.value = startMatch ? startMatch[2] : '';
+        if (meetingTimeStartMinuteInput) meetingTimeStartMinuteInput.value = startMatch ? startMatch[3] : '';
+
+        const endRaw = String(editMeeting.meeting_end_datetime || '').trim();
+        const endMatch = endRaw.match(/(\d{2}):(\d{2})(?::\d{2})?$/);
+        if (meetingTimeEndHourInput) meetingTimeEndHourInput.value = endMatch ? endMatch[1] : '';
+        if (meetingTimeEndMinuteInput) meetingTimeEndMinuteInput.value = endMatch ? endMatch[2] : '';
+
+        fetch(`/doc_editor_api/meeting/attachments?meeting_id=${encodeURIComponent(editMeeting.id)}`)
+            .then(res => res.json())
+            .then(data => {
+                meetingEditExistingAttachments = data?.success && Array.isArray(data.items) ? data.items : [];
+                renderMeetingAttachmentPendingFiles();
+            })
+            .catch(() => {
+                meetingEditExistingAttachments = [];
+                renderMeetingAttachmentPendingFiles();
+            });
+    } else {
+        if (docInput) docInput.value = '';
+        fetch('/doc_editor_api/meeting/next_number')
+            .then(res => res.json())
+            .then(data => {
+                if (docInput) docInput.value = data.docNumber || '';
+            })
+            .catch(err => {
+                console.error('[meeting] doc number fetch failed:', err);
+            });
+    }
+
     renderMeetingPendingFile(meetingSelectedFile);
     renderMeetingAttachmentPendingFiles();
-
-    fetch('/doc_editor_api/meeting/next_number')
-        .then(res => res.json())
-        .then(data => {
-            const docInput = document.getElementById('meetingDocNumber');
-            if (docInput) docInput.value = data.docNumber || '';
-        })
-        .catch(err => {
-            console.error('[meeting] doc number fetch failed:', err);
-        });
 }
 
 function closeMeetingUploadModal() {
@@ -667,6 +716,7 @@ function summarizeMeetingUploadError(message) {
 }
 
 function uploadMeetingPdf(file) {
+    const isEditMode = !!meetingEditingRecordId;
     const docNumber = document.getElementById('meetingDocNumber')?.value || '';
     const contractcode = document.getElementById('meetingProjectNumber')?.value || '';
     const projectName = document.getElementById('meetingProjectName')?.value || '';
@@ -705,7 +755,8 @@ function uploadMeetingPdf(file) {
     }
 
     const fd = new FormData();
-    fd.append('file', file);
+    if (file) fd.append('file', file);
+    if (isEditMode) fd.append('meetingId', String(meetingEditingRecordId));
     fd.append('docNumber', docNumber);
     fd.append('contractcode', contractcode);
     fd.append('projectName', projectName);
@@ -726,7 +777,7 @@ function uploadMeetingPdf(file) {
         fd.append('attachments', attachment);
     });
 
-    fetch('/doc_editor_api/meeting/upload_pdf', {
+    fetch(isEditMode ? '/doc_editor_api/meeting/update' : '/doc_editor_api/meeting/upload_pdf', {
         method: 'POST',
         body: fd
     })
@@ -775,12 +826,12 @@ function uploadMeetingPdf(file) {
                         const item = document.createElement('div');
                         item.className = 'meeting-upload-item';
                         const nameEl = document.createElement('span');
-                        nameEl.textContent = att.originalName || '첨부파일';
+                        nameEl.textContent = att.originalName || att.original_name || '첨부파일';
                         const actions = document.createElement('div');
                         actions.className = 'meeting-upload-actions';
 
                         const link = document.createElement('a');
-                        link.href = att.fileUrl || '#';
+                        link.href = att.fileUrl || att.file_path || '#';
                         link.textContent = '보기';
                         link.target = '_blank';
 
@@ -792,7 +843,7 @@ function uploadMeetingPdf(file) {
                 }
             }
 
-            alert('회의록이 성공적으로 저장되었습니다.');
+            alert(isEditMode ? '회의록이 성공적으로 수정되었습니다.' : '회의록이 성공적으로 저장되었습니다.');
             closeMeetingUploadModal();
             loadMeetingMinutesList();
         })
@@ -809,8 +860,36 @@ function renderMeetingPendingFile(file) {
     if (!uploadList) return;
     uploadList.innerHTML = '';
 
-    if (!file) {
+    if (!file && !meetingEditExistingPdf) {
         uploadList.innerHTML = '<div class="meeting-upload-empty">선택된 회의록 PDF 파일 없음</div>';
+        return;
+    }
+
+    if (!file && meetingEditExistingPdf) {
+        const item = document.createElement('div');
+        item.className = 'meeting-upload-item';
+        const nameEl = document.createElement('span');
+        nameEl.textContent = `기존 파일: ${meetingEditExistingPdf.original_name || '회의록 PDF 파일'}`;
+        const actions = document.createElement('div');
+        actions.className = 'meeting-upload-actions';
+        const link = document.createElement('a');
+        link.href = meetingEditExistingPdf.file_path || '#';
+        link.textContent = '보기';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'X';
+        removeBtn.setAttribute('aria-label', '기존 회의록 파일 제거');
+        removeBtn.addEventListener('click', () => {
+            meetingEditExistingPdf = null;
+            renderMeetingPendingFile(meetingSelectedFile);
+        });
+        actions.appendChild(link);
+        actions.appendChild(removeBtn);
+        item.appendChild(nameEl);
+        item.appendChild(actions);
+        uploadList.appendChild(item);
         return;
     }
 
@@ -840,12 +919,41 @@ function renderMeetingAttachmentPendingFiles() {
     if (!uploadList) return;
     uploadList.innerHTML = '';
 
-    if (!Array.isArray(meetingSelectedAttachments) || meetingSelectedAttachments.length === 0) {
+    const existingAttachments = Array.isArray(meetingEditExistingAttachments) ? meetingEditExistingAttachments : [];
+    const newAttachments = Array.isArray(meetingSelectedAttachments) ? meetingSelectedAttachments : [];
+
+    if (existingAttachments.length === 0 && newAttachments.length === 0) {
         uploadList.innerHTML = '<div class="meeting-upload-empty">선택된 첨부파일 없음</div>';
         return;
     }
 
-    meetingSelectedAttachments.forEach((file, index) => {
+    existingAttachments.forEach((attachment) => {
+        const item = document.createElement('div');
+        item.className = 'meeting-upload-item';
+        const nameEl = document.createElement('span');
+        nameEl.textContent = `기존 파일: ${attachment.original_name || '첨부파일'}`;
+        const actions = document.createElement('div');
+        actions.className = 'meeting-upload-actions';
+        const link = document.createElement('a');
+        link.href = attachment.file_path || '#';
+        link.textContent = '보기';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.textContent = 'X';
+        removeBtn.setAttribute('aria-label', '기존 첨부파일 삭제');
+        removeBtn.addEventListener('click', () => {
+            deleteMeetingAttachment(attachment.id);
+        });
+        actions.appendChild(link);
+        actions.appendChild(removeBtn);
+        item.appendChild(nameEl);
+        item.appendChild(actions);
+        uploadList.appendChild(item);
+    });
+
+    newAttachments.forEach((file, index) => {
         const item = document.createElement('div');
         item.className = 'meeting-upload-item';
         const nameEl = document.createElement('span');
@@ -869,7 +977,7 @@ function renderMeetingAttachmentPendingFiles() {
 }
 
 function submitMeetingUpload() {
-    if (!meetingSelectedFile) {
+    if (!meetingSelectedFile && !meetingEditExistingPdf) {
         alert('업로드할 PDF 파일을 선택해 주세요.');
         return;
     }
@@ -1025,6 +1133,7 @@ function openMeetingViewModal(meeting) {
     const base = buildMeetingFileUrl(meeting);
     window.meetingViewCurrentId = meeting?.id || null;
     window.meetingViewCurrentFile = base;
+    window.meetingViewCurrentMeeting = meeting || null;
     frame.src = '';
     frame.src = buildMeetingPdfFrameSrc(meeting);
     if (meeting?.id) {
@@ -1152,11 +1261,47 @@ function closeMeetingViewModal() {
     const body = modal.querySelector('.modal-body');
     if (body) body.scrollTop = 0;
     window.meetingViewCurrentFile = '';
+    window.meetingViewCurrentMeeting = null;
     renderMeetingViewAttachments([]);
     modal.classList.remove('show');
     document.body.classList.remove('modal-open');
 
     modal.removeEventListener('click', meetingViewBackdropHandler);
+}
+
+function meetingViewEdit() {
+    const currentMeeting = window.meetingViewCurrentMeeting;
+    if (!currentMeeting) {
+        alert('수정할 회의록 정보를 찾을 수 없습니다.');
+        return;
+    }
+    closeMeetingViewModal();
+    openMeetingUploadModal(currentMeeting);
+}
+
+function deleteMeetingAttachment(attachmentId) {
+    if (!attachmentId) return;
+    if (!confirm('첨부파일을 삭제하시겠습니까?')) return;
+
+    fetch('/doc_editor_api/meeting/delete_attachment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: attachmentId })
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.message || '첨부파일 삭제 실패');
+            }
+            meetingEditExistingAttachments = (meetingEditExistingAttachments || []).filter(
+                (attachment) => String(attachment.id) !== String(attachmentId)
+            );
+            renderMeetingAttachmentPendingFiles();
+        })
+        .catch(err => {
+            console.error('[meeting] attachment delete failed:', err);
+            alert(err.message || '첨부파일 삭제에 실패했습니다.');
+        });
 }
 
 function meetingViewDownload() {

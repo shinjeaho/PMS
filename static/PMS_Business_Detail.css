@@ -219,11 +219,6 @@ header {
 .meeting-upload-modal{
     width: 90%;
     max-width: 920px;
-    margin: 0;
-    padding: 20px;
-    border: 1px solid #888;
-    background: #fefefe;
-    border-radius: 5px;
 }
 
 .meeting-view-modal{
@@ -231,11 +226,6 @@ header {
     max-width: 1000px;
     height: 92vh;
     overflow: hidden;
-    margin: 0;
-    padding: 20px;
-    border: 1px solid #888;
-    background: #fefefe;
-    border-radius: 5px;
 }
 
 .meeting-view-modal .modal-body{
@@ -383,7 +373,7 @@ header {
 .meeting-form-table{
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 16px;
+    margin-bottom: 2px;
     table-layout: fixed;
 }
 
@@ -455,20 +445,6 @@ header {
 .meeting-dropzone-sub{
     font-size: 12px;
     color: #6b7280;
-}
-
-.meeting-upload-section .search-button{
-    padding: 8px 20px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.meeting-upload-section .search-button:hover{
-    background-color: #0052a3;
 }
 
 .meeting-upload-list{
@@ -627,7 +603,7 @@ header {
 }
 
 .meeting-date-cell{
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1.3;
     white-space: nowrap;
 }
