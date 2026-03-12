@@ -1185,6 +1185,14 @@ function openMeetingViewModal(meeting) {
     const titleEl = document.getElementById('meetingViewTitle');
     if (titleEl) titleEl.textContent = meeting?.title || meeting?.original_name || '-';
 
+    const sessionName = (document.getElementById('sessionName')?.value || '').trim();
+    const authorName = (meeting?.author || '').trim();
+    const canEdit = !!sessionName && (!authorName || authorName === sessionName);
+    const editBtn = document.querySelector('#meetingViewModal .meeting-view-action[aria-label="수정"]');
+    if (editBtn) {
+        editBtn.style.display = canEdit ? 'inline-flex' : 'none';
+    }
+
     modal.classList.add('show');
     document.body.classList.add('modal-open');
 
@@ -1273,6 +1281,12 @@ function meetingViewEdit() {
     const currentMeeting = window.meetingViewCurrentMeeting;
     if (!currentMeeting) {
         alert('수정할 회의록 정보를 찾을 수 없습니다.');
+        return;
+    }
+    const sessionName = (document.getElementById('sessionName')?.value || '').trim();
+    const authorName = (currentMeeting.author || '').trim();
+    if (!sessionName || (authorName && authorName !== sessionName)) {
+        alert('작성자만 수정할 수 있습니다.');
         return;
     }
     closeMeetingViewModal();
