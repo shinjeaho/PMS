@@ -42,6 +42,11 @@ def _get_viewer_info():
     }
 
 
+def _get_session_user_name() -> str:
+    user = session.get('user') or {}
+    return (user.get('name') or user.get('Name') or '').strip()
+
+
 @bp.route('/projects/suggest', methods=['GET'])
 def suggest_projects():
     query = (request.args.get('q') or '').strip()
@@ -288,9 +293,11 @@ def update_meeting_pdf():
     attachment_saved_paths: list[str] = []
 
     try:
+        current_user_name = _get_session_user_name()
+
         cursor.execute(
             """
-            SELECT id, file_path, original_name, file_size
+            SELECT id, file_path, original_name, file_size, author
             FROM meeting_files
             WHERE id = %s
             LIMIT 1
@@ -300,6 +307,12 @@ def update_meeting_pdf():
         existing = cursor.fetchone()
         if not existing:
             return jsonify({'success': False, 'message': '회의록 데이터를 찾을 수 없습니다.'}), 404
+
+        existing_author = (existing.get('author') or '').strip()
+        if not current_user_name:
+            return jsonify({'success': False, 'message': '로그인 사용자 정보가 없어 수정할 수 없습니다.'}), 403
+        if existing_author and existing_author != current_user_name:
+            return jsonify({'success': False, 'message': '작성자만 수정할 수 있습니다.'}), 403
 
         old_file_url = (existing.get('file_path') or '').strip()
 
@@ -351,6 +364,7 @@ def update_meeting_pdf():
             "author = %s",
             "user_name = %s",
         ]
+        resolved_author = existing_author or current_user_name
         params = [
             doc_number,
             contractcode or None,
@@ -362,7 +376,7 @@ def update_meeting_pdf():
             organizer,
             attendees,
             created_at,
-            author or None,
+            resolved_author,
             user_name or None,
         ]
 
@@ -664,10 +678,17 @@ def delete_meeting_file():
         return jsonify({'success': False, 'message': 'DB connection failed'}), 500
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT file_path FROM meeting_files WHERE id = %s", (record_id,))
+        cursor.execute("SELECT file_path, author FROM meeting_files WHERE id = %s", (record_id,))
         row = cursor.fetchone()
         if not row:
             return jsonify({'success': False, 'message': '파일을 찾을 수 없습니다.'}), 404
+
+        attachment_rows = []
+        cursor.execute(
+            "SELECT file_path FROM meeting_file_attachments WHERE meeting_id = %s",
+            (record_id,),
+        )
+        attachment_rows = cursor.fetchall() or []
 
         cursor.execute("DELETE FROM meeting_files WHERE id = %s", (record_id,))
         conn.commit()
@@ -705,9 +726,10 @@ def delete_meeting_attachment():
     try:
         cursor.execute(
             """
-            SELECT id, file_path
-            FROM meeting_file_attachments
-            WHERE id = %s
+            SELECT a.id, a.file_path, m.author
+            FROM meeting_file_attachments a
+            JOIN meeting_files m ON m.id = a.meeting_id
+            WHERE a.id = %s
             LIMIT 1
             """,
             (attachment_id,),
@@ -715,6 +737,13 @@ def delete_meeting_attachment():
         row = cursor.fetchone()
         if not row:
             return jsonify({'success': False, 'message': '첨부파일을 찾을 수 없습니다.'}), 404
+
+        current_user_name = _get_session_user_name()
+        existing_author = (row.get('author') or '').strip()
+        if not current_user_name:
+            return jsonify({'success': False, 'message': '로그인 사용자 정보가 없어 삭제할 수 없습니다.'}), 403
+        if existing_author and existing_author != current_user_name:
+            return jsonify({'success': False, 'message': '작성자만 삭제할 수 있습니다.'}), 403
 
         cursor.execute(
             "DELETE FROM meeting_file_attachments WHERE id = %s",
