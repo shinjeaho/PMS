@@ -17,6 +17,36 @@ MEETING_UPLOAD_FOLDER = str(BASE_DIR / 'static' / 'uploads' / 'meeting_minutes')
 MEETING_STATIC_ROOT = (BASE_DIR / 'static' / 'uploads' / 'meeting_minutes').resolve()
 
 
+def _table_exists(cursor, table_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = %s
+        """,
+        (table_name,),
+    )
+    row = cursor.fetchone()
+    if isinstance(row, dict):
+        return int(row.get('cnt') or 0) > 0
+    return bool(row and row[0])
+
+
+def _column_exists(cursor, table_name: str, column_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS cnt
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone()
+    if isinstance(row, dict):
+        return int(row.get('cnt') or 0) > 0
+    return bool(row and row[0])
+
+
 def _sanitize_filename(filename: str) -> str:
     filename = re.sub(r"[^\w가-힣._-]", "", filename)
     return filename.replace(" ", "_")
@@ -185,31 +215,71 @@ def upload_meeting_pdf():
             return jsonify({'success': False, 'message': 'DB connection failed'}), 500
         cursor = conn.cursor()
         try:
-            cursor.execute(
-                """
+            has_user_name_col = _column_exists(cursor, 'meeting_files', 'user_name')
+            has_attachment_table = _table_exists(cursor, 'meeting_file_attachments')
+
+            insert_cols = [
+                'doc_number',
+                'contractcode',
+                'project_name',
+                'agenda_title',
+                'meeting_datetime',
+                'meeting_end_datetime',
+                'meeting_place',
+                'organizer',
+                'attendees',
+                'created_at',
+                'author',
+                'file_path',
+                'original_name',
+                'file_size',
+            ]
+            insert_vals = [
+                doc_number,
+                contractcode or None,
+                project_name or None,
+                agenda_title or None,
+                meeting_datetime,
+                meeting_end_datetime,
+                meeting_place,
+                organizer,
+                attendees,
+                created_at,
+                author or None,
+                file_url,
+                file.filename,
+                file_size,
+            ]
+            if has_user_name_col:
+                insert_cols.append('user_name')
+                insert_vals.append(user_name or None)
+            insert_cols.append('create_at')
+
+            placeholders = ', '.join(['%s'] * len(insert_vals))
+            sql = f"""
                 INSERT INTO meeting_files
-                (doc_number, contractcode, project_name, agenda_title, meeting_datetime, meeting_end_datetime, meeting_place, organizer, attendees, created_at, author, file_path, original_name, file_size, user_name, create_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                """,
-                (
-                    doc_number,
-                    contractcode or None,
-                    project_name or None,
-                    agenda_title or None,
-                    meeting_datetime,
-                    meeting_end_datetime,
-                    meeting_place,
-                    organizer,
-                    attendees,
-                    created_at,
-                    author or None,
-                    file_url,
-                    file.filename,
-                    file_size,
-                    user_name or None,
-                ),
-            )
+                ({', '.join(insert_cols)})
+                VALUES ({placeholders}, NOW())
+            """
+            cursor.execute(sql, tuple(insert_vals))
             record_id = cursor.lastrowid
+
+            if saved_attachments:
+                for attachment in saved_attachments:
+                    cursor.execute(
+                        """
+                        INSERT INTO meeting_file_attachments
+                        (meeting_id, file_path, original_name, file_size, create_at)
+                        VALUES (%s, %s, %s, %s, NOW())
+                        """,
+                        (
+                            record_id,
+                            attachment.get('fileUrl'),
+                            attachment.get('originalName'),
+                            attachment.get('fileSize'),
+                        ),
+                    )
+
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -231,6 +301,7 @@ def upload_meeting_pdf():
 
 
 @bp.route('/meeting/update', methods=['POST'])
+@bp.route('/meeting/update/', methods=['POST'])
 def update_meeting_pdf():
     meeting_id = (request.form.get('meetingId') or '').strip()
     if not meeting_id:
@@ -350,6 +421,9 @@ def update_meeting_pdf():
                 'fileSize': attachment_size,
             })
 
+        has_user_name_col = _column_exists(cursor, 'meeting_files', 'user_name')
+        has_attachment_table = _table_exists(cursor, 'meeting_file_attachments')
+
         update_fields = [
             "doc_number = %s",
             "contractcode = %s",
@@ -362,7 +436,6 @@ def update_meeting_pdf():
             "attendees = %s",
             "created_at = %s",
             "author = %s",
-            "user_name = %s",
         ]
         resolved_author = existing_author or current_user_name
         params = [
@@ -377,8 +450,11 @@ def update_meeting_pdf():
             attendees,
             created_at,
             resolved_author,
-            user_name or None,
         ]
+
+        if has_user_name_col:
+            update_fields.append("user_name = %s")
+            params.append(user_name or None)
 
         if file is not None:
             update_fields.extend(["file_path = %s", "original_name = %s", "file_size = %s"])
@@ -394,7 +470,7 @@ def update_meeting_pdf():
             tuple(params),
         )
 
-        if saved_attachments:
+        if has_attachment_table and saved_attachments:
             for attachment in saved_attachments:
                 cursor.execute(
                     """
@@ -410,19 +486,22 @@ def update_meeting_pdf():
                     ),
                 )
 
-        cursor.execute(
-            """
-            SELECT id, meeting_id, file_path,
-                   original_name,
-                   COALESCE(file_size, 0) AS file_size,
-                   DATE_FORMAT(create_at, '%Y-%m-%d %H:%i') AS create_at
-            FROM meeting_file_attachments
-            WHERE meeting_id = %s
-            ORDER BY id ASC
-            """,
-            (meeting_id,),
-        )
-        all_attachments = cursor.fetchall() or []
+        if has_attachment_table:
+            cursor.execute(
+                """
+                SELECT id, meeting_id, file_path,
+                       original_name,
+                       COALESCE(file_size, 0) AS file_size,
+                       DATE_FORMAT(create_at, '%Y-%m-%d %H:%i') AS create_at
+                FROM meeting_file_attachments
+                WHERE meeting_id = %s
+                ORDER BY id ASC
+                """,
+                (meeting_id,),
+            )
+            all_attachments = cursor.fetchall() or []
+        else:
+            all_attachments = []
 
         conn.commit()
 
@@ -491,6 +570,37 @@ def list_meeting_files():
         )
         items = cursor.fetchall() or []
         return jsonify({'items': items})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/meeting/attachments', methods=['GET'])
+def list_meeting_attachments():
+    meeting_id = request.args.get('meeting_id')
+    if not meeting_id:
+        return jsonify({'success': False, 'message': 'meeting_id가 필요합니다.'}), 400
+
+    conn = create_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'DB connection failed'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT id, meeting_id, file_path,
+                   original_name,
+                   COALESCE(file_size, 0) AS file_size,
+                   DATE_FORMAT(create_at, '%Y-%m-%d %H:%i') AS create_at
+            FROM meeting_file_attachments
+            WHERE meeting_id = %s
+            ORDER BY id ASC
+            """,
+            (meeting_id,),
+        )
+        items = cursor.fetchall() or []
+        return jsonify({'success': True, 'items': items})
     finally:
         cursor.close()
         conn.close()
