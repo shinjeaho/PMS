@@ -208,7 +208,7 @@ def business(year: int):
         if session_user_id:
             cursor.execute(
                 """
-                SELECT userID, Name, Department, Auth,
+                SELECT userID, Name, Department, COALESCE(Position, '') AS Position, Auth,
                        COALESCE(dataauth, 0) AS dataauth,
                        COALESCE(reportAUTH, 0) AS reportAUTH,
                        COALESCE(meetingAuth, 0) AS meetingAuth,
@@ -225,6 +225,7 @@ def business(year: int):
                     'userID': fresh_user.get('userID'),
                     'name': fresh_user.get('Name', ''),
                     'department': fresh_user.get('Department', ''),
+                    'position': (fresh_user.get('Position', '') or '').strip(),
                     'auth': fresh_user.get('Auth', ''),
                     'dataauth': int(fresh_user.get('dataauth', 0) or 0),
                     'reportAUTH': int(fresh_user.get('reportAUTH', 0) or 0),

@@ -18,9 +18,11 @@
         </h1>
         <div class="user-logout-box">
             <div class="user-label" title="로그인 정보">
-                <span class="user-name">{{ session['user']['name'] }}</span>
-                <span class="user-sep">/</span>
                 <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-pos">{{ session['user'].get('position', session['user'].get('Position', '-')) or '-' }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-name">{{ session['user']['name'] }}</span>
             </div>
             <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
         </div>
