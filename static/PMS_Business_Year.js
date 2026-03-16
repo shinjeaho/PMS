@@ -1,23 +1,40 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     initStaffGridSort();
+    initResetPasswordConfirmModal();
+    initDeleteStaffConfirmModal();
     initMeetingUploadModal();
+    initDailyReportModal();
     const yearTitle = document.getElementById('projectYEAR').value;
+    const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
+    const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
+
+    if (meetingAuth) {
+        const meetingLi = document.getElementById('meeting-li');
+        if (meetingLi) meetingLi.style.display = 'list-item';
+    }
+
     const projectAuth = Number(document.getElementById('sessionProjectAuth')?.value || 1) === 1;
     if (!projectAuth) {
-        // 사업목록 권한이 없으면 주간 보고서로 바로 이동
-        if (typeof viewWeeklyReports === 'function') viewWeeklyReports();
+        if (meetingAuth && typeof viewMeetingMinutes === 'function') {
+            viewMeetingMinutes();
+        } else if (reportAuth && typeof viewWeeklyReports === 'function') {
+            viewWeeklyReports();
+        }
         bindNoProjectAuthTabGuards();
         return;
     }
 
-    fetchProjects(yearTitle);
+    fetchProjects(1);
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
 
     const dataAuth = Number(document.getElementById('sessionDataAuth')?.value || 0) === 1;
     if (dataAuth) {
         document.getElementById("annualBTN").style.display = "list-item";
+        // annualMoney 메뉴 보류: 템플릿에서 주석 처리되어 있어 Year 화면에서는 노출하지 않음
+        // const annualMoneyBtn = document.getElementById("annualMoneyBTN");
+        // if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
         document.getElementById("stopProject").style.display = "list-item";
         document.getElementById("completeProject").style.display = "list-item";
         document.getElementById("processProjectEngineers").style.display = "list-item";
@@ -27,6 +44,11 @@ document.addEventListener('DOMContentLoaded', function () {
     //관리자일 때 설정 버튼 보여주기
     if (userAuth === '관리자') {
         document.getElementById("setting-li").style.display = "list-item";
+    }
+
+    if (meetingAuth) {
+        const meetingLi = document.getElementById('meeting-li');
+        if (meetingLi) meetingLi.style.display = 'list-item';
     }
 
     // Enter 검색
@@ -47,11 +69,392 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ===== 계정관리(직원) 테이블 정렬: 이름/부서/등급만 =====
+// 목록/검색/회의록 상태
+const projectsPerPage = 20;
+let currentPage = 1;
+let totalPages = 1;
+let searchTerm = "";
+let searchYear = "";
+let currentView = "";
+let meetingItemsAll = [];
+let meetingItemsFiltered = [];
+let meetingCurrentPage = 1;
+const meetingsPerPage = 20;
+let meetingSelectedYear = '';
+let meetingSearchText = '';
+
+let dailyReportYear = null;
+let dailyReportMonth = null;
+let dailyCalendarRenderToken = 0;
+const dailyHolidayCache = new Map();
+
+let uaDeptFilter = '(주)삼인공간정보';
+let uaDeptExpanded = new Set(['(주)삼인공간정보']);
+let uaStaffKeyword = '';
+let pendingResetUsers = [];
+let pendingDeleteRows = [];
+
+function initResetPasswordConfirmModal() {
+    const modal = document.getElementById('resetPasswordConfirmModal');
+    const closeBtn = document.getElementById('resetPasswordConfirmClose');
+    const cancelBtn = document.getElementById('resetPasswordConfirmCancel');
+    const okBtn = document.getElementById('resetPasswordConfirmOk');
+
+    if (!modal || !closeBtn || !cancelBtn || !okBtn) return;
+    if (modal.dataset.bound === '1') return;
+    modal.dataset.bound = '1';
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        pendingResetUsers = [];
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    okBtn.addEventListener('click', () => {
+        const users = Array.isArray(pendingResetUsers) ? [...pendingResetUsers] : [];
+        closeModal();
+        if (!users.length) return;
+        submitResetPassword(users);
+    });
+}
+
+function initDeleteStaffConfirmModal() {
+    const modal = document.getElementById('deleteStaffConfirmModal');
+    const closeBtn = document.getElementById('deleteStaffConfirmClose');
+    const cancelBtn = document.getElementById('deleteStaffConfirmCancel');
+    const okBtn = document.getElementById('deleteStaffConfirmOk');
+
+    if (!modal || !closeBtn || !cancelBtn || !okBtn) return;
+    if (modal.dataset.bound === '1') return;
+    modal.dataset.bound = '1';
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        pendingDeleteRows = [];
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    okBtn.addEventListener('click', () => {
+        const rows = Array.isArray(pendingDeleteRows) ? [...pendingDeleteRows] : [];
+        closeModal();
+        if (!rows.length) return;
+        rows.forEach((row) => {
+            if (row && row.parentNode) row.remove();
+        });
+        const table = document.getElementById('staffGrid');
+        const checkAll = table?.querySelector('input.check-all');
+        if (checkAll) checkAll.checked = false;
+        uaApplyStaffRowZebra();
+    });
+}
+
+function openDeleteStaffConfirmModal(targetRows) {
+    const modal = document.getElementById('deleteStaffConfirmModal');
+    const messageEl = document.getElementById('deleteStaffConfirmMessage');
+    if (!modal || !messageEl) return;
+
+    const count = Array.isArray(targetRows) ? targetRows.length : 0;
+    messageEl.textContent = `선택한 ${count}명의 직원을 삭제하시겠습니까?`;
+    pendingDeleteRows = Array.isArray(targetRows) ? targetRows : [];
+    modal.classList.add('show');
+}
+
+function openResetPasswordConfirmModal(usersToReset) {
+    const modal = document.getElementById('resetPasswordConfirmModal');
+    const messageEl = document.getElementById('resetPasswordConfirmMessage');
+    if (!modal || !messageEl) return;
+
+    const namesText = usersToReset.map((user) => `'${user.name}'`).join(', ');
+    messageEl.textContent = `${namesText}의 비밀번호를 초기화 하시겠습니까?`;
+    pendingResetUsers = usersToReset;
+    modal.classList.add('show');
+}
+
+function submitResetPassword(usersToReset) {
+    fetch('/reset_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(usersToReset)
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                alert('비밀번호 초기화 완료');
+            } else {
+                alert('초기화 실패: ' + result.message);
+            }
+        })
+        .catch(err => {
+            console.error('[초기화 오류]', err);
+            alert('요청 중 오류 발생');
+        });
+}
+
+function setStaffCheckboxEditable(isEditable) {
+    const table = document.getElementById('staffGrid');
+    if (!table) return;
+
+    const checkboxes = table.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach((checkbox) => {
+        checkbox.disabled = !isEditable;
+    });
+
+    if (!isEditable) {
+        const checkAll = table.querySelector('input.check-all');
+        if (checkAll) checkAll.checked = false;
+        table.querySelectorAll('input.row-check').forEach((checkbox) => {
+            checkbox.checked = false;
+        });
+    }
+}
+
+function resetSettingsAccountEditState() {
+    const table = document.getElementById('staffGrid');
+    if (!table) return;
+
+    table.classList.remove('staff-editing');
+    setStaffCheckboxEditable(false);
+
+    table.querySelectorAll('td.staff-text-editable').forEach((cell) => {
+        cell.contentEditable = 'false';
+        cell.classList.remove('staff-text-editable');
+    });
+
+    const deleteBtn = document.getElementById('deleteBTN');
+    const saveBtn = document.getElementById('saveBTN');
+    const addRowBtn = document.getElementById('addRowBTN');
+    const resetBtn = document.getElementById('resetBTN');
+
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (addRowBtn) addRowBtn.style.display = 'none';
+    if (resetBtn) resetBtn.style.display = 'none';
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+
+    modal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    resetSettingsAccountEditState();
+}
+
+const uaDeptTreeData = [
+    {
+        label: '(주)삼인공간정보',
+        children: [
+            { label: '임원실' },
+            { label: '기업부설연구소' },
+            {
+                label: '경영본부',
+                children: [
+                    { label: '경영지원부' },
+                    { label: '총무부' }
+                ]
+            },
+            {
+                label: '사업본부',
+                children: [
+                    { label: 'GIS사업부' },
+                    { label: '공간정보사업부' }
+                ]
+            },
+            {
+                label: '영업본부',
+                children: [
+                    { label: '공공사업부' },
+                    { label: '공정관리부' }
+                ]
+            },
+            {
+                label: '비아이티',
+                children: [
+                    { label: 'BIT' },
+                    { label: 'BIT 공정관리부' }
+                ]
+            }
+        ]
+    }
+];
+
+function uaNormalizeDeptName(name) {
+    const raw = String(name || '').replace(/\s+/g, ' ').trim();
+    const alias = {
+        'GIS사업지원부': 'GIS사업부',
+        'GIS지원사업부': 'GIS사업부',
+        'BIT공정관리부': 'BIT 공정관리부',
+        '총무부(BIT)': 'BIT',
+        '공정관리부(BIT)': 'BIT 공정관리부',
+        '연구소': '기업부설연구소'
+    };
+    return alias[raw] || raw;
+}
+
+function uaGetDeptFromRow(row) {
+    const deptSelect = row?.querySelector('td[data-field="department"] select');
+    if (deptSelect) return uaNormalizeDeptName(deptSelect.value);
+    const text = row?.querySelector('td[data-field="department"]')?.textContent || '';
+    return uaNormalizeDeptName(text);
+}
+
+function uaGetSearchTextFromRow(row) {
+    const empNo = (row.querySelector('td[data-field="emp_no"]')?.textContent || '').trim();
+    const userId = (row.querySelector('td[data-field="user_id"]')?.textContent || '').trim();
+    const dept = uaGetDeptFromRow(row);
+    const name = (row.querySelector('td[data-field="name"]')?.textContent || '').trim();
+    const position = (row.querySelector('td[data-field="position"]')?.textContent || '').trim();
+    const phone = (row.querySelector('td[data-field="phone"]')?.textContent || '').trim();
+    const auth = (row.querySelector('td[data-field="auth"] select')?.value || '').trim();
+    return [empNo, userId, dept, name, position, phone, auth].join(' ').toLowerCase();
+}
+
+function uaApplyStaffSearch() {
+    const searchInput = document.getElementById('searchBox');
+    uaStaffKeyword = String(searchInput?.value || '').trim().toLowerCase();
+    uaFilterStaffRows();
+}
+
+function uaApplyStaffRowZebra() {
+    const tbody = document.querySelector('#staffGrid tbody');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    let visibleIndex = 0;
+
+    rows.forEach((row) => {
+        const hidden = row.style.display === 'none';
+        row.classList.remove('staff-even');
+        if (hidden) return;
+
+        visibleIndex += 1;
+        if (visibleIndex % 2 === 0) row.classList.add('staff-even');
+    });
+}
+
+function uaFilterStaffRows() {
+    const tbody = document.querySelector('#staffGrid tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    const topLabels = new Set(['(주)삼인공간정보', '경영본부', '사업본부', '영업본부', '비아이티']);
+    const isAll = !uaDeptFilter || topLabels.has(uaDeptFilter);
+
+    rows.forEach((row) => {
+        const dept = uaGetDeptFromRow(row);
+        const deptMatched = isAll ? true : (dept === uaNormalizeDeptName(uaDeptFilter));
+        const keywordMatched = !uaStaffKeyword || uaGetSearchTextFromRow(row).includes(uaStaffKeyword);
+        row.style.display = (deptMatched && keywordMatched) ? '' : 'none';
+    });
+
+    uaApplyStaffRowZebra();
+}
+
+function uaCreateDeptNode(node, depth = 0) {
+    const li = document.createElement('li');
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const isExpanded = uaDeptExpanded.has(String(node.label));
+
+    const row = document.createElement('div');
+    row.className = 'dept-item';
+    if (uaDeptFilter && String(uaDeptFilter) === String(node.label)) row.classList.add('is-selected');
+    row.style.paddingLeft = `${Math.max(0, depth) * 6}px`;
+
+    if (hasChildren) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'dept-toggle';
+        toggleBtn.textContent = isExpanded ? '-' : '+';
+        toggleBtn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        row.appendChild(toggleBtn);
+
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+            const next = !expanded;
+            toggleBtn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            toggleBtn.textContent = next ? '-' : '+';
+            if (next) uaDeptExpanded.add(String(node.label));
+            else uaDeptExpanded.delete(String(node.label));
+            uaRenderDeptTree();
+        });
+    } else {
+        const spacer = document.createElement('span');
+        spacer.style.display = 'inline-block';
+        spacer.style.width = '14px';
+        row.appendChild(spacer);
+    }
+
+    const label = document.createElement('div');
+    label.className = 'dept-label';
+    label.textContent = node.label;
+    row.appendChild(label);
+
+    row.addEventListener('click', () => {
+        uaDeptFilter = node.label;
+        uaRenderDeptTree();
+        uaFilterStaffRows();
+    });
+
+    li.appendChild(row);
+
+    if (hasChildren) {
+        const children = document.createElement('ul');
+        children.className = 'dept-children';
+        children.style.display = isExpanded ? 'block' : 'none';
+        node.children.forEach((child) => children.appendChild(uaCreateDeptNode(child, depth + 1)));
+        li.appendChild(children);
+    }
+
+    return li;
+}
+
+function uaRenderDeptTree() {
+    const host = document.getElementById('uaDeptTree');
+    if (!host) return;
+    host.innerHTML = '';
+    const ul = document.createElement('ul');
+    uaDeptTreeData.forEach((node) => ul.appendChild(uaCreateDeptNode(node, 0)));
+    host.appendChild(ul);
+}
+
+function initSettingsAccountUi() {
+    const host = document.getElementById('uaDeptTree');
+    if (!host) return;
+
+    const searchInput = document.getElementById('searchBox');
+    const searchBtn = document.querySelector('#settingsModal .ua-toolbar-search button');
+
+    if (searchInput && !searchInput.dataset.bound) {
+        searchInput.dataset.bound = '1';
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                uaApplyStaffSearch();
+            }
+        });
+    }
+
+    if (searchBtn && !searchBtn.dataset.bound) {
+        searchBtn.dataset.bound = '1';
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            uaApplyStaffSearch();
+        });
+    }
+
+    uaRenderDeptTree();
+    uaFilterStaffRows();
+}
+
 function initStaffGridSort() {
     const table = document.getElementById('staffGrid');
     if (!table) return;
 
-    // tbody row에 기본 순서 인덱스 부여(초기화 1회)
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -63,19 +466,16 @@ function initStaffGridSort() {
     });
     table.dataset.staffNextIndex = String(maxIdx + 1);
 
-    // 헤더(이름/부서/등급)에만 이벤트 바인딩
     const thName = document.getElementById('staffSortName');
     const thDept = document.getElementById('staffSortDept');
     const thAuth = document.getElementById('staffSortAuth');
     if (!thName || !thDept || !thAuth) return;
 
-    const state = { key: null, dir: 'default' }; // default -> asc -> desc -> default...
-
+    const state = { key: null, dir: 'default' };
     const setup = (th, key) => {
         th.style.cursor = 'pointer';
-        const indicator = ensureSortIndicator(th);
+        ensureSortIndicator(th);
         th.addEventListener('click', () => {
-            // 편집 중 input이 있으면 값 확정
             const active = document.activeElement;
             if (active && active.tagName === 'INPUT' && table.contains(active)) active.blur();
 
@@ -89,8 +489,6 @@ function initStaffGridSort() {
             }
 
             sortStaffGridRows(table, state.key, state.dir);
-
-            // 표시 업데이트
             ensureSortIndicator(thName).textContent = (state.key === 'name') ? dirToArrow(state.dir) : '';
             ensureSortIndicator(thDept).textContent = (state.key === 'dept') ? dirToArrow(state.dir) : '';
             ensureSortIndicator(thAuth).textContent = (state.key === 'auth') ? dirToArrow(state.dir) : '';
@@ -101,10 +499,11 @@ function initStaffGridSort() {
     setup(thDept, 'dept');
     setup(thAuth, 'auth');
 
-    // 초기에는 표시 없음
     ensureSortIndicator(thName).textContent = '';
     ensureSortIndicator(thDept).textContent = '';
     ensureSortIndicator(thAuth).textContent = '';
+
+    sortStaffGridRows(table, 'emp_no', 'asc');
 }
 
 function ensureSortIndicator(th) {
@@ -125,21 +524,21 @@ function dirToArrow(dir) {
 }
 
 function getStaffRowName(row) {
-    const valueCells = Array.from(row.querySelectorAll('td'))
-        .filter(td => !td.querySelector('select') && !td.querySelector('input'));
-    return (valueCells[0]?.textContent || '').trim();
+    return (row.querySelector('td[data-field="name"]')?.textContent || '').trim();
 }
 
 function getStaffRowDept(row) {
-    const selects = row.querySelectorAll('select');
-    const deptSelect = selects[0];
+    const deptSelect = row.querySelector('td[data-field="department"] select');
     return (deptSelect ? deptSelect.value : '').trim();
 }
 
 function getStaffRowAuth(row) {
-    const selects = row.querySelectorAll('select');
-    const authSelect = selects[1];
+    const authSelect = row.querySelector('td[data-field="auth"] select');
     return (authSelect ? authSelect.value : '').trim();
+}
+
+function getStaffRowEmpNo(row) {
+    return (row.querySelector('td[data-field="emp_no"]')?.textContent || '').trim();
 }
 
 function sortStaffGridRows(table, key, dir) {
@@ -151,6 +550,7 @@ function sortStaffGridRows(table, key, dir) {
         rows.sort((a, b) => Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0));
     } else {
         const getVal = (row) => {
+            if (key === 'emp_no') return getStaffRowEmpNo(row);
             if (key === 'name') return getStaffRowName(row);
             if (key === 'dept') return getStaffRowDept(row);
             return getStaffRowAuth(row);
@@ -165,16 +565,15 @@ function sortStaffGridRows(table, key, dir) {
             if (na && nb) {
                 return Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0);
             }
-            // 둘 다 숫자 문자열이면 숫자 기준 정렬 (예: 2 < 10)
             const sa = String(va).trim();
             const sb = String(vb).trim();
             const isNumA = /^\d+(?:\.\d+)?$/.test(sa);
             const isNumB = /^\d+(?:\.\d+)?$/.test(sb);
             let cmp = 0;
             if (isNumA && isNumB) {
-                const na = Number(sa);
-                const nb = Number(sb);
-                cmp = na === nb ? 0 : (na < nb ? -1 : 1);
+                const nna = Number(sa);
+                const nnb = Number(sb);
+                cmp = nna === nnb ? 0 : (nna < nnb ? -1 : 1);
             } else {
                 cmp = sa.localeCompare(sb, 'ko-KR', { sensitivity: 'base' });
             }
@@ -188,6 +587,7 @@ function sortStaffGridRows(table, key, dir) {
     const frag = document.createDocumentFragment();
     rows.forEach(r => frag.appendChild(r));
     tbody.appendChild(frag);
+    uaApplyStaffRowZebra();
 }
 
 function bindNoProjectAuthTabGuards() {
@@ -199,15 +599,18 @@ function bindNoProjectAuthTabGuards() {
 
     navbar.addEventListener('click', (e) => {
         const projectAuth = Number(document.getElementById('sessionProjectAuth')?.value || 1) === 1;
+        const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
+        const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
         if (projectAuth) return;
 
         const clickable = e.target && e.target.closest ? e.target.closest('button, a') : null;
         if (!clickable) return;
 
         const onclick = String(clickable.getAttribute('onclick') || '');
-        // 주간 보고서 탭만 허용
-        const allowWeekly = onclick.includes('viewWeeklyReports');
-        if (allowWeekly) return;
+        const allowMeeting = onclick.includes('viewMeetingMinutes') && meetingAuth;
+        const allowWeekly = onclick.includes('viewWeeklyReports') && reportAuth;
+        const allowDaily = onclick.includes('viewDailyReports') && reportAuth;
+        if (allowMeeting || allowWeekly || allowDaily) return;
 
         e.preventDefault();
         e.stopPropagation();
@@ -215,43 +618,341 @@ function bindNoProjectAuthTabGuards() {
     }, true);
 }
 
-//한 페이지당 프로젝트 개수
-const projectsPerPage = 20;
-let currentPage = 1;
-let totalPages = 1;
-// let currentView = null;  //현재 보기 상태를 저장하는 변수
+function viewDailyReports() {
+    initDailyReportModal();
+    if (dailyReportYear == null || dailyReportMonth == null) {
+        const now = new Date();
+        dailyReportYear = now.getFullYear();
+        dailyReportMonth = now.getMonth() + 1;
+    }
+    currentView = 'daily';
+    _weeklyHideReportsToolbar();
+    _ensureSearchVisible(false);
+    _dailyShowSection();
+    const titleEl = document.getElementById('yearTitle');
+    if (titleEl) titleEl.textContent = '일일 보고서';
+    clearActiveButtons();
+    dailyReportRenderAll();
+}
 
-//검색 조건을 전역 변수로 저장
-let searchTerm = "";
-let searchYear = "";
-let currentView = "";
-let meetingItemsAll = [];
-let meetingItemsFiltered = [];
-let meetingCurrentPage = 1;
-const meetingsPerPage = 20;
-let meetingSelectedYear = '';
-let meetingSearchText = '';
+function initDailyReportModal() {
+    const section = document.getElementById('dailyReportSection');
+    if (!section || section.dataset.bound === '1') return;
+
+    const yearPrevBtn = document.getElementById('dailyYearPrevBtn');
+    const yearNextBtn = document.getElementById('dailyYearNextBtn');
+    const monthPrevBtn = document.getElementById('dailyMonthPrevBtn');
+    const monthNextBtn = document.getElementById('dailyMonthNextBtn');
+    const yearDisplay = document.getElementById('dailyYearDisplay');
+    const monthDisplay = document.getElementById('dailyMonthDisplay');
+
+    if (yearPrevBtn) yearPrevBtn.onclick = () => {
+        dailyReportYear -= 1;
+        dailyReportRenderAll();
+    };
+    if (yearNextBtn) yearNextBtn.onclick = () => {
+        dailyReportYear += 1;
+        dailyReportRenderAll();
+    };
+    if (monthPrevBtn) monthPrevBtn.onclick = () => {
+        dailyReportMonth -= 1;
+        if (dailyReportMonth < 1) {
+            dailyReportMonth = 12;
+            dailyReportYear -= 1;
+        }
+        dailyReportRenderAll();
+    };
+    if (monthNextBtn) monthNextBtn.onclick = () => {
+        dailyReportMonth += 1;
+        if (dailyReportMonth > 12) {
+            dailyReportMonth = 1;
+            dailyReportYear += 1;
+        }
+        dailyReportRenderAll();
+    };
+
+    if (yearDisplay) {
+        yearDisplay.onclick = (event) => {
+            event.stopPropagation();
+            dailyReportTogglePicker('year');
+        };
+    }
+    if (monthDisplay) {
+        monthDisplay.onclick = (event) => {
+            event.stopPropagation();
+            dailyReportTogglePicker('month');
+        };
+    }
+
+    document.addEventListener('click', dailyReportDocumentClickHandler);
+    section.dataset.bound = '1';
+
+    if (dailyReportYear == null || dailyReportMonth == null) {
+        const now = new Date();
+        dailyReportYear = now.getFullYear();
+        dailyReportMonth = now.getMonth() + 1;
+    }
+}
+
+function dailyReportDocumentClickHandler(event) {
+    const periodBox = document.querySelector('.daily-report-period-box');
+    const section = document.getElementById('dailyReportSection');
+    if (!section || section.style.display === 'none') return;
+    if (!periodBox) return;
+    if (!periodBox.contains(event.target)) {
+        dailyReportHidePickerPanels();
+    }
+}
+
+function dailyReportTogglePicker(type) {
+    const yearPicker = document.getElementById('dailyYearPicker');
+    const monthPicker = document.getElementById('dailyMonthPicker');
+    if (!yearPicker || !monthPicker) return;
+
+    if (type === 'year') {
+        const willShow = !yearPicker.classList.contains('show');
+        dailyReportHidePickerPanels();
+        if (willShow) yearPicker.classList.add('show');
+        return;
+    }
+
+    const willShow = !monthPicker.classList.contains('show');
+    dailyReportHidePickerPanels();
+    if (willShow) monthPicker.classList.add('show');
+}
+
+function dailyReportHidePickerPanels() {
+    const yearPicker = document.getElementById('dailyYearPicker');
+    const monthPicker = document.getElementById('dailyMonthPicker');
+    if (yearPicker) yearPicker.classList.remove('show');
+    if (monthPicker) monthPicker.classList.remove('show');
+}
+
+function dailyReportRenderDeptLabel() {
+    const deptEl = document.getElementById('dailyReportDeptLabel');
+    if (!deptEl) return;
+    const dept = String(document.getElementById('sessionDept')?.value || '').trim();
+    deptEl.textContent = `${dept || '-'} 일일보고서`;
+}
+
+function dailyReportRenderPeriodText() {
+    const yearDisplay = document.getElementById('dailyYearDisplay');
+    const monthDisplay = document.getElementById('dailyMonthDisplay');
+    if (yearDisplay) yearDisplay.textContent = `${dailyReportYear}년`;
+    if (monthDisplay) monthDisplay.textContent = `${dailyReportMonth}월`;
+}
+
+function dailyReportRenderYearPicker() {
+    const picker = document.getElementById('dailyYearPicker');
+    if (!picker) return;
+
+    const startYear = dailyReportYear - 6;
+    const years = Array.from({ length: 13 }, (_, idx) => startYear + idx);
+
+    picker.innerHTML = years.map((year) => {
+        const active = year === dailyReportYear ? 'active' : '';
+        return `<button type="button" class="daily-picker-item ${active}" data-year="${year}">${year}년</button>`;
+    }).join('');
+
+    picker.querySelectorAll('[data-year]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const year = Number(button.getAttribute('data-year'));
+            if (!Number.isFinite(year)) return;
+            dailyReportYear = year;
+            dailyReportRenderAll();
+            dailyReportHidePickerPanels();
+        });
+    });
+}
+
+function dailyReportRenderMonthPicker() {
+    const picker = document.getElementById('dailyMonthPicker');
+    if (!picker) return;
+
+    picker.innerHTML = Array.from({ length: 12 }, (_, idx) => {
+        const month = idx + 1;
+        const active = month === dailyReportMonth ? 'active' : '';
+        return `<button type="button" class="daily-picker-item ${active}" data-month="${month}">${month}월</button>`;
+    }).join('');
+
+    picker.querySelectorAll('[data-month]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const month = Number(button.getAttribute('data-month'));
+            if (!Number.isFinite(month)) return;
+            dailyReportMonth = month;
+            dailyReportRenderAll();
+            dailyReportHidePickerPanels();
+        });
+    });
+}
+
+function dailyReportRenderAll() {
+    dailyReportRenderDeptLabel();
+    dailyReportRenderPeriodText();
+    dailyReportRenderYearPicker();
+    dailyReportRenderMonthPicker();
+    dailyReportRenderCalendar();
+}
+
+function dailyReportPad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+function dailyReportBuildDateKey(year, month, day) {
+    return `${year}-${dailyReportPad2(month)}-${dailyReportPad2(day)}`;
+}
+
+function dailyReportGetFallbackHolidaySet(year) {
+    const fixed = [
+        [1, 1],
+        [3, 1],
+        [5, 5],
+        [6, 6],
+        [8, 15],
+        [10, 3],
+        [10, 9],
+        [12, 25]
+    ];
+    const set = new Set();
+    fixed.forEach(([month, day]) => {
+        set.add(dailyReportBuildDateKey(year, month, day));
+    });
+    return set;
+}
+
+function dailyReportFetchHolidaySet(year) {
+    if (!Number.isFinite(Number(year))) {
+        return Promise.resolve(dailyReportGetFallbackHolidaySet(new Date().getFullYear()));
+    }
+    if (dailyHolidayCache.has(year)) {
+        return Promise.resolve(dailyHolidayCache.get(year));
+    }
+
+    const fallback = dailyReportGetFallbackHolidaySet(year);
+    const url = `https://date.nager.at/api/v3/PublicHolidays/${encodeURIComponent(year)}/KR`;
+
+    return fetch(url)
+        .then((res) => {
+            if (!res.ok) throw new Error(`holiday api ${res.status}`);
+            return res.json();
+        })
+        .then((items) => {
+            const set = new Set(fallback);
+            if (Array.isArray(items)) {
+                items.forEach((item) => {
+                    const dateText = String(item?.date || '').trim();
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) set.add(dateText);
+                });
+            }
+            dailyHolidayCache.set(year, set);
+            return set;
+        })
+        .catch(() => {
+            dailyHolidayCache.set(year, fallback);
+            return fallback;
+        });
+}
+
+function dailyReportBuildCalendarHtml(holidaySet) {
+    const firstDay = new Date(dailyReportYear, dailyReportMonth - 1, 1);
+    const firstWeekday = firstDay.getDay();
+    const daysInMonth = new Date(dailyReportYear, dailyReportMonth, 0).getDate();
+    const today = new Date();
+
+    const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+    let day = 1;
+    const rows = [];
+
+    for (let row = 0; row < 6; row += 1) {
+        const cells = [];
+        for (let col = 0; col < 7; col += 1) {
+            if (row === 0 && col < firstWeekday) {
+                cells.push('<td class="is-empty">&nbsp;</td>');
+            } else if (day > daysInMonth) {
+                cells.push('<td class="is-empty">&nbsp;</td>');
+            } else {
+                const dateKey = dailyReportBuildDateKey(dailyReportYear, dailyReportMonth, day);
+                const isToday = today.getFullYear() === dailyReportYear
+                    && (today.getMonth() + 1) === dailyReportMonth
+                    && today.getDate() === day;
+                const isSunday = col === 0;
+                const isSaturday = col === 6;
+                const isHoliday = holidaySet.has(dateKey);
+                const classes = [];
+                if (isToday) classes.push('is-today');
+                if (isSunday) classes.push('is-sun');
+                if (isSaturday) classes.push('is-sat');
+                if (isHoliday) classes.push('is-holiday');
+                cells.push(`<td class="${classes.join(' ')}">${day}</td>`);
+                day += 1;
+            }
+        }
+        rows.push(`<tr>${cells.join('')}</tr>`);
+        if (day > daysInMonth) break;
+    }
+
+    const headHtml = weekdayLabels
+        .map((label, idx) => {
+            const cls = idx === 0 ? 'is-sun' : (idx === 6 ? 'is-sat' : '');
+            return `<th class="${cls}">${label}</th>`;
+        })
+        .join('');
+
+    return `
+        <table>
+            <thead>
+                <tr>${headHtml}</tr>
+            </thead>
+            <tbody>
+                ${rows.join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function dailyReportRenderCalendar() {
+    const host = document.getElementById('dailyReportCalendar');
+    if (!host) return;
+
+    const token = ++dailyCalendarRenderToken;
+    const fallbackSet = dailyReportGetFallbackHolidaySet(dailyReportYear);
+    host.innerHTML = dailyReportBuildCalendarHtml(fallbackSet);
+
+    dailyReportFetchHolidaySet(dailyReportYear)
+        .then((holidaySet) => {
+            if (token !== dailyCalendarRenderToken) return;
+            host.innerHTML = dailyReportBuildCalendarHtml(holidaySet);
+        })
+        .catch(() => {
+            if (token !== dailyCalendarRenderToken) return;
+            host.innerHTML = dailyReportBuildCalendarHtml(fallbackSet);
+        });
+}
 
 //기본 프로젝트 목록 가져오기
 function fetchProjects(page = 1) {
-    const year = document.getElementById("projectYEAR").value;
-    fetch(`/api/get_projects/?year=${year}&page=${page}`)
+    _dailyHideSection();
+    const year = document.getElementById("projectYEAR")?.value || '';
+    fetch(`/api/get_projects/?year=${encodeURIComponent(year)}&page=${encodeURIComponent(page)}`)
         .then(response => response.json())
         .then(data => {
-            renderTable(data.projects);
-            renderPagination(data.current_page, data.total_pages);
-            document.getElementById('yearTitle').textContent = year + '년' + ' ' + "사업";
-            document.getElementById("pagination").style.display = 'block';
+            renderTable(data.projects || []);
+            renderPagination(data.current_page || 1, data.total_pages || 1);
+            const titleEl = document.getElementById('yearTitle');
+            if (titleEl) titleEl.textContent = `${year}년 사업`;
+            const pg = document.getElementById("pagination");
+            if (pg) pg.style.display = 'block';
             clearActiveButtons();
             _ensureSearchVisible(true);
             _weeklyHideReportsToolbar();
         })
         .catch(error => console.error("Error fetching projects:", error));
 }
-
-
 //연차사업 모아보기 (페이지네이션 포함)
 function viewYearlyProjects(page = 1) {
+    _dailyHideSection();
     currentView = "yearly";
     setTableHead('yearly');
     fetch(`/api/yearly_projects?type=yearly&page=${page}`)
@@ -270,6 +971,7 @@ function viewYearlyProjects(page = 1) {
 
 //검토사업 모아보기 (페이지네이션 포함)
 function viewExamineProjects(page = 1) {
+    _dailyHideSection();
     currentView = "examine";
     setTableHead('examine');
     fetch(`/api/yearly_projects?type=examine&page=${page}`)
@@ -288,6 +990,7 @@ function viewExamineProjects(page = 1) {
 
 // 연도별 통합자료 모아보기 (페이지네이션 없이 전체 출력)
 function viewAnnualProjects() {
+    _dailyHideSection();
     currentView = "annual";
     setTableHead('annual'); // thead를 통합자료로 변경
     console.log('mode:', currentView);
@@ -315,6 +1018,15 @@ function viewAnnualProjects() {
     setActiveButton("검토사업");
     _ensureSearchVisible(false);
     _weeklyHideReportsToolbar();
+}
+
+function viewAnnualMoney() {
+    const year = document.getElementById('projectYEAR')?.value;
+    if (year) {
+        window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(year)}`;
+        return;
+    }
+    window.location.href = '/PMS_annualMoney';
 }
 // thead를 모드에 따라 동적으로 변경
 function setTableHead(mode) {
@@ -351,6 +1063,24 @@ function _ensureSearchVisible(visible) {
     const el = document.getElementById('searchDIV');
     if (!el) return;
     el.style.display = visible ? 'flex' : 'none';
+}
+
+function _dailyShowSection() {
+    const section = document.getElementById('dailyReportSection');
+    const table = document.querySelector('.projectList');
+    if (section) section.style.display = 'block';
+    if (table) table.style.display = 'none';
+
+    const pg = document.getElementById('pagination');
+    if (pg) pg.style.display = 'none';
+}
+
+function _dailyHideSection() {
+    const section = document.getElementById('dailyReportSection');
+    const table = document.querySelector('.projectList');
+    if (section) section.style.display = 'none';
+    if (table) table.style.display = '';
+    dailyReportHidePickerPanels();
 }
 
 function _weeklyParseYearFromWeekStart(weekStartStr) {
@@ -522,6 +1252,7 @@ function _weeklyLoadAndRenderReports({ year = null } = {}) {
 
 // 주간 보고서 목록 보기
 function viewWeeklyReports() {
+    _dailyHideSection();
     currentView = 'weekly';
     setTableHead('weekly');
     const tableBody = document.getElementById('projectList_tbody');
@@ -540,6 +1271,7 @@ function viewWeeklyReports() {
 
 // 회의록 목록 보기(목록 화면 자체가 전환됨)
 function viewMeetingMinutes() {
+    _dailyHideSection();
     currentView = 'meeting';
     setTableHead('meeting');
 
@@ -831,7 +1563,13 @@ function loadMeetingAttachments(meetingId) {
     }
 
     fetch(`/doc_editor_api/meeting/attachments?meeting_id=${encodeURIComponent(meetingId)}`)
-        .then(res => res.json())
+        .then(async (res) => {
+            const data = await parseMeetingApiJson(res);
+            if (!res.ok) {
+                throw new Error(data?.message || `첨부파일 조회 실패 (HTTP ${res.status})`);
+            }
+            return data;
+        })
         .then(data => {
             if (!data?.success) {
                 renderMeetingViewAttachments([]);
@@ -839,7 +1577,8 @@ function loadMeetingAttachments(meetingId) {
             }
             renderMeetingViewAttachments(Array.isArray(data.items) ? data.items : []);
         })
-        .catch(() => {
+        .catch((err) => {
+            console.error('[meeting] attachment load failed:', err);
             renderMeetingViewAttachments([]);
         });
 }
@@ -2560,19 +3299,24 @@ function escapeHtml(str) {
 function openSettings() {
     const modal = document.getElementById('settingsModal');
     modal.classList.add('show');
+    document.body.classList.add('modal-open');
+    resetSettingsAccountEditState();
     loadExpenseYears();
+    initSettingsAccountUi();
     // 모달 닫기 버튼
     const closeBtn = modal.querySelector('.close');
-    closeBtn.onclick = function () {
-        modal.classList.remove('show');
+    if (closeBtn && closeBtn.dataset.bound !== '1') {
+        closeBtn.dataset.bound = '1';
+        closeBtn.addEventListener('click', closeSettingsModal);
     }
 
-    modal.addEventListener('click', settingsBackdropHandler);
-    function settingsBackdropHandler(event) {
-        const modal = document.getElementById('settingsModal');
-        if (event.target === modal) {
-            modal.classList.remove('show');
-        }
+    if (modal.dataset.backdropBound !== '1') {
+        modal.dataset.backdropBound = '1';
+        modal.addEventListener('click', function settingsBackdropHandler(event) {
+            if (event.target === modal) {
+                closeSettingsModal();
+            }
+        });
     }
 
     // 탭 기능
@@ -2580,6 +3324,8 @@ function openSettings() {
     const tabPanes = document.querySelectorAll('.tab-pane');
 
     tabButtons.forEach(button => {
+        if (button.dataset.bound === '1') return;
+        button.dataset.bound = '1';
         button.addEventListener('click', () => {
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabPanes.forEach(pane => pane.classList.remove('active'));
@@ -3312,7 +4058,8 @@ function addStaffRow() {
 
     // 부서 목록
     const departments = [
-        '선택하세요.', '공간정보사업부', 'GIS사업부', 'GIS사업지원부',
+        '선택하세요.', '경영본부', '사업본부', '영업본부',
+        '공간정보사업부', 'GIS사업부', 'GIS사업지원부',
         '연구소', '공공사업부', '공정관리부',
         '경영지원부', '총무부', '임원실'
     ];
@@ -3338,81 +4085,85 @@ function addStaffRow() {
         authSelect.appendChild(option);
     });
 
-    // 행 생성 및 삽입 (체크박스열 + 구분 4칸 + 권한 3칸)
+    // 행 생성 및 삽입 (체크박스열 + 구분 7칸 + 권한 4칸)
     row.innerHTML = `
             <td class="staff-select-col" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="row-check" aria-label="행 선택"></td>
-            <td></td>
-            <td></td>
-            <td></td> <!-- 부서 자리 -->
-            <td></td> <!-- 등급 자리 -->
+            <td data-field="emp_no"></td>
+            <td data-field="user_id"></td>
+            <td data-field="department"></td>
+            <td data-field="name"></td>
+            <td data-field="position"></td>
+            <td data-field="join_date"><input type="date" class="join-date-input" /></td>
+            <td data-field="phone"></td>
+            <td data-field="auth"></td>
             <td style="text-align:center;"><input type="checkbox" class="projectauth-check" /></td>
             <td style="text-align:center;"><input type="checkbox" class="dataauth-check" /></td>
             <td style="text-align:center;"><input type="checkbox" class="reportauth-check" /></td>
+            <td style="text-align:center;"><input type="checkbox" class="meetingauth-check" /></td>
         `;
     tbody.appendChild(row);
 
     // 부서 셀에 select 삽입
     row.children[3].appendChild(deptSelect);
     // 권한 셀에 select 삽입
-    row.children[4].appendChild(authSelect);
+    row.children[8].appendChild(authSelect);
 
     // 텍스트 셀 클릭 편집 가능하게
     enableTdEditing("staffGrid");
+    uaApplyStaffRowZebra();
 }
 
 function deleteCheckedRows() {
-    const checked = document.querySelectorAll(".row-check:checked");
+    const checked = Array.from(document.querySelectorAll('.row-check:checked'));
+    if (checked.length === 0) {
+        alert('삭제할 행을 선택하세요.');
+        return;
+    }
 
-    checked.forEach(cb => {
-        const row = cb.closest("tr");
-        if (row) row.remove();
-    });
+    const rows = checked
+        .map((cb) => cb.closest('tr'))
+        .filter((row) => !!row);
+
+    openDeleteStaffConfirmModal(rows);
 }
 
 function enableTdEditing(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table || !table.classList.contains('staff-editing')) return;
+
     const tableBody = document.querySelector(`#${tableId} tbody`);
     if (!tableBody) return;
+
+    const editableFields = new Set(['emp_no', 'user_id', 'name', 'position', 'phone']);
     const rows = tableBody.querySelectorAll("tr");
     rows.forEach(row => {
         const cells = row.querySelectorAll("td");
         cells.forEach(td => {
-            // select나 체크박스가 있는 셀은 편집 비활성화
-            if (td.querySelector('select') || td.querySelector('input[type="checkbox"].dataauth-check')) return;
-            td.onclick = function () {
-                // 이미 편집중이거나 선택 체크박스 셀은 제외
-                if (td.querySelector("input")) return;
-                const original = td.textContent.trim();
-                td.textContent = "";
-                const input = document.createElement("input");
-                input.type = "text";
-                input.value = original;
-                input.style.width = "100%";
-                input.style.height = "100%";
-                input.style.boxSizing = "border-box";
-                input.style.padding = "0";
-                input.style.margin = "0";
-                input.style.border = "none";
-                input.style.borderRadius = "0";
-                input.style.background = "transparent";
-                input.style.fontSize = "inherit";
-                input.style.lineHeight = "normal";
-                input.style.textAlign = "center";
-                input.style.display = "block";
-                input.addEventListener("blur", () => { td.textContent = input.value.trim(); });
-                input.addEventListener("keydown", (e) => {
-                    if (e.key === "Enter") input.blur();
-                    if (e.key === "Tab") {
+            const field = td.dataset.field;
+            const isEditable = field && editableFields.has(field);
+
+            if (!isEditable) {
+                td.contentEditable = 'false';
+                td.classList.remove('staff-text-editable');
+                return;
+            }
+
+            td.contentEditable = 'true';
+            td.spellcheck = false;
+            td.classList.add('staff-text-editable');
+
+            if (!td.dataset.editBound) {
+                td.dataset.editBound = '1';
+                td.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
                         e.preventDefault();
-                        const tdList = Array.from(td.parentElement.children);
-                        const currentIdx = tdList.indexOf(td);
-                        const nextIdx = e.shiftKey ? currentIdx - 1 : currentIdx + 1;
-                        const nextTd = tdList[nextIdx];
-                        if (nextTd) nextTd.click();
+                        td.blur();
                     }
                 });
-                td.appendChild(input);
-                input.focus();
-            };
+                td.addEventListener('blur', () => {
+                    td.textContent = (td.textContent || '').trim();
+                });
+            }
         });
     });
 }
@@ -3424,6 +4175,7 @@ function onEditStaff() {
 
     // 체크박스 열은 HTML에 고정, 수정 모드에서는 표시만 토글
     table.classList.add('staff-editing');
+    setStaffCheckboxEditable(true);
 
     // 전체 선택 체크박스 바인딩(1회)
     const checkAll = table.querySelector('input.check-all');
@@ -3449,35 +4201,60 @@ function saveStaff() {
     const rows = table.querySelectorAll("tbody tr");
 
     const staffData = [];
+    const seenUserIds = new Map();
+    const duplicateUserIds = new Set();
 
     rows.forEach(row => {
-        // 인덱스 의존 제거: 셀 내용 유형으로 안전히 추출
-        const valueCells = Array.from(row.querySelectorAll('td'))
-            .filter(td => !td.querySelector('select') && !td.querySelector('input'));
-        const selects = row.querySelectorAll('select');
-
-        const deptSelect = selects[0];
-        const authSelect = selects[1];
+        const deptSelect = row.querySelector('td[data-field="department"] select');
+        const authSelect = row.querySelector('td[data-field="auth"] select');
 
         const dataAuthCheckbox = row.querySelector('input.dataauth-check');
         const reportAuthCheckbox = row.querySelector('input.reportauth-check');
         const projectAuthCheckbox = row.querySelector('input.projectauth-check');
+        const meetingAuthCheckbox = row.querySelector('input.meetingauth-check');
+
+        const nameCell = row.querySelector('td[data-field="name"]');
+        const userIdCell = row.querySelector('td[data-field="user_id"]');
+        const empNoCell = row.querySelector('td[data-field="emp_no"]');
+        const positionCell = row.querySelector('td[data-field="position"]');
+        const phoneCell = row.querySelector('td[data-field="phone"]');
+        const joinDateInput = row.querySelector('td[data-field="join_date"] input[type="date"]');
 
         const user = {
-            Name: (valueCells[0]?.textContent || '').trim(),
-            userID: (valueCells[1]?.textContent || '').trim(),
+            Name: (nameCell?.textContent || '').trim(),
+            userID: (userIdCell?.textContent || '').trim(),
             Department: deptSelect ? deptSelect.value : '',
             Auth: authSelect ? authSelect.value : '',
+            EmpNo: (empNoCell?.textContent || '').trim(),
+            Position: (positionCell?.textContent || '').trim(),
+            JoinDate: joinDateInput ? (joinDateInput.value || '') : '',
+            Phone: (phoneCell?.textContent || '').trim(),
             note: '',
             dataauth: dataAuthCheckbox ? (dataAuthCheckbox.checked ? 1 : 0) : 0,
             reportAUTH: reportAuthCheckbox ? (reportAuthCheckbox.checked ? 1 : 0) : 0,
+            meetingAuth: meetingAuthCheckbox ? (meetingAuthCheckbox.checked ? 1 : 0) : 0,
             projectAUTH: projectAuthCheckbox ? (projectAuthCheckbox.checked ? 1 : 0) : 0
         };
 
         if (user.userID) {
+            const normalizedId = user.userID.toLowerCase();
+            if (user.Name) {
+                if (seenUserIds.has(normalizedId)) {
+                    duplicateUserIds.add(user.userID);
+                    duplicateUserIds.add(seenUserIds.get(normalizedId));
+                } else {
+                    seenUserIds.set(normalizedId, user.userID);
+                }
+            }
             staffData.push(user);
         }
     });
+
+    if (duplicateUserIds.size > 0) {
+        const dupText = Array.from(duplicateUserIds).sort().join(', ');
+        alert(`중복된 아이디가 있습니다: ${dupText}`);
+        return;
+    }
 
     console.log("[STAFF DATA]", staffData);
 
@@ -3494,7 +4271,7 @@ function saveStaff() {
                 alert("저장 완료");
                 window.location.reload();
             } else {
-                alert("저장 실패");
+                alert(`저장 실패: ${result.message || '요청 데이터를 확인해주세요.'}`);
                 console.error(result.message);
             }
         })
@@ -3516,10 +4293,8 @@ function resetpassword() {
 
     checked.forEach(cb => {
         const row = cb.closest("tr");
-        const cells = row.querySelectorAll("td");
-
-        const userID = cells[2]?.textContent.trim(); // 1열: userID
-        const name = cells[1]?.textContent.trim();   // 2열: Name
+        const userID = row.querySelector('td[data-field="user_id"]')?.textContent.trim();
+        const name = row.querySelector('td[data-field="name"]')?.textContent.trim();
 
         if (userID && name) {
             usersToReset.push({ userID, name });
@@ -3527,24 +4302,7 @@ function resetpassword() {
     });
 
     if (usersToReset.length === 0) return;
-
-    fetch("/reset_password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(usersToReset)
-    })
-        .then(res => res.json())
-        .then(result => {
-            if (result.success) {
-                alert("비밀번호 초기화 완료");
-            } else {
-                alert("초기화 실패: " + result.message);
-            }
-        })
-        .catch(err => {
-            console.error("[초기화 오류]", err);
-            alert("요청 중 오류 발생");
-        });
+    openResetPasswordConfirmModal(usersToReset);
 }
 
 function pageLogout() {
@@ -3955,6 +4713,16 @@ let meetingEditingRecordId = null;
 let meetingEditExistingPdf = null;
 let meetingEditExistingAttachments = [];
 
+async function parseMeetingApiJson(res) {
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('application/json')) {
+        return res.json();
+    }
+    const raw = await res.text();
+    const preview = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+    throw new Error(`JSON이 아닌 응답입니다. (HTTP ${res.status}) ${preview}`);
+}
+
 function initDateYearAutoAdvance(input) {
     if (!input || input.dataset.yearAutoAdvanceBound === '1') return;
 
@@ -4245,12 +5013,19 @@ function openMeetingUploadModal(editMeeting = null) {
         if (meetingTimeEndMinuteInput) meetingTimeEndMinuteInput.value = endMatch ? endMatch[2] : '';
 
         fetch(`/doc_editor_api/meeting/attachments?meeting_id=${encodeURIComponent(editMeeting.id)}`)
-            .then(res => res.json())
+            .then(async (res) => {
+                const data = await parseMeetingApiJson(res);
+                if (!res.ok) {
+                    throw new Error(data?.message || `첨부파일 조회 실패 (HTTP ${res.status})`);
+                }
+                return data;
+            })
             .then(data => {
                 meetingEditExistingAttachments = data?.success && Array.isArray(data.items) ? data.items : [];
                 renderMeetingAttachmentPendingFiles();
             })
-            .catch(() => {
+            .catch((err) => {
+                console.error('[meeting] attachment fetch failed:', err);
                 meetingEditExistingAttachments = [];
                 renderMeetingAttachmentPendingFiles();
             });
@@ -4443,7 +5218,13 @@ function uploadMeetingPdf(file) {
         method: 'POST',
         body: fd
     })
-        .then(res => res.json())
+        .then(async (res) => {
+            const data = await parseMeetingApiJson(res);
+            if (!res.ok) {
+                throw new Error(data?.message || `저장 실패 (HTTP ${res.status})`);
+            }
+            return data;
+        })
         .then(data => {
             if (!data.success) {
                 throw new Error(data.message || '업로드 실패');
