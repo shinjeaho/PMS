@@ -2142,18 +2142,19 @@ body.modal-open {
 
 #settingsModal #account.tab-pane {
     padding: 0;
+    overflow: hidden;
 }
 
 #settingsModal .ua-body {
     flex: 1 1 auto;
     min-height: 0;
-    height: auto;
+    height: 100%;
     padding: 18px 22px;
     background: #fff;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 #settingsModal .ua-top {
@@ -2162,6 +2163,9 @@ body.modal-open {
     gap: 18px;
     flex: 1 1 auto;
     min-height: 0;
+    align-items: start;
+    height: calc(90vh - 220px);
+    overflow: visible;
 }
 
 #settingsModal .ua-left,
@@ -2177,6 +2181,20 @@ body.modal-open {
     display: flex;
     flex-direction: column;
     min-height: 0;
+}
+
+#settingsModal .ua-left {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: calc(90vh - 220px);
+    min-height: calc(90vh - 220px);
+    max-height: calc(90vh - 220px);
+    overflow: hidden;
+}
+
+#settingsModal .ua-right {
+    align-self: stretch;
 }
 
 #settingsModal .ua-toolbar {
@@ -2251,7 +2269,8 @@ body.modal-open {
     padding: 10px 12px 14px;
     flex: 1 1 auto;
     min-height: 0;
-    height: auto;
+    height: 100%;
+    max-height: none;
     overflow: auto;
 }
 
@@ -2464,5 +2483,17 @@ body.modal-open {
 @media (max-width: 980px) {
     #settingsModal .ua-top {
         grid-template-columns: 1fr;
+    }
+
+    #settingsModal .ua-left {
+        position: static;
+        top: auto;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+    }
+
+    #settingsModal .ua-dept {
+        max-height: 280px;
     }
 }

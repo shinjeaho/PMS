@@ -282,6 +282,43 @@ const uaDeptTreeData = [
     }
 ];
 
+function uaCollectDeptLabels(targetLabel) {
+    const normalizedTarget = uaNormalizeDeptName(targetLabel);
+    if (!normalizedTarget) return new Set();
+
+    const labels = new Set();
+
+    const walk = (node) => {
+        if (!node) return false;
+
+        const nodeLabel = uaNormalizeDeptName(node.label);
+        const isMatch = nodeLabel === normalizedTarget;
+
+        let childMatched = false;
+        const children = Array.isArray(node.children) ? node.children : [];
+        children.forEach((child) => {
+            if (walk(child)) childMatched = true;
+        });
+
+        if (isMatch || childMatched) {
+            labels.add(nodeLabel);
+            children.forEach((child) => {
+                const collectAll = (childNode) => {
+                    if (!childNode) return;
+                    labels.add(uaNormalizeDeptName(childNode.label));
+                    (childNode.children || []).forEach(collectAll);
+                };
+                collectAll(child);
+            });
+            return true;
+        }
+        return false;
+    };
+
+    uaDeptTreeData.forEach((root) => walk(root));
+    return labels;
+}
+
 function uaNormalizeDeptName(name) {
     const raw = String(name || '').replace(/\s+/g, ' ').trim();
     const alias = {
@@ -341,12 +378,12 @@ function uaFilterStaffRows() {
     if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr'));
 
-    const topLabels = new Set(['(주)삼인공간정보', '경영본부', '사업본부', '영업본부', '비아이티']);
-    const isAll = !uaDeptFilter || topLabels.has(uaDeptFilter);
+    const normalizedFilter = uaNormalizeDeptName(uaDeptFilter || '');
+    const isAll = !normalizedFilter || normalizedFilter === '(주)삼인공간정보';
 
     rows.forEach((row) => {
         const dept = uaGetDeptFromRow(row);
-        const deptMatched = isAll ? true : (dept === uaNormalizeDeptName(uaDeptFilter));
+        const deptMatched = isAll ? true : (dept === normalizedFilter);
         const keywordMatched = !uaStaffKeyword || uaGetSearchTextFromRow(row).includes(uaStaffKeyword);
         row.style.display = (deptMatched && keywordMatched) ? '' : 'none';
     });
