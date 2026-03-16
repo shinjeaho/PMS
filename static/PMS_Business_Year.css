@@ -2142,7 +2142,7 @@ body.modal-open {
 
 #settingsModal #account.tab-pane {
     padding: 0;
-    overflow: hidden;
+    overflow: auto;
 }
 
 #settingsModal .ua-body {
@@ -2154,7 +2154,7 @@ body.modal-open {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    overflow: visible;
+    overflow: hidden;
 }
 
 #settingsModal .ua-top {
@@ -2164,8 +2164,8 @@ body.modal-open {
     flex: 1 1 auto;
     min-height: 0;
     align-items: start;
-    height: calc(90vh - 220px);
-    overflow: visible;
+    height: 100%;
+    overflow: hidden;
 }
 
 #settingsModal .ua-left,
@@ -2187,9 +2187,9 @@ body.modal-open {
     position: sticky;
     top: 0;
     align-self: start;
-    height: calc(90vh - 220px);
-    min-height: calc(90vh - 220px);
-    max-height: calc(90vh - 220px);
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
     overflow: hidden;
 }
 
@@ -2320,8 +2320,9 @@ body.modal-open {
 #settingsModal .ua-grid-wrap {
     flex: 1 1 auto;
     min-height: 0;
-    height: auto;
+    height: 100%;
     overflow: auto;
+    padding-bottom: 10px;
 }
 
 #settingsModal .ua-grid {

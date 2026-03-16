@@ -574,6 +574,36 @@ function getStaffRowAuth(row) {
     return (authSelect ? authSelect.value : '').trim();
 }
 
+function formatPhoneNumber(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+
+    if (digits.length <= 3) return digits;
+
+    if (digits.startsWith('02')) {
+        if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+        if (digits.length <= 9) return `${digits.slice(0, 2)}-${digits.slice(2, digits.length - 4)}-${digits.slice(-4)}`;
+        return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+    }
+
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+}
+
+function placeCaretAtEnd(element) {
+    if (!element) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
 function getStaffRowEmpNo(row) {
     return (row.querySelector('td[data-field="emp_no"]')?.textContent || '').trim();
 }
@@ -4197,8 +4227,31 @@ function enableTdEditing(tableId) {
                         td.blur();
                     }
                 });
+
+                td.addEventListener('input', () => {
+                    if (field !== 'phone') return;
+                    const raw = td.textContent || '';
+                    const formatted = formatPhoneNumber(raw);
+                    if (raw === formatted) return;
+                    td.textContent = formatted;
+                    placeCaretAtEnd(td);
+                });
+
+                td.addEventListener('paste', (e) => {
+                    if (field !== 'phone') return;
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                    td.textContent = formatPhoneNumber(pastedText);
+                    placeCaretAtEnd(td);
+                });
+
                 td.addEventListener('blur', () => {
-                    td.textContent = (td.textContent || '').trim();
+                    const raw = (td.textContent || '').trim();
+                    if (field === 'phone') {
+                        td.textContent = formatPhoneNumber(raw);
+                        return;
+                    }
+                    td.textContent = raw;
                 });
             }
         });
@@ -4265,7 +4318,7 @@ function saveStaff() {
             EmpNo: (empNoCell?.textContent || '').trim(),
             Position: (positionCell?.textContent || '').trim(),
             JoinDate: joinDateInput ? (joinDateInput.value || '') : '',
-            Phone: (phoneCell?.textContent || '').trim(),
+            Phone: formatPhoneNumber((phoneCell?.textContent || '').trim()),
             note: '',
             dataauth: dataAuthCheckbox ? (dataAuthCheckbox.checked ? 1 : 0) : 0,
             reportAUTH: reportAuthCheckbox ? (reportAuthCheckbox.checked ? 1 : 0) : 0,
