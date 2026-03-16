@@ -58,6 +58,50 @@ def _get_viewer_info():
     department = (user.get('department') or user.get('Department') or '').strip()
     position = (user.get('position') or user.get('Position') or '').strip()
 
+    if not department or not position:
+        conn = create_connection()
+        if conn is not None:
+            cursor = conn.cursor(dictionary=True)
+            try:
+                user_id = (user.get('userID') or '').strip()
+                row = None
+                if user_id:
+                    cursor.execute(
+                        """
+                        SELECT COALESCE(Department, '') AS department,
+                               COALESCE(Position, '') AS position
+                        FROM users
+                        WHERE userID = %s
+                        LIMIT 1
+                        """,
+                        (user_id,),
+                    )
+                    row = cursor.fetchone()
+
+                if row is None and name and name != '알수없음':
+                    cursor.execute(
+                        """
+                        SELECT COALESCE(Department, '') AS department,
+                               COALESCE(Position, '') AS position
+                        FROM users
+                        WHERE Name = %s
+                        LIMIT 1
+                        """,
+                        (name,),
+                    )
+                    row = cursor.fetchone()
+
+                if row:
+                    if not department:
+                        department = (row.get('department') or '').strip()
+                    if not position:
+                        position = (row.get('position') or '').strip()
+            except Exception:
+                pass
+            finally:
+                cursor.close()
+                conn.close()
+
     if not name:
         name = '알수없음'
     if not department:
@@ -75,6 +119,39 @@ def _get_viewer_info():
 def _get_session_user_name() -> str:
     user = session.get('user') or {}
     return (user.get('name') or user.get('Name') or '').strip()
+
+
+def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
+    params = []
+    where_clause = ""
+    if meeting_id:
+        where_clause = " AND mv.meeting_id = %s"
+        params.append(meeting_id)
+
+    cursor.execute(
+        f"""
+        UPDATE meeting_viewers mv
+        JOIN users u ON mv.user_name = u.Name
+        SET
+            mv.department = CASE
+                WHEN mv.department IS NULL OR TRIM(mv.department) = '' OR mv.department = '-'
+                    THEN COALESCE(NULLIF(TRIM(u.Department), ''), mv.department)
+                ELSE mv.department
+            END,
+            mv.position = CASE
+                WHEN mv.position IS NULL OR TRIM(mv.position) = '' OR mv.position = '-'
+                    THEN COALESCE(NULLIF(TRIM(u.Position), ''), mv.position)
+                ELSE mv.position
+            END
+        WHERE 1=1
+          {where_clause}
+          AND (
+              mv.department IS NULL OR TRIM(mv.department) = '' OR mv.department = '-'
+              OR mv.position IS NULL OR TRIM(mv.position) = '' OR mv.position = '-'
+          )
+        """,
+        tuple(params),
+    )
 
 
 @bp.route('/projects/suggest', methods=['GET'])
@@ -685,14 +762,15 @@ def increment_meeting_view():
         try:
             cursor.execute(
                 """
-                SELECT id
+                                SELECT id,
+                                             COALESCE(NULLIF(TRIM(department), ''), '-') AS department,
+                                             COALESCE(NULLIF(TRIM(position), ''), '-') AS position
                 FROM meeting_viewers
                 WHERE meeting_id = %s
-                  AND user_name = %s
-                  AND department = %s
+                                    AND user_name = %s
                 LIMIT 1
                 """,
-                (record_id, viewer['name'], viewer['department']),
+                                (record_id, viewer['name']),
             )
             existing = cursor.fetchone()
 
@@ -714,6 +792,26 @@ def increment_meeting_view():
                     (record_id,),
                 )
                 conn.commit()
+            else:
+                if (
+                    ((existing.get('department') or '-').strip() in ('', '-')) and viewer['department'] != '-'
+                ) or (
+                    ((existing.get('position') or '-').strip() in ('', '-')) and viewer['position'] != '-'
+                ):
+                    cursor.execute(
+                        """
+                        UPDATE meeting_viewers
+                        SET department = CASE
+                                WHEN department IS NULL OR TRIM(department) = '' OR department = '-'
+                                    THEN %s ELSE department END,
+                            position = CASE
+                                WHEN position IS NULL OR TRIM(position) = '' OR position = '-'
+                                    THEN %s ELSE position END
+                        WHERE id = %s
+                        """,
+                        (viewer['department'], viewer['position'], existing['id']),
+                    )
+                    conn.commit()
         except Exception:
             conn.rollback()
             cursor.execute(
@@ -757,9 +855,14 @@ def list_meeting_viewers():
     cursor = conn.cursor(dictionary=True)
     try:
         try:
+            _backfill_meeting_viewers_profile(cursor, str(meeting_id))
+            conn.commit()
+
             cursor.execute(
                 """
-                SELECT user_name, department, position,
+                SELECT user_name,
+                       COALESCE(NULLIF(TRIM(department), ''), '-') AS department,
+                       COALESCE(NULLIF(TRIM(position), ''), '-') AS position,
                        DATE_FORMAT(viewed_at, '%Y-%m-%d %H:%i') AS viewed_at
                 FROM meeting_viewers
                 WHERE meeting_id = %s
