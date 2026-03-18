@@ -64,13 +64,8 @@
             <li><button class="year-button" onclick="checkLaborCosts()">기준정보 확인</button></li>
             <li id="meeting-li" style="display: none;"><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
             {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
-            <li class="dropdown">
-                <button class="year-button dropbtn">업무보고서 ▼</button>
-                <div class="dropdown-content">
-                    <a href="#" onclick="viewWeeklyReports()">주간보고서</a>
-                    <a href="#" onclick="viewDailyReports()">일일보고서</a>
-                </div>
-            </li>
+            <li><button class="year-button" type="button" onclick="viewWeeklyReports()">주간보고서</button></li>
+            <li style="display:none;"><button class="year-button" type="button" onclick="viewDailyReports()">일일보고서</button></li>
             {% endif %}
             <li><button class="year-button" onclick="openTransfer()">엑셀 데이터 이관</button></li>
             <li id="setting-li" style="display: none;">
@@ -150,7 +145,7 @@
                                                 <th>아이디</th>
                                                 <th id="staffSortDept" class="staff-sortable" title="부서 정렬">부서</th>
                                                 <th id="staffSortName" class="staff-sortable" title="이름 정렬">이름</th>
-                                                <th>직위</th>
+                                                <th id="staffSortPosition" class="staff-sortable" title="직위 정렬">직위</th>
                                                 <th>입사일</th>
                                                 <th>휴대폰 번호</th>
                                                 <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">접근등급</th>
@@ -681,6 +676,10 @@
 
     <!-- 검색 부분 HTML -->
     <div id="searchDIV">
+        <select id="searchScope" aria-label="검색 범위 선택">
+            <option value="year" selected>연도별</option>
+            <option value="all">전체</option>
+        </select>
         <input type="text" id="search" placeholder="검색어를 입력하세요">
         <button class="search-button" id="search_BTN" onclick="handleSearch(1)">검색</button>
     </div>
@@ -708,9 +707,6 @@
             </table>
 
             <section id="dailyReportSection" class="daily-report-page" style="display:none;">
-                <div class="daily-report-title-row">
-                    <button type="button" class="daily-report-title-btn">일일보고서 작성</button>
-                </div>
                 <div class="daily-report-shell">
                     <div class="daily-report-header" id="dailyReportDeptLabel">세션에 따른 부서명</div>
 
@@ -729,6 +725,8 @@
                                 <button type="button" class="daily-period-nav" id="dailyMonthNextBtn" aria-label="다음 월">▶</button>
                                 <div id="dailyMonthPicker" class="daily-picker-panel"></div>
                             </div>
+
+                            <button type="button" id="dailyWriteBtn" class="search-button daily-report-write-btn" onclick="openDailyWriteModal()">일일보고 작성</button>
                         </div>
                     </div>
 
@@ -737,6 +735,100 @@
                     </div>
                 </div>
             </section>
+
+            <div id="dailyWriteModal" class="modal">
+                <div class="modal-content daily-write-modal">
+                    <div class="modal-header">
+                        <h2>일일보고 작성</h2>
+                        <span class="close" onclick="closeDailyWriteModal()">&times;</span>
+                    </div>
+                    <hr class="modal-divider">
+                    <div class="modal-body">
+                        <table class="daily-write-form-table daily-write-head-table">
+                            <colgroup>
+                                <col style="width: 12%;">
+                                <col style="width: 88%;">
+                            </colgroup>
+                            <tbody>
+                                <tr>
+                                    <th>부서</th>
+                                    <td><input type="text" id="dailyWriteDept" class="meeting-form-input" readonly></td>
+                                </tr>
+                                <tr>
+                                    <th>일자</th>
+                                    <td class="daily-write-date-author-cell">
+                                        <div class="daily-write-date-group">
+                                            <input type="date" id="dailyWriteDate" class="meeting-form-input daily-write-date-input" min="1900-01-01" max="9999-12-31">
+                                        </div>
+                                        <div class="daily-write-author-group">
+                                            <span class="daily-write-author-label">작성자</span>
+                                            <input type="text" id="dailyWriteAuthor" class="meeting-form-input daily-write-author-input" readonly>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>구분</th>
+                                    <td class="daily-write-type-cell">
+                                        <label><input type="checkbox" id="dailyTypeInner" checked> 내근</label>
+                                        <label><input type="checkbox" id="dailyTypeOuter"> 외근</label>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div id="dailyInnerSection" class="daily-write-section">
+                            <div class="daily-write-section-title">내근</div>
+                            <table class="daily-write-form-table">
+                                <colgroup>
+                                    <col style="width: 65%;">
+                                    <col style="width: 35%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>업무내용</th>
+                                        <th>비고</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><textarea id="dailyInnerWork" class="daily-write-textarea" placeholder="업무내용 입력"></textarea></td>
+                                        <td><textarea id="dailyInnerNote" class="daily-write-textarea" placeholder="비고 입력"></textarea></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="dailyOuterSection" class="daily-write-section">
+                            <div class="daily-write-section-title">외근</div>
+                            <table class="daily-write-form-table">
+                                <colgroup>
+                                    <col style="width: 30%;">
+                                    <col style="width: 40%;">
+                                    <col style="width: 30%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>구분</th>
+                                        <th>업무내용</th>
+                                        <th>특이사항</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <textarea id="dailyOuterMeta" class="daily-write-textarea">방문일시 : 
+업체명/담당자 : 
+방문자 : </textarea>
+                                        </td>
+                                        <td><textarea id="dailyOuterWork" class="daily-write-textarea" placeholder="업무내용 입력"></textarea></td>
+                                        <td><textarea id="dailyOuterSpecial" class="daily-write-textarea" placeholder="특이사항 입력"></textarea></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 페이지네이션 버튼 -->

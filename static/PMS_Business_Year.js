@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initDeleteStaffConfirmModal();
     initMeetingUploadModal();
     initDailyReportModal();
+    initDailyWriteModal();
     const yearTitle = document.getElementById('projectYEAR').value;
     const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
     const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
@@ -58,6 +59,13 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('search_BTN').click();
         }
     });
+
+    const searchScopeEl = document.getElementById('searchScope');
+    if (searchScopeEl) {
+        searchScopeEl.addEventListener('change', () => {
+            handleSearch(1);
+        });
+    }
 
     const header = document.querySelector('header.pageheader');
     if (header) {
@@ -506,7 +514,8 @@ function initStaffGridSort() {
     const thName = document.getElementById('staffSortName');
     const thDept = document.getElementById('staffSortDept');
     const thAuth = document.getElementById('staffSortAuth');
-    if (!thName || !thDept || !thAuth) return;
+    const thPosition = document.getElementById('staffSortPosition');
+    if (!thName || !thDept || !thAuth || !thPosition) return;
 
     const state = { key: null, dir: 'default' };
     const setup = (th, key) => {
@@ -528,16 +537,19 @@ function initStaffGridSort() {
             sortStaffGridRows(table, state.key, state.dir);
             ensureSortIndicator(thName).textContent = (state.key === 'name') ? dirToArrow(state.dir) : '';
             ensureSortIndicator(thDept).textContent = (state.key === 'dept') ? dirToArrow(state.dir) : '';
+            ensureSortIndicator(thPosition).textContent = (state.key === 'position') ? dirToArrow(state.dir) : '';
             ensureSortIndicator(thAuth).textContent = (state.key === 'auth') ? dirToArrow(state.dir) : '';
         });
     };
 
     setup(thName, 'name');
     setup(thDept, 'dept');
+    setup(thPosition, 'position');
     setup(thAuth, 'auth');
 
     ensureSortIndicator(thName).textContent = '';
     ensureSortIndicator(thDept).textContent = '';
+    ensureSortIndicator(thPosition).textContent = '';
     ensureSortIndicator(thAuth).textContent = '';
 
     sortStaffGridRows(table, 'emp_no', 'asc');
@@ -572,6 +584,28 @@ function getStaffRowDept(row) {
 function getStaffRowAuth(row) {
     const authSelect = row.querySelector('td[data-field="auth"] select');
     return (authSelect ? authSelect.value : '').trim();
+}
+
+function getStaffRowPosition(row) {
+    return (row.querySelector('td[data-field="position"]')?.textContent || '').trim();
+}
+
+function getPositionOrder(position) {
+    const normalized = String(position || '').trim();
+    const order = {
+        '대표이사': 1,
+        '부사장': 2,
+        '전무이사': 3,
+        '상무이사': 4,
+        '이사': 5,
+        '부장': 6,
+        '차장': 7,
+        '과장': 8,
+        '대리': 9,
+        '주임': 10,
+        '사원': 11,
+    };
+    return Object.prototype.hasOwnProperty.call(order, normalized) ? order[normalized] : 99;
 }
 
 function formatPhoneNumber(value) {
@@ -620,6 +654,7 @@ function sortStaffGridRows(table, key, dir) {
             if (key === 'emp_no') return getStaffRowEmpNo(row);
             if (key === 'name') return getStaffRowName(row);
             if (key === 'dept') return getStaffRowDept(row);
+            if (key === 'position') return getStaffRowPosition(row);
             return getStaffRowAuth(row);
         };
         rows.sort((a, b) => {
@@ -634,6 +669,16 @@ function sortStaffGridRows(table, key, dir) {
             }
             const sa = String(va).trim();
             const sb = String(vb).trim();
+            if (key === 'position') {
+                let cmp = getPositionOrder(sa) - getPositionOrder(sb);
+                if (cmp === 0) {
+                    cmp = sa.localeCompare(sb, 'ko-KR', { sensitivity: 'base' });
+                }
+                if (cmp === 0) {
+                    cmp = Number(a.dataset.originalIndex || 0) - Number(b.dataset.originalIndex || 0);
+                }
+                return dir === 'asc' ? cmp : -cmp;
+            }
             const isNumA = /^\d+(?:\.\d+)?$/.test(sa);
             const isNumB = /^\d+(?:\.\d+)?$/.test(sb);
             let cmp = 0;
@@ -998,17 +1043,91 @@ function dailyReportRenderCalendar() {
         });
 }
 
+function initDailyWriteModal() {
+    const modal = document.getElementById('dailyWriteModal');
+    if (!modal || modal.dataset.bound === '1') return;
+
+    const innerCheck = document.getElementById('dailyTypeInner');
+    const outerCheck = document.getElementById('dailyTypeOuter');
+
+    if (innerCheck) {
+        innerCheck.addEventListener('change', syncDailyWriteTypeSections);
+    }
+    if (outerCheck) {
+        outerCheck.addEventListener('change', syncDailyWriteTypeSections);
+    }
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeDailyWriteModal();
+    });
+
+    modal.dataset.bound = '1';
+}
+
+function syncDailyWriteTypeSections() {
+    const innerChecked = !!document.getElementById('dailyTypeInner')?.checked;
+    const outerChecked = !!document.getElementById('dailyTypeOuter')?.checked;
+    const innerSection = document.getElementById('dailyInnerSection');
+    const outerSection = document.getElementById('dailyOuterSection');
+
+    if (innerSection) innerSection.style.display = innerChecked ? '' : 'none';
+    if (outerSection) outerSection.style.display = outerChecked ? '' : 'none';
+}
+
+function openDailyWriteModal() {
+    const modal = document.getElementById('dailyWriteModal');
+    if (!modal) return;
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+
+    const dept = String(document.getElementById('sessionDept')?.value || '').trim();
+    const author = String(document.getElementById('sessionName')?.value || '').trim();
+
+    const deptInput = document.getElementById('dailyWriteDept');
+    const dateInput = document.getElementById('dailyWriteDate');
+    const authorInput = document.getElementById('dailyWriteAuthor');
+    const outerMetaInput = document.getElementById('dailyOuterMeta');
+    const innerCheck = document.getElementById('dailyTypeInner');
+    const outerCheck = document.getElementById('dailyTypeOuter');
+
+    if (deptInput) deptInput.value = dept;
+    if (authorInput) authorInput.value = author;
+    if (dateInput && !dateInput.value) dateInput.value = formatDateYMD(new Date());
+    if (outerMetaInput && !String(outerMetaInput.value || '').trim()) {
+        outerMetaInput.value = '방문일시 : \n업체명/담당자 : \n방문자 : ';
+    }
+    if (innerCheck) innerCheck.checked = true;
+    if (outerCheck) outerCheck.checked = false;
+
+    syncDailyWriteTypeSections();
+}
+
+function closeDailyWriteModal() {
+    const modal = document.getElementById('dailyWriteModal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+}
+
 //기본 프로젝트 목록 가져오기
 function fetchProjects(page = 1) {
     _dailyHideSection();
+    const scope = document.getElementById('searchScope')?.value || 'year';
     const year = document.getElementById("projectYEAR")?.value || '';
-    fetch(`/api/get_projects/?year=${encodeURIComponent(year)}&page=${encodeURIComponent(page)}`)
+    let url = `/api/get_projects/?page=${encodeURIComponent(page)}`;
+    if (scope !== 'all' && year) {
+        url += `&year=${encodeURIComponent(year)}`;
+    }
+
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             renderTable(data.projects || []);
             renderPagination(data.current_page || 1, data.total_pages || 1);
             const titleEl = document.getElementById('yearTitle');
-            if (titleEl) titleEl.textContent = `${year}년 사업`;
+            if (titleEl) {
+                titleEl.textContent = scope === 'all' ? '전체 사업' : `${year}년 사업`;
+            }
             const pg = document.getElementById("pagination");
             if (pg) pg.style.display = 'block';
             clearActiveButtons();
@@ -1958,6 +2077,7 @@ function getMonthWeekIndexFromMonday(monday) {
 function handleSearch(page = 1) {
     searchTerm = document.getElementById('search').value.trim();
     searchYear = document.getElementById("projectYEAR")?.value || "";
+    const searchScope = document.getElementById('searchScope')?.value || 'year';
 
     if (!searchTerm) {
         fetchProjects(1);
@@ -1969,7 +2089,7 @@ function handleSearch(page = 1) {
         searchUrl += "&type=yearly";
     } else if (currentView === "examine") {
         searchUrl += "&type=examine";
-    } else if (searchYear) {
+    } else if (searchScope !== 'all' && searchYear) {
         searchUrl += `&year=${searchYear}`;
     }
 
@@ -2006,6 +2126,14 @@ function truncateText(text, maxLength = 25) {
 function renderTable(projects) {
     const tableBody = document.getElementById("projectList_tbody");
     tableBody.innerHTML = "";
+
+    if ((!Array.isArray(projects) || projects.length === 0) && String(searchTerm || '').trim()) {
+        const headerCols = document.querySelectorAll('.projectList thead th').length || 5;
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `<td colspan="${headerCols}" style="text-align:center; padding:24px 12px; color:#64748b;">검색결과가 없습니다.</td>`;
+        tableBody.appendChild(emptyRow);
+        return;
+    }
 
     const formatProgress = (val) => {
         if (val === null || val === undefined) return '-';

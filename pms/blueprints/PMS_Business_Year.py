@@ -49,16 +49,21 @@ def get_projects():
         page = request.args.get('page', 1, type=int)
         per_page = 20
 
-        if not year:
-            return jsonify({"error": "Year is required"}), 400
-
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS count FROM Projects 
-            WHERE YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'
-            """,
-            (year,),
-        )
+        if year:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS count FROM Projects 
+                WHERE YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'
+                """,
+                (year,),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS count FROM Projects 
+                WHERE ContractCode NOT LIKE '%%검토%%'
+                """
+            )
         total_projects = cursor.fetchone()['count']
         total_pages = max(1, (total_projects + per_page - 1) // per_page)
 
@@ -67,17 +72,29 @@ def get_projects():
 
         offset = (page - 1) * per_page
 
-        cursor.execute(
-            """
-            SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status 
-            FROM Projects 
-            WHERE YEAR(StartDate) = %s 
-            AND ContractCode NOT LIKE '%%검토%%'
-            ORDER BY ContractCode DESC 
-            LIMIT %s OFFSET %s
-            """,
-            (year, per_page, offset),
-        )
+        if year:
+            cursor.execute(
+                """
+                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status 
+                FROM Projects 
+                WHERE YEAR(StartDate) = %s 
+                AND ContractCode NOT LIKE '%%검토%%'
+                ORDER BY ContractCode DESC 
+                LIMIT %s OFFSET %s
+                """,
+                (year, per_page, offset),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status 
+                FROM Projects 
+                WHERE ContractCode NOT LIKE '%%검토%%'
+                ORDER BY ContractCode DESC 
+                LIMIT %s OFFSET %s
+                """,
+                (per_page, offset),
+            )
         projects = cursor.fetchall()
 
         try:

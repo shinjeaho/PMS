@@ -249,6 +249,33 @@ main {
     font-size: 14px;
 }
 
+#searchScope {
+    height: 38px;
+    width: 124px;
+    min-width: 124px;
+    padding: 0 28px 0 10px;
+    border: 1px solid #cfd8e3;
+    border-radius: 12px;
+    font-size: 16px;
+    color: #111827;
+    background-color: #f8fafc;
+    outline: none;
+    text-align: left;
+    text-align-last: left;
+}
+
+#searchScope:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+}
+
+#search_BTN {
+    min-width: 72px;
+    white-space: nowrap;
+    word-break: keep-all;
+    line-height: 1;
+}
+
 .search-button {
     padding: 8px 20px;
     background-color: #007bff;
@@ -1783,25 +1810,6 @@ body.modal-open {
     margin-top: 12px;
 }
 
-.daily-report-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    margin-bottom: 12px;
-}
-
-.daily-report-title-btn {
-    border: 2px solid #0f172a;
-    background: #fff;
-    color: #0f172a;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.2;
-    cursor: default;
-}
-
 .daily-report-shell {
     border: 1px solid #cbd5e1;
     background: #f8fafc;
@@ -1825,6 +1833,7 @@ body.modal-open {
     position: relative;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 10px;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
@@ -1844,6 +1853,171 @@ body.modal-open {
     margin-left: 4px;
     padding-left: 12px;
     border-left: 1px solid #e2e8f0;
+}
+
+.daily-report-write-btn {
+    margin-left: auto;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.daily-write-modal {
+    width: 64%;
+    max-width: 840px;
+    max-height: 92vh;
+    overflow: hidden;
+}
+
+.daily-write-modal .modal-body {
+    max-height: calc(92vh - 130px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2px;
+}
+
+.daily-write-form-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 12px;
+}
+
+.daily-write-head-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #d6deea;
+}
+
+.daily-write-head-table th,
+.daily-write-head-table td {
+    border: 0 !important;
+    border-right: 1px solid #d6deea !important;
+    border-bottom: 1px solid #d6deea !important;
+}
+
+.daily-write-head-table tr th:last-child,
+.daily-write-head-table tr td:last-child {
+    border-right: 0 !important;
+}
+
+.daily-write-head-table tr:last-child th,
+.daily-write-head-table tr:last-child td {
+    border-bottom: 0 !important;
+}
+
+.daily-write-form-table th,
+.daily-write-form-table td {
+    border: 1px solid #d6deea;
+    padding: 8px 10px;
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+.daily-write-form-table th {
+    background: #f3f4f6;
+    text-align: center;
+    font-weight: 700;
+}
+
+.daily-write-form-table .daily-write-empty {
+    height: 18px;
+    font-size: 13px;
+    color: #64748b;
+    background: #fff;
+}
+
+.daily-write-type-cell {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.daily-write-type-cell label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.daily-write-head-table .meeting-form-input {
+    height: 34px;
+    padding: 0 10px;
+}
+
+.daily-write-head-table .daily-write-date-author-cell {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+}
+
+.daily-write-head-table .daily-write-author-label {
+    flex: 0 0 auto;
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.daily-write-head-table .daily-write-date-input {
+    width: 100%;
+    flex: 1;
+}
+
+.daily-write-head-table .daily-write-author-input {
+    width: 220px;
+    flex: 0 0 auto;
+}
+
+.daily-write-head-table .daily-write-date-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+}
+
+.daily-write-head-table .daily-write-author-group {
+    flex: 0 0 42%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-left: 1px solid #d6deea;
+}
+
+.daily-write-head-table .daily-write-type-cell {
+    min-height: 34px;
+}
+
+.daily-write-section {
+    margin-top: 10px;
+}
+
+.daily-write-section-title {
+    border: 1px solid #dbe3ed;
+    border-bottom: 0;
+    background: #f8fafc;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.daily-write-textarea {
+    width: 100%;
+    min-height: 160px;
+    border: none;
+    resize: vertical;
+    overflow-x: hidden;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 1.45;
+    background: transparent;
+    outline: none;
+    box-sizing: border-box;
 }
 
 .daily-period-display {
@@ -2016,9 +2190,14 @@ body.modal-open {
 }
 
 @media (max-width: 640px) {
-    .daily-report-title-btn {
-        font-size: 18px;
+    .daily-report-write-btn {
+        font-size: 14px;
         padding: 6px 12px;
+    }
+
+    .daily-write-modal {
+        width: 100%;
+        max-width: none;
     }
 
     .daily-report-header {
