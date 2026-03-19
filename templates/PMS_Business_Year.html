@@ -696,11 +696,11 @@
             <table class="projectList">
                 <thead>
                     <tr>
-                        <th style="width: 15%;">사업번호</th>
-                        <th style="width: 55%;">사업명</th>
-                        <th style="width: 10%;">준공여부</th>
-                        <th style="width: 10%;">진행률</th>
-                        <th style="width: 10%;">외주구분</th>
+                        <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 15%;">사업번호</th>
+                        <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 55%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                        <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
+                        <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
+                        <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
                     </tr>
                 </thead>
                 <tbody id="projectList_tbody"></tbody>

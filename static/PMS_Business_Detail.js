@@ -1466,8 +1466,7 @@ async function initializeChartsAndTables() {
 
     await Promise.all([
         createMonthButtons(),
-        createProjectChangeTable(),
-        fetchDepartmentData()
+        createProjectChangeTable()
     ]);
 }
 
@@ -1492,6 +1491,11 @@ function updateRatesForRow(row) {
 // 부서 버튼 초기화 함수
 function initializeDepartmentButtons() {
     const departmentButtons = document.querySelectorAll('.sub-tab button');
+    if (departmentButtons.length === 0) {
+        renderNoDepartmentState();
+        return;
+    }
+
     if (departmentButtons.length > 0) {
         departmentButtons[0].classList.add('active');
         departmentButtons[0].click();
@@ -1508,6 +1512,83 @@ function initializeDepartmentButtons() {
             createMonthButtons();
         });
     });
+}
+
+function renderNoDepartmentState() {
+    const budgetTbody = document.getElementById('Dep_fir_Budget_data');
+    const budgetThead = document.querySelector('#Dep_fir_RealBudget thead');
+    const expenseTbody = document.getElementById('Dep_fir_Specific_data');
+    const expenseThead = document.querySelector('#Dep_fir_Specific thead');
+    const noDataText = '등록된 사업물량이 없습니다.';
+
+    if (budgetThead) {
+        const positions = getPositions();
+        let headHTML = `
+            <tr>
+                <th colspan="3" style="width: 200px;">구분</th>
+                <th colspan="5" style="width: 300px; border-left: 2px solid #cccccc;">합     계</th>
+        `;
+
+        positions.forEach(position => {
+            headHTML += `<th colspan="3" style="width: 180px; border-left: 2px solid #cccccc;">${position}</th>`;
+        });
+        headHTML += '</tr>';
+
+        headHTML += `
+             <tr>
+                <th style="width: 100px;">구분</th>
+                <th style="width: 50px;">물량</th>
+                <th style="width: 50px;">단위</th>
+                <th style="width: 60px; border-left: 2px solid #cccccc;">누계물량</th>
+                <th style="width: 60px;">보할(%)</th>
+                <th style="width: 60px;">진행률(%)</th>
+                <th style="width: 60px;">M/D</th>
+                <th style="width: 60px;">M/T</th>
+        `;
+        positions.forEach(() => {
+            headHTML += `
+                <th style="width: 60px; border-left: 2px solid #cccccc;">주</th>
+                <th style="width: 60px;">야</th>
+                <th style="width: 60px;">휴</th>
+            `;
+        });
+        headHTML += '</tr>';
+        budgetThead.innerHTML = headHTML;
+    }
+
+    if (budgetTbody) {
+        const positions = getPositions();
+        budgetTbody.innerHTML = `
+            <tr>
+                <td colspan="${8 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                    ${noDataText}
+                </td>
+            </tr>
+        `;
+    }
+
+    if (expenseThead) {
+        expenseThead.innerHTML = `
+            <tr>
+                <th>경비항목</th>
+                <th>내역</th>
+                <th>유형</th>
+                <th>세액</th>
+                <th>공급가액</th>
+                <th>금액</th>
+            </tr>
+        `;
+    }
+
+    if (expenseTbody) {
+        expenseTbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                    ${noDataText}
+                </td>
+            </tr>
+        `;
+    }
 }
 
 
@@ -4099,8 +4180,8 @@ function updateTable(data, department) {
     if (!quantityData || quantityData.length === 0) {
         const noDataRow = document.createElement('tr');
         noDataRow.innerHTML = `
-            <td colspan="${3 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
-                데이터가 없습니다
+            <td colspan="${8 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                등록된 사업물량이 없습니다.
             </td>
         `;
         tableBody.appendChild(noDataRow);
@@ -4564,6 +4645,17 @@ function updateSpecificTable(data, department) {
     let totalTax = 0;
     let totalSupplyPrice = 0;
     let totalAmount = 0;
+
+    if (!Array.isArray(data) || data.length === 0) {
+        const noDataRow = document.createElement('tr');
+        noDataRow.innerHTML = `
+            <td colspan="6" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                등록된 사업물량이 없습니다.
+            </td>
+        `;
+        tableBody.appendChild(noDataRow);
+        return;
+    }
 
     // tbody 구성
     data.forEach(row => {

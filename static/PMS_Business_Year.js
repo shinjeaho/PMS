@@ -1,6 +1,7 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     initStaffGridSort();
+    initProjectListSort();
     initResetPasswordConfirmModal();
     initDeleteStaffConfirmModal();
     initMeetingUploadModal();
@@ -84,6 +85,12 @@ let totalPages = 1;
 let searchTerm = "";
 let searchYear = "";
 let currentView = "";
+let projectRowsCache = [];
+const projectSortState = {
+    key: null,
+    dir: 'default',
+    nameMode: 'default'
+};
 let meetingItemsAll = [];
 let meetingItemsFiltered = [];
 let meetingCurrentPage = 1;
@@ -1235,13 +1242,14 @@ function setTableHead(mode) {
     } else {
         thead.innerHTML = `
             <tr>
-                <th style="width: 15%;">사업번호</th>
-                <th style="width: 55%;">사업명</th>
-                <th style="width: 10%;">준공여부</th>
-                <th style="width: 10%;">진행률</th>
-                <th style="width: 10%;">외주구분</th>
+                <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 15%;">사업번호</th>
+                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 55%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
+                <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
+                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
             </tr>
         `;
+        updateProjectSortIndicators();
     }
 }
 
@@ -1315,6 +1323,165 @@ function _weeklyHideReportsToolbar() {
 
     const top = document.getElementById('weeklyReportsTopBar');
     if (top) top.style.display = 'none';
+}
+
+function initProjectListSort() {
+    const table = document.querySelector('.projectList');
+    if (!table || table.dataset.sortBound === '1') return;
+
+    table.addEventListener('click', (event) => {
+        const th = event.target.closest('th[data-sort-key]');
+        if (!th || !table.contains(th)) return;
+
+        const key = th.dataset.sortKey;
+        if (!key) return;
+
+        if (key === 'project_name') {
+            if (projectSortState.key !== key || projectSortState.nameMode === 'default') {
+                projectSortState.key = key;
+                projectSortState.dir = 'asc';
+                projectSortState.nameMode = 'asc';
+            } else if (projectSortState.nameMode === 'asc') {
+                projectSortState.dir = 'desc';
+                projectSortState.nameMode = 'desc';
+            } else if (projectSortState.nameMode === 'desc') {
+                projectSortState.dir = 'default';
+                projectSortState.nameMode = 'issue';
+            } else {
+                projectSortState.key = null;
+                projectSortState.dir = 'default';
+                projectSortState.nameMode = 'default';
+            }
+        } else {
+            projectSortState.nameMode = 'default';
+
+            if (projectSortState.key === key) {
+                if (projectSortState.dir === 'default') projectSortState.dir = 'asc';
+                else if (projectSortState.dir === 'asc') projectSortState.dir = 'desc';
+                else projectSortState.dir = 'default';
+
+                if (projectSortState.dir === 'default') {
+                    projectSortState.key = null;
+                }
+            } else {
+                projectSortState.key = key;
+                projectSortState.dir = 'asc';
+            }
+        }
+
+        updateProjectSortIndicators();
+        renderTable(projectRowsCache || []);
+    });
+
+    table.dataset.sortBound = '1';
+    updateProjectSortIndicators();
+}
+
+function getProjectOutsourcingText(project) {
+    const rawOutsourcing =
+        project.outsourcingCheck ??
+        project.outsourcingcheck ??
+        project.outsourcingType ??
+        project.outsourcing_type ??
+        '';
+
+    const normalizedOutsourcing = String(rawOutsourcing).replace(/\s/g, '');
+    const outsourcingVal = Number(rawOutsourcing);
+
+    if (outsourcingVal === 1 || normalizedOutsourcing === '전량외주') return '전량외주';
+    if (outsourcingVal === 2 || normalizedOutsourcing === '부분외주') return '부분외주';
+    return '';
+}
+
+function getProjectStatusText(project) {
+    return project.project_status === null || project.project_status === undefined ? '진행중' : String(project.project_status);
+}
+
+function parseProjectProgress(project) {
+    const num = Number(project.progress);
+    return Number.isFinite(num) ? num : 0;
+}
+
+function compareProjectStrings(a, b) {
+    return String(a || '').localeCompare(String(b || ''), 'ko-KR', { numeric: true, sensitivity: 'base' });
+}
+
+function compareProjectContractCodeDesc(a, b) {
+    return compareProjectStrings(b?.ContractCode, a?.ContractCode);
+}
+
+function sortProjectRows(projects) {
+    const rows = (Array.isArray(projects) ? projects : []).map((project, index) => ({ project, index }));
+    const key = projectSortState.key;
+    const dir = projectSortState.dir;
+    const isIssueMode = key === 'project_name' && projectSortState.nameMode === 'issue';
+
+    if (!key || (dir === 'default' && !isIssueMode)) {
+        return rows.map(item => item.project);
+    }
+
+    rows.sort((left, right) => {
+        const a = left.project;
+        const b = right.project;
+
+        if (key === 'project_name' && projectSortState.nameMode === 'issue') {
+            const riskA = !!a.has_risk;
+            const riskB = !!b.has_risk;
+            if (riskA !== riskB) return riskA ? -1 : 1;
+
+            const byCodeDesc = compareProjectContractCodeDesc(a, b);
+            if (byCodeDesc !== 0) return byCodeDesc;
+            return left.index - right.index;
+        }
+
+        let cmp = 0;
+        if (key === 'contract_code') {
+            cmp = compareProjectStrings(a.ContractCode, b.ContractCode);
+        } else if (key === 'project_name') {
+            cmp = compareProjectStrings(a.ProjectName, b.ProjectName);
+        } else if (key === 'project_status') {
+            cmp = compareProjectStrings(getProjectStatusText(a), getProjectStatusText(b));
+        } else if (key === 'progress') {
+            cmp = parseProjectProgress(a) - parseProjectProgress(b);
+        } else if (key === 'outsourcing') {
+            cmp = compareProjectStrings(getProjectOutsourcingText(a), getProjectOutsourcingText(b));
+        }
+
+        if (cmp === 0) {
+            cmp = left.index - right.index;
+        }
+
+        return dir === 'asc' ? cmp : -cmp;
+    });
+
+    return rows.map(item => item.project);
+}
+
+function updateProjectSortIndicators() {
+    const map = {
+        contract_code: document.getElementById('projectSortContractCode'),
+        project_name: document.getElementById('projectSortProjectName'),
+        project_status: document.getElementById('projectSortStatus'),
+        progress: document.getElementById('projectSortProgress'),
+        outsourcing: document.getElementById('projectSortOutsourcing')
+    };
+
+    Object.entries(map).forEach(([key, th]) => {
+        if (!th) return;
+        const span = ensureSortIndicator(th);
+
+        if (projectSortState.key !== key) {
+            span.textContent = '';
+            return;
+        }
+
+        if (key === 'project_name' && projectSortState.nameMode === 'issue') {
+            span.textContent = '◆';
+            return;
+        }
+
+        span.textContent = dirToArrow(projectSortState.dir);
+    });
 }
 
 function _weeklyRenderReportsToolbar({ years, selectedYear }) {
@@ -2126,8 +2293,12 @@ function truncateText(text, maxLength = 25) {
 function renderTable(projects) {
     const tableBody = document.getElementById("projectList_tbody");
     tableBody.innerHTML = "";
+    projectRowsCache = Array.isArray(projects) ? [...projects] : [];
 
-    if ((!Array.isArray(projects) || projects.length === 0) && String(searchTerm || '').trim()) {
+    const sortedProjects = sortProjectRows(projectRowsCache);
+    updateProjectSortIndicators();
+
+    if ((!Array.isArray(sortedProjects) || sortedProjects.length === 0) && String(searchTerm || '').trim()) {
         const headerCols = document.querySelectorAll('.projectList thead th').length || 5;
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `<td colspan="${headerCols}" style="text-align:center; padding:24px 12px; color:#64748b;">검색결과가 없습니다.</td>`;
@@ -2143,28 +2314,14 @@ function renderTable(projects) {
         return fixed.replace(/\.0+$/, '').replace(/\.(\d)0$/, '.$1');
     };
 
-    projects.forEach(project => {
-        const rawOutsourcing =
-            project.outsourcingCheck ??
-            project.outsourcingcheck ??
-            project.outsourcingType ??
-            project.outsourcing_type ??
-            '';
-
-        const normalizedOutsourcing = String(rawOutsourcing).replace(/\s/g, '');
-        const outsourcingVal = Number(rawOutsourcing);
-
-        let outsourcingText = '';
-        if (outsourcingVal === 1 || normalizedOutsourcing === '전량외주') {
-            outsourcingText = '전량외주';
-        } else if (outsourcingVal === 2 || normalizedOutsourcing === '부분외주') {
-            outsourcingText = '부분외주';
-        }
+    sortedProjects.forEach(project => {
+        const outsourcingText = getProjectOutsourcingText(project);
+        const statusText = getProjectStatusText(project);
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
             <td>${truncateText(project.ProjectName, 25)}</td>
-            <td>${project.project_status === null || project.project_status === undefined ? "진행중" : project.project_status}</td>
+            <td>${statusText}</td>
             <td>${project.progress ? formatProgress(project.progress) + '%' : '0%'}</td>
             <td>
                 ${outsourcingText}
