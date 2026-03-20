@@ -116,7 +116,7 @@
                         placeholder="담당자"
                         value="{% if is_edit or is_clone %}{{ project['Manager'] }}{% else %}{% endif %}" required>
 
-                    <label for="contributionRate">지분율(%제외 입력)</label>
+                    <label for="contributionRate">지분율(%제외 입력 및 소숫점 두 자리 이하 반올림)</label>
                     <input type="text" id="contributionRate" name="contributionRate" placeholder="지분율"
                         spellcheck="false" autocomplete="off" step="0.01"
                         value="{% if is_edit or is_clone %}{{ project['ContributionRate'] }}{% else %}{% endif %}"
