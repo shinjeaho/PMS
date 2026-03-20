@@ -336,13 +336,16 @@ def search_projects():
         params = [f"%{search_term}%", f"%{search_term}%"]
 
         if year:
-            base_query += " AND YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'"
+            base_query += " AND YEAR(StartDate) = %s"
             params.append(year)
 
         if search_type == "yearly":
             base_query += " AND yearProject = 1"
         elif search_type == "examine":
             base_query += " AND ContractCode LIKE '%%검토%%'"
+
+        if search_type != 'examine':
+            base_query += " AND ContractCode NOT LIKE '%%검토%%'"
 
         query = f"""
             SELECT 

@@ -34,9 +34,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const dataAuth = Number(document.getElementById('sessionDataAuth')?.value || 0) === 1;
     if (dataAuth) {
         document.getElementById("annualBTN").style.display = "list-item";
-        // annualMoney 메뉴 보류: 템플릿에서 주석 처리되어 있어 Year 화면에서는 노출하지 않음
-        // const annualMoneyBtn = document.getElementById("annualMoneyBTN");
-        // if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
+        const annualMoneyBtn = document.getElementById("annualMoneyBTN");
+        if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
+        const annualManagmentBtn = document.getElementById("annualManagmentBTN");
+        if (annualManagmentBtn) annualManagmentBtn.style.display = "list-item";
         document.getElementById("stopProject").style.display = "list-item";
         document.getElementById("completeProject").style.display = "list-item";
         document.getElementById("processProjectEngineers").style.display = "list-item";
@@ -227,12 +228,22 @@ function setStaffCheckboxEditable(isEditable) {
     }
 }
 
+function setStaffFormControlsEditable(isEditable) {
+    const table = document.getElementById('staffGrid');
+    if (!table) return;
+
+    table.querySelectorAll('td[data-field="department"] select, td[data-field="auth"] select, td[data-field="join_date"] input[type="date"]').forEach((control) => {
+        control.disabled = !isEditable;
+    });
+}
+
 function resetSettingsAccountEditState() {
     const table = document.getElementById('staffGrid');
     if (!table) return;
 
     table.classList.remove('staff-editing');
     setStaffCheckboxEditable(false);
+    setStaffFormControlsEditable(false);
 
     table.querySelectorAll('td.staff-text-editable').forEach((cell) => {
         cell.contentEditable = 'false';
@@ -1216,10 +1227,21 @@ function viewAnnualProjects() {
 function viewAnnualMoney() {
     const year = document.getElementById('projectYEAR')?.value;
     if (year) {
-        window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(year)}`;
+        window.location.href = `/PMS_annualProject/money/${encodeURIComponent(year)}`;
         return;
     }
-    window.location.href = '/PMS_annualMoney';
+    const nowYear = new Date().getFullYear();
+    window.location.href = `/PMS_annualProject/money/${encodeURIComponent(nowYear)}`;
+}
+
+function viewAnnualManagment() {
+    const year = document.getElementById('projectYEAR')?.value;
+    if (year) {
+        window.location.href = `/PMS_annualManagment/${encodeURIComponent(year)}`;
+        return;
+    }
+    const nowYear = new Date().getFullYear();
+    window.location.href = `/PMS_annualManagment/${encodeURIComponent(nowYear)}`;
 }
 // thead를 모드에 따라 동적으로 변경
 function setTableHead(mode) {
@@ -4551,6 +4573,7 @@ function onEditStaff() {
     // 체크박스 열은 HTML에 고정, 수정 모드에서는 표시만 토글
     table.classList.add('staff-editing');
     setStaffCheckboxEditable(true);
+    setStaffFormControlsEditable(true);
 
     // 전체 선택 체크박스 바인딩(1회)
     const checkAll = table.querySelector('input.check-all');

@@ -2037,7 +2037,7 @@ def api_yearly_projects():
         per_page = 20
 
         if project_type == 'yearly':
-            cursor.execute('SELECT COUNT(*) AS count FROM Projects WHERE yearProject = 1')
+            cursor.execute("SELECT COUNT(*) AS count FROM Projects WHERE yearProject = 1 AND ContractCode NOT LIKE '%검토%'")
         elif project_type == 'examine':
             cursor.execute("SELECT COUNT(*) AS count FROM Projects WHERE ContractCode LIKE '%검토%'")
         else:
@@ -2052,7 +2052,8 @@ def api_yearly_projects():
             cursor.execute(
                 """
                 SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status
-                FROM Projects WHERE yearProject = 1 
+                FROM Projects
+                WHERE yearProject = 1 AND ContractCode NOT LIKE '%검토%'
                 ORDER BY ContractCode DESC 
                 LIMIT %s OFFSET %s
             """,
@@ -2150,6 +2151,9 @@ def api_yearly_projects():
                     except Exception:
                         current = 0
                     if current:
+                        continue
+
+                    if project_type in ('yearly', 'examine'):
                         continue
 
                     if project_type == 'examine':
