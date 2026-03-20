@@ -567,16 +567,23 @@ body.modal-open {
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     height: 400px;
-    /* 또는 원하는 높이 */
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.search-results-scroll {
+    flex: 1;
+    overflow-y: auto;
 }
 
 /* 테이블 스타일 */
 .search-result-table {
     width: 100%;
     border-collapse: collapse;
-    height: 100%;
+    height: auto;
 }
 
 /* 테이블 헤더 고정 */
@@ -597,10 +604,9 @@ body.modal-open {
 
 /* 테이블 바디 스크롤 */
 .search-result-table tbody {
-    display: block;
-    overflow-y: auto;
-    height: calc(100% - 43px);
-    /* 헤더 높이를 뺀 나머지 */
+    display: table-row-group;
+    overflow: visible;
+    height: auto;
 }
 
 /* 행 스타일 */
@@ -635,6 +641,56 @@ body.modal-open {
 /* 마지막 행의 밑줄 제거 */
 .search-result-row:last-child td {
     border-bottom: none;
+}
+
+.search-pager {
+    padding: 8px 10px;
+    text-align: center;
+    background: #fff;
+    border-top: 1px solid #e5e7eb;
+}
+
+.sticky-pager {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+}
+
+.search-pager button[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.reference-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    background: #eef4ff;
+    border: 1px solid #c9dafc;
+    border-radius: 14px;
+    padding: 4px 8px;
+    line-height: 1.2;
+}
+
+.reference-chip-label {
+    display: inline-block;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #1e3a5f;
+    font-size: 13px;
+}
+
+.reference-chip-remove {
+    border: none;
+    background: transparent;
+    color: #334155;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
 }
 
 /* 기본 select 스타일 */

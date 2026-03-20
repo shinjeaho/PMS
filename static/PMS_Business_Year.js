@@ -1150,6 +1150,7 @@ function fetchProjects(page = 1) {
             if (pg) pg.style.display = 'block';
             clearActiveButtons();
             _ensureSearchVisible(true);
+            _ensureSearchScopeVisible(true);
             _weeklyHideReportsToolbar();
         })
         .catch(error => console.error("Error fetching projects:", error));
@@ -1168,6 +1169,7 @@ function viewYearlyProjects(page = 1) {
             document.getElementById("pagination").style.display = 'block';
             setActiveButton("연차사업");
             _ensureSearchVisible(true);
+            _ensureSearchScopeVisible(false);
             _weeklyHideReportsToolbar();
         })
         .catch(error => console.error("Error fetching yearly projects:", error));
@@ -1187,6 +1189,7 @@ function viewExamineProjects(page = 1) {
             document.getElementById("pagination").style.display = 'block';
             setActiveButton("검토사업");
             _ensureSearchVisible(true);
+            _ensureSearchScopeVisible(false);
             _weeklyHideReportsToolbar();
         })
         .catch(error => console.error("Error fetching examine projects:", error));
@@ -1279,6 +1282,12 @@ function _ensureSearchVisible(visible) {
     const el = document.getElementById('searchDIV');
     if (!el) return;
     el.style.display = visible ? 'flex' : 'none';
+}
+
+function _ensureSearchScopeVisible(visible) {
+    const scope = document.getElementById('searchScope');
+    if (!scope) return;
+    scope.style.display = visible ? '' : 'none';
 }
 
 function _dailyShowSection() {

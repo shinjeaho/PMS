@@ -92,6 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 파일 업로드 및 초기 렌더링
     initFileUpload();
     renderInitialFileList();
+    initContributionRateInput();
+    initReferenceProjectTags();
 });
 
 
@@ -235,6 +237,11 @@ function collectFormData() {
     //BidPrice & BidPrice_NoVAT 추가
     const BidPrice = parseFloat(document.getElementById('BidPrice').value.replace(/,/g, '')) || 0;
     const BidPrice_NoVAT = parseFloat(document.getElementById('BidPrice_NoVAT').value.replace(/,/g, '')) || 0;
+    const contributionRateInput = document.getElementById('contributionRate');
+    const normalizedContributionRate = normalizeContributionRateValue(contributionRateInput?.value);
+    if (contributionRateInput && normalizedContributionRate !== null) {
+        contributionRateInput.value = formatContributionRateValue(normalizedContributionRate);
+    }
 
     // 계약형식(다중 체크박스) 수집
     const projectTypes = Array.from(document.querySelectorAll('input[name="projectType[]"]:checked'))
@@ -258,7 +265,7 @@ function collectFormData() {
         endDate: document.getElementById('endDate').value || null,
         orderPlace: document.getElementById('orderPlace').value,
         manager: document.getElementById('manager').value,
-        contributionRate: document.getElementById('contributionRate').value,
+        contributionRate: normalizedContributionRate !== null ? normalizedContributionRate : (contributionRateInput?.value || ''),
         safetyRate: parseFloat(document.getElementById('safetyRate').value) || 0,
         projectDetails: document.getElementById('projectDetails').value.replace(/\n/g, '\r\n'),
         academicResearchRate: parseFloat(document.getElementById('academicResearchRate').value) || 0,
@@ -272,6 +279,51 @@ function collectFormData() {
         files: uploadedFileList
     };
     return formData;
+}
+
+function normalizeContributionRateValue(rawValue) {
+    const cleaned = String(rawValue ?? '').trim().replace(/[^0-9.]/g, '');
+    if (!cleaned) return null;
+    const firstDot = cleaned.indexOf('.');
+    const normalized = firstDot === -1
+        ? cleaned
+        : cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    const num = Number(normalized);
+    if (!Number.isFinite(num)) return null;
+    return Math.round(num * 100) / 100;
+}
+
+function formatContributionRateValue(value) {
+    if (!Number.isFinite(value)) return '';
+    return value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+}
+
+function sanitizeContributionRateInput(rawValue) {
+    const cleaned = String(rawValue ?? '').replace(/[^0-9.]/g, '');
+    if (!cleaned) return '';
+
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot === -1) {
+        return cleaned;
+    }
+
+    const integerPart = cleaned.slice(0, firstDot);
+    const decimalPart = cleaned.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
+    return `${integerPart}.${decimalPart}`;
+}
+
+function initContributionRateInput() {
+    const input = document.getElementById('contributionRate');
+    if (!input) return;
+
+    input.addEventListener('input', function () {
+        this.value = sanitizeContributionRateInput(this.value);
+    });
+
+    input.addEventListener('blur', function () {
+        const normalized = normalizeContributionRateValue(this.value);
+        this.value = normalized === null ? '' : formatContributionRateValue(normalized);
+    });
 }
 
 // 참조사업 데이터 수집 (saveBudget와 유사한 방식 적용)
@@ -373,7 +425,7 @@ function openSearchModal(td) {
 
     // 검색 결과 초기화
     const resultsContainer = document.getElementById('searchResultsContainer');
-    resultsContainer.innerHTML = '<div style="text-align: center;">검색 결과가 없습니다.</div>';
+    resultsContainer.innerHTML = '<div style="text-align: center; padding: 16px;">검색 결과가 없습니다.</div>';
 }
 
 // 모달 닫기
@@ -383,7 +435,7 @@ function closeSearchModal() {
     document.body.classList.remove('modal-open');
 
     // 검색 결과 초기화 및 선택된 td 초기화
-    document.getElementById('searchResultsContainer').innerHTML = '검색 결과가 없습니다.';
+    document.getElementById('searchResultsContainer').innerHTML = '<div style="text-align: center; padding: 16px;">검색 결과가 없습니다.</div>';
     document.getElementById('searchProjectInput').value = '';
     selectedReferenceCell = null;
 
@@ -407,49 +459,11 @@ function searchProject() {
         .then(res => res.json().then(body => ({ ok: res.ok, body })))
         .then(({ ok, body }) => {
             if (!ok) throw new Error('응답 코드 오류');
-
-            // 백엔드 형식: { projects: [...], current_page, total_pages }
-            const projects = Array.isArray(body.projects) ? body.projects : (Array.isArray(body) ? body : []);
-            if (projects.length === 0) {
-                resultsContainer.innerHTML = '<div style="text-align: center;">검색 결과가 없습니다.</div>';
-                return;
-            }
-
-            console.log('[DEBUG] Search results received:', body); // 전체 객체 로그
-
-            const rowsHtml = projects.map(p => {
-                const code = p.ContractCode || p.contractCode || '';
-                const name = p.ProjectName || p.projectName || '';
-                return `
-                    <tr class="search-result-row" onclick="selectProject('${code}')">
-                        <td class="contract-code">${code}</td>
-                        <td class="project-name">${name}</td>
-                    </tr>`;
-            }).join('');
-
-            const pagerHtml = (body.total_pages && body.total_pages > 1) ? `
-                <div class="search-pager" style="margin-top:8px;text-align:center;">
-                    <button type="button" onclick="searchProjectPage('${searchTerm}', ${Math.max(1, (body.current_page||1)-1)})">◀</button>
-                    <span style="margin:0 6px;">${body.current_page || 1} / ${body.total_pages}</span>
-                    <button type="button" onclick="searchProjectPage('${searchTerm}', ${Math.min(body.total_pages, (body.current_page||1)+1)})">▶</button>
-                </div>` : '';
-
-            resultsContainer.innerHTML = `
-                <table class="search-result-table">
-                    <thead>
-                        <tr>
-                            <th>계약코드</th>
-                            <th>사업명</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                ${pagerHtml}
-            `;
+            renderSearchProjectResults(resultsContainer, body, searchTerm);
         })
         .catch(err => {
             console.error('[DEBUG] Error during search:', err);
-            resultsContainer.innerHTML = '<div style="text-align: center; color: red;">검색 중 오류가 발생했습니다.</div>';
+            resultsContainer.innerHTML = '<div style="text-align: center; color: red; padding:16px;">검색 중 오류가 발생했습니다.</div>';
         });
 }
 
@@ -462,47 +476,83 @@ function searchProjectPage(term, page) {
         .then(res => res.json().then(body => ({ ok: res.ok, body })))
         .then(({ ok, body }) => {
             if (!ok) throw new Error('응답 코드 오류');
-            const projects = Array.isArray(body.projects) ? body.projects : [];
-            if (projects.length === 0) {
-                resultsContainer.innerHTML = '<div style="text-align: center;">검색 결과가 없습니다.</div>';
-                return;
-            }
-            const rowsHtml = projects.map(p => {
-                const code = p.ContractCode || p.contractCode || '';
-                const name = p.ProjectName || p.projectName || '';
-                return `
-                    <tr class="search-result-row" onclick="selectProject('${code}')">
-                        <td class="contract-code">${code}</td>
-                        <td class="project-name">${name}</td>
-                    </tr>`;
-            }).join('');
-            const pagerHtml = (body.total_pages && body.total_pages > 1) ? `
-                <div class="search-pager" style="margin-top:8px;text-align:center;">
-                    <button type="button" onclick="searchProjectPage('${term}', ${Math.max(1, (body.current_page||1)-1)})">◀</button>
-                    <span style="margin:0 6px;">${body.current_page || 1} / ${body.total_pages}</span>
-                    <button type="button" onclick="searchProjectPage('${term}', ${Math.min(body.total_pages, (body.current_page||1)+1)})">▶</button>
-                </div>` : '';
-            resultsContainer.innerHTML = `
-                <table class="search-result-table">
-                    <thead>
-                        <tr>
-                            <th>계약코드</th>
-                            <th>사업명</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                ${pagerHtml}
-            `;
+            renderSearchProjectResults(resultsContainer, body, term);
         })
         .catch(err => {
             console.error('[DEBUG] Error during paged search:', err);
-            resultsContainer.innerHTML = '<div style="text-align: center; color: red;">검색 중 오류가 발생했습니다.</div>';
+            resultsContainer.innerHTML = '<div style="text-align: center; color: red; padding:16px;">검색 중 오류가 발생했습니다.</div>';
         });
 }
 
+function escapeHtmlValue(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderSearchProjectResults(resultsContainer, body, term) {
+    const projects = Array.isArray(body.projects) ? body.projects : (Array.isArray(body) ? body : []);
+    if (projects.length === 0) {
+        resultsContainer.innerHTML = '<div style="text-align: center; padding:16px;">검색 결과가 없습니다.</div>';
+        return;
+    }
+
+    const rowsHtml = projects.map((p) => {
+        const code = p.ContractCode || p.contractCode || '';
+        const name = p.ProjectName || p.projectName || '';
+        return `
+            <tr class="search-result-row" data-code="${escapeHtmlValue(code)}" data-name="${escapeHtmlValue(name)}">
+                <td class="contract-code">${escapeHtmlValue(code)}</td>
+                <td class="project-name">${escapeHtmlValue(name)}</td>
+            </tr>`;
+    }).join('');
+
+    const currentPage = Number(body.current_page || 1);
+    const totalPages = Number(body.total_pages || 1);
+    const prevPage = Math.max(1, currentPage - 1);
+    const nextPage = Math.min(totalPages, currentPage + 1);
+
+    const pagerHtml = totalPages > 1 ? `
+        <div class="search-pager sticky-pager">
+            <button type="button" class="search-pager-btn" data-page="${prevPage}" ${currentPage <= 1 ? 'disabled' : ''}>◀</button>
+            <span style="margin:0 6px;">${currentPage} / ${totalPages}</span>
+            <button type="button" class="search-pager-btn" data-page="${nextPage}" ${currentPage >= totalPages ? 'disabled' : ''}>▶</button>
+        </div>` : '';
+
+    resultsContainer.innerHTML = `
+        <div class="search-results-scroll">
+            <table class="search-result-table">
+                <thead>
+                    <tr>
+                        <th>계약코드</th>
+                        <th>사업명</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+            </table>
+        </div>
+        ${pagerHtml}
+    `;
+
+    resultsContainer.querySelectorAll('.search-result-row').forEach((row) => {
+        row.addEventListener('click', function () {
+            selectProject(this.dataset.code || '', this.dataset.name || '');
+        });
+    });
+
+    resultsContainer.querySelectorAll('.search-pager-btn').forEach((button) => {
+        button.addEventListener('click', function () {
+            const page = Number(this.dataset.page || 1);
+            searchProjectPage(term, page);
+        });
+    });
+}
+
 // 검색 결과 선택
-function selectProject(contractCode) {
+function selectProject(contractCode, projectName = '') {
     if (!selectedReferenceCell) {
         console.error("DEBUG: No selectedReferenceCell to update."); // 디버깅 로그
         return;
@@ -512,15 +562,61 @@ function selectProject(contractCode) {
     const inputField = selectedReferenceCell.querySelector('input');
     if (inputField) {
         inputField.value = contractCode;
+        if (projectName) {
+            inputField.dataset.projectName = projectName;
+        }
         console.log("DEBUG: Updated input field in td with contractCode:", contractCode); // 디버깅 로그
     } else {
         selectedReferenceCell.textContent = contractCode;
         console.log("DEBUG: Updated td textContent with contractCode:", contractCode); // 디버깅 로그
     }
 
+    renderReferenceProjectChip(selectedReferenceCell);
+
     // 선택된 td 초기화 및 모달 닫기
     selectedReferenceCell = null;
     closeSearchModal();
+}
+
+function initReferenceProjectTags() {
+    document.querySelectorAll('#referenceProjectTbody td[onclick]').forEach((td) => {
+        renderReferenceProjectChip(td);
+    });
+}
+
+function renderReferenceProjectChip(td) {
+    if (!td) return;
+    const input = td.querySelector('input');
+    if (!input) return;
+
+    input.style.display = 'none';
+    td.querySelectorAll('.reference-chip').forEach((chip) => chip.remove());
+
+    const code = (input.value || '').trim();
+    if (!code) return;
+
+    const projectName = (input.dataset.projectName || '').trim();
+    const labelText = projectName || code;
+
+    const chip = document.createElement('span');
+    chip.className = 'reference-chip';
+    chip.innerHTML = `<span class="reference-chip-label">${escapeHtmlValue(labelText)}</span><button type="button" class="reference-chip-remove" aria-label="참조사업 삭제">×</button>`;
+
+    const removeBtn = chip.querySelector('.reference-chip-remove');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            input.value = '';
+            delete input.dataset.projectName;
+            renderReferenceProjectChip(td);
+        });
+    }
+
+    chip.addEventListener('click', function (event) {
+        event.stopPropagation();
+    });
+
+    td.appendChild(chip);
 }
 
 //함수명 중복 확인필요123

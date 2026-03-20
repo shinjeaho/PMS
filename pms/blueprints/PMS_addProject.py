@@ -185,6 +185,11 @@ def post_add_or_edit_project():
             }
 
             try:
+                project_data['contributionRate'] = round(float(project_data['contributionRate']), 2)
+            except Exception:
+                pass
+
+            try:
                 print(f"[DEBUG] procurementType: {project_data.get('procurementType')}")
             except Exception:
                 pass
