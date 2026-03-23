@@ -127,6 +127,264 @@ def _fetch_engineers_summary(cursor, selected_year):
     return results, max_participants, available_years
 
 
+@bp.route('/PMS_annualMoney')
+def annual_money_legacy():
+    selected_year = request.args.get('year', type=int)
+    if not selected_year:
+        selected_year = datetime.now().year
+    return annual_project('money', selected_year)
+
+
+@bp.route('/PMS_annualManagment/<int:year>')
+def annual_managment(year):
+    db = create_connection()
+    cursor = db.cursor(dictionary=True)
+    try:
+        department_options = [
+            '기업부설연구소(연구소)',
+            '공간정보사업부',
+            'GIS사업부',
+            'GIS사업지원부',
+        ]
+        selected_department = (request.args.get('department', '전체') or '전체').strip()
+        if selected_department not in {'전체', *department_options}:
+            selected_department = '전체'
+
+        def _normalize_department(raw_department: str | None) -> str:
+            dept = (raw_department or '').strip()
+            if not dept:
+                return ''
+            if '연구소' in dept or '기업부설연구소' in dept:
+                return '기업부설연구소(연구소)'
+            if dept in {'공간정보사업부', 'GIS사업부', 'GIS사업지원부'}:
+                return dept
+            return dept
+
+        cursor.execute(
+            """
+            SELECT DISTINCT YEAR(StartDate) AS year
+            FROM projects
+            WHERE StartDate IS NOT NULL
+              AND ContractCode NOT LIKE '%%검토%%'
+              AND ContractCode NOT LIKE '%%-00'
+              AND ContractCode NOT LIKE '%%-000'
+            ORDER BY year DESC
+            """
+        )
+        available_years = [row['year'] for row in cursor.fetchall() if row.get('year')]
+
+        cursor.execute(
+            """
+            SELECT
+                projectID,
+                ContractCode,
+                ProjectName,
+                StartDate,
+                EndDate,
+                D_Day
+            FROM projects
+            WHERE YEAR(StartDate) = %s
+              AND ContractCode NOT LIKE '%%-00'
+              AND ContractCode NOT LIKE '%%-000'
+              AND ContractCode NOT LIKE '%%검토%%'
+            ORDER BY ContractCode DESC
+            """,
+            (year,),
+        )
+        results = cursor.fetchall() or []
+
+        if not results:
+            return render_template(
+                'PMS_annualManagment.html',
+                year=year,
+                selected_year=year,
+                available_years=available_years,
+                departments=department_options,
+                selected_department=selected_department,
+                positions=[],
+                projects=[],
+            )
+
+        contract_codes = [row['ContractCode'] for row in results if row.get('ContractCode')]
+        format_strings = ','.join(['%s'] * len(contract_codes))
+
+        try:
+            progress_map = calc_progress_bulk(contract_codes) or {}
+        except Exception:
+            progress_map = {}
+
+        cursor.execute(
+            """
+            SELECT DISTINCT Position
+            FROM expenses
+            WHERE Year = %s
+              AND Position IS NOT NULL
+              AND TRIM(Position) <> ''
+            ORDER BY Position ASC
+            """,
+            (year,),
+        )
+        standard_positions = [
+            (row.get('Position') or '').strip()
+            for row in (cursor.fetchall() or [])
+            if (row.get('Position') or '').strip()
+        ]
+
+        cursor.execute(
+            f"""
+            SELECT
+                ContractCode,
+                department,
+                Position,
+                SUM(COALESCE(day_time, 0) / 8.0) AS day_md,
+                SUM(COALESCE(night_time, 0) / 8.0) AS night_md,
+                SUM(COALESCE(holiday, 0) / 8.0) AS holiday_md
+            FROM taskassignment
+            WHERE ContractCode IN ({format_strings})
+            GROUP BY ContractCode, department, Position
+            """,
+            contract_codes,
+        )
+        md_rows = cursor.fetchall() or []
+
+        cursor.execute(
+            """
+            SELECT Position, Days
+            FROM expenses
+            WHERE Year = %s
+            """,
+            (year,),
+        )
+        expense_day_rate_map = {
+            (row.get('Position') or '').strip(): float(row.get('Days') or 0)
+            for row in (cursor.fetchall() or [])
+            if (row.get('Position') or '').strip()
+        }
+
+        cursor.execute(
+            f"""
+            SELECT ContractCode, AVG(daily_rate) AS avg_daily_rate
+            FROM external_labor_rates
+            WHERE ContractCode IN ({format_strings})
+            GROUP BY ContractCode
+            """,
+            contract_codes,
+        )
+        external_rate_map = {
+            (row.get('ContractCode') or '').strip(): float(row.get('avg_daily_rate') or 0)
+            for row in (cursor.fetchall() or [])
+            if (row.get('ContractCode') or '').strip()
+        }
+
+        cursor.execute(
+            f"""
+            SELECT ContractCode, department, SUM(COALESCE(money, 0)) AS total
+            FROM usemoney
+            WHERE ContractCode IN ({format_strings})
+            GROUP BY ContractCode, department
+            """,
+            contract_codes,
+        )
+        expense_rows = cursor.fetchall() or []
+
+        project_md_map: dict[str, dict[str, dict[str, float]]] = {}
+        positions_from_data: list[str] = []
+        project_labor_amount_map: dict[str, float] = {}
+        project_expense_amount_map: dict[str, float] = {}
+
+        for row in expense_rows:
+            code = (row.get('ContractCode') or '').strip()
+            normalized_department = _normalize_department(row.get('department'))
+            if not code:
+                continue
+            if selected_department != '전체' and normalized_department != selected_department:
+                continue
+            project_expense_amount_map[code] = project_expense_amount_map.get(code, 0.0) + float(row.get('total') or 0)
+
+        for row in md_rows:
+            code = (row.get('ContractCode') or '').strip()
+            normalized_department = _normalize_department(row.get('department'))
+            if selected_department != '전체' and normalized_department != selected_department:
+                continue
+
+            position = (row.get('Position') or '').strip() or '미분류'
+            if not code:
+                continue
+            if position not in positions_from_data:
+                positions_from_data.append(position)
+
+            day_md = float(row.get('day_md') or 0)
+            night_md = float(row.get('night_md') or 0)
+            holiday_md = float(row.get('holiday_md') or 0)
+
+            if code not in project_md_map:
+                project_md_map[code] = {}
+            project_md_map[code][position] = {
+                'day_md': day_md,
+                'night_md': night_md,
+                'holiday_md': holiday_md,
+                'total_md': day_md + night_md + holiday_md,
+            }
+
+            position_rate = external_rate_map.get(code, 0.0) if position == '외부인력' else expense_day_rate_map.get(position, 0.0)
+            labor_amount = (day_md * position_rate * 1.0) + (night_md * position_rate * 2.0) + (holiday_md * position_rate * 1.5)
+            project_labor_amount_map[code] = project_labor_amount_map.get(code, 0.0) + labor_amount
+
+        if selected_department != '전체':
+            filtered_codes = set(project_md_map.keys())
+            results = [project for project in results if project.get('ContractCode') in filtered_codes]
+
+        preferred_positions = ['이사', '부장', '차장', '과장', '대리', '주임', '사원', '계약직']
+
+        ordered_positions: list[str] = []
+        for pos in preferred_positions:
+            if pos not in ordered_positions:
+                ordered_positions.append(pos)
+
+        for pos in standard_positions:
+            if pos and pos not in ordered_positions:
+                ordered_positions.append(pos)
+        for pos in sorted(positions_from_data):
+            if pos and pos not in ordered_positions:
+                ordered_positions.append(pos)
+
+        for project in results:
+            code = project['ContractCode']
+            project['total_progress'] = float(progress_map.get(code, 0) or 0)
+            md_stats = project_md_map.get(code, {})
+            project['md_stats'] = md_stats
+            project['total_md'] = sum(float((v or {}).get('total_md', 0) or 0) for v in md_stats.values())
+            project['labor_amount'] = round(project_labor_amount_map.get(code, 0.0))
+            project['expense_amount'] = round(project_expense_amount_map.get(code, 0.0))
+
+        return render_template(
+            'PMS_annualManagment.html',
+            year=year,
+            selected_year=year,
+            available_years=available_years,
+            departments=department_options,
+            selected_department=selected_department,
+            positions=ordered_positions,
+            projects=results,
+        )
+    except Exception as e:
+        print(f'[ERROR] 연도별 실제 MD 통합관리 조회 실패: {e}')
+        return render_template(
+            'PMS_annualManagment.html',
+            year=year,
+            selected_year=year,
+            available_years=[],
+            departments=[],
+            selected_department='전체',
+            positions=[],
+            projects=[],
+            error=str(e),
+        )
+    finally:
+        cursor.close()
+        db.close()
+
+
 @bp.route('/PMS_annualProject/<mode>/<int:year>')
 def annual_project(mode, year):
     """
@@ -136,6 +394,21 @@ def annual_project(mode, year):
     db = create_connection()
     cursor = db.cursor(dictionary=True)
     try:
+        template_name = 'PMS_annualMoney.html' if mode == 'money' else 'PMS_annualProject.html'
+
+        cursor.execute(
+            """
+            SELECT DISTINCT YEAR(StartDate) AS year
+            FROM projects
+            WHERE StartDate IS NOT NULL
+              AND ContractCode NOT LIKE '%%검토%%'
+              AND ContractCode NOT LIKE '%%-00'
+              AND ContractCode NOT LIKE '%%-000'
+            ORDER BY year DESC
+            """
+        )
+        available_years = [row['year'] for row in cursor.fetchall() if row.get('year')]
+
         if mode == 'complete':
             year_2digit = str(year)[2:]
 
@@ -203,7 +476,14 @@ def annual_project(mode, year):
         contract_codes_all = [row['ContractCode'] for row in results]
         contract_codes = [row['ContractCode'] for row in results]
         if not contract_codes:
-            return render_template('PMS_annualProject.html', year=year, mode=mode, projects=[])
+            return render_template(
+                template_name,
+                year=year,
+                selected_year=year,
+                available_years=available_years,
+                mode=mode,
+                projects=[],
+            )
 
         format_strings = ','.join(['%s'] * len(contract_codes))
 
@@ -489,10 +769,25 @@ def annual_project(mode, year):
             project['performance_review'] = perf_review_map.get(code)
             project['has_risk'] = bool(risk_map.get(code))
 
-        return render_template('PMS_annualProject.html', year=year, mode=mode, projects=results)
+        return render_template(
+            template_name,
+            year=year,
+            selected_year=year,
+            available_years=available_years,
+            mode=mode,
+            projects=results,
+        )
     except Exception as e:
         print(f'[ERROR] 연도별 통합자료 조회 실패: {e}')
-        return render_template('PMS_annualProject.html', year=year, projects=[], mode=mode, error=str(e))
+        return render_template(
+            template_name,
+            year=year,
+            selected_year=year,
+            available_years=available_years if 'available_years' in locals() else [],
+            projects=[],
+            mode=mode,
+            error=str(e),
+        )
     finally:
         cursor.close()
         db.close()

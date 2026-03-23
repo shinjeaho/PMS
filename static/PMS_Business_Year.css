@@ -2698,3 +2698,238 @@ body.modal-open {
         max-height: 280px;
     }
 }
+
+/* ===== Business Year Office Refresh (rollback: remove this block) ===== */
+body {
+    width: min(1540px, 97vw);
+    background: #eef2f6;
+    color: #1f2937;
+}
+
+header.pageheader {
+    width: 100%;
+    background-color: #ffffff;
+    background-image: url('/static/img/company_logo.png');
+    background-repeat: no-repeat;
+    background-position: 18px 14px;
+    background-size: 280px auto;
+    border: 1px solid #d2dae4;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+    padding: 20px 22px 14px;
+}
+
+#yearTitle {
+    font-size: 36px !important;
+    margin: 0 0 14px !important;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    font-weight: 650;
+}
+
+.user-logout-box {
+    top: 14px;
+    right: 14px;
+    gap: 8px;
+}
+
+.user-logout-box .user-label {
+    background: #f8fafc;
+    border: 1px solid #d9e2ec;
+    color: #0f172a;
+}
+
+.user-logout-box .search-button {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 4px;
+}
+
+.navbar {
+    width: 100%;
+    background: #334155;
+    border: 1px solid #334155;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+    overflow: visible;
+}
+
+.navbar li {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.navbar button.year-button,
+.year-button {
+    border: none;
+    border-radius: 0;
+    background: #334155;
+    color: #f8fafc;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 10px;
+}
+
+.navbar button.year-button:hover,
+.navbar button.active,
+.year-button:hover {
+    background: #1e293b;
+    color: #ffffff;
+}
+
+.dropdown-content {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #d2dae4;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+.dropdown-content a {
+    border-radius: 4px;
+    text-align: left;
+    padding: 9px 10px;
+    font-size: 13px;
+}
+
+.dropdown-content a:hover {
+    background: #f1f5f9;
+}
+
+#searchDIV {
+    width: 100%;
+    margin: 20px 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
+#search {
+    width: 200px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#searchScope:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+}
+
+#searchScope {
+    height: 38px;
+    width: 124px;
+    min-width: 124px;
+    padding: 0 28px 0 10px;
+    border: 1px solid #cfd8e3;
+    border-radius: 12px;
+    font-size: 16px;
+    color: #111827;
+    background-color: #f8fafc;
+    outline: none;
+    text-align: left;
+    text-align-last: left;
+}
+
+#search_BTN {
+    min-width: 72px;
+    white-space: nowrap;
+    word-break: keep-all;
+    line-height: 1;
+}
+
+.main-section {
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+.table-container {
+    background: #ffffff;
+    border: 1px solid #d2dae4;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.projectList {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #d2dae4;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.projectList thead th {
+    background: #374151;
+    color: #f8fafc;
+    padding: 10px 8px;
+    font-weight: 600;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.projectList thead th:last-child {
+    border-right: none;
+}
+
+.projectList tbody td {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e9f0;
+    padding: 10px 8px;
+    font-size: 13px;
+}
+
+.projectList tbody tr:hover td {
+    background: #f8fafc;
+}
+
+#pagination {
+    margin: 14px 0 20px;
+}
+
+footer {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    margin-top: 8px;
+}
+
+footer a {
+    display: flex !important;
+    justify-content: center;
+    width: 100%;
+}
+
+footer img {
+    height: 54px !important;
+    opacity: 0.95;
+    margin: 0 !important;
+}
+
+@media (max-width: 1100px) {
+    body {
+        width: 100%;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #yearTitle {
+        font-size: 34px !important;
+    }
+
+    #searchDIV {
+        justify-content: flex-end;
+        gap: 10px;
+    }
+}

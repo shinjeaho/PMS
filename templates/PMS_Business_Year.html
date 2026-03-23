@@ -52,22 +52,32 @@
                 <div class="dropdown-content">
                     <a href="#" onclick="viewYearlyProjects()">연차사업</a>
                     <a href="#" onclick="viewExamineProjects()">검토사업</a>
+                </div>
+            </li>
+            <li class="dropdown" id="integration-li" style="display: none;">
+                <button class="year-button dropbtn">통합자료 ▼</button>
+                <div class="dropdown-content">
                     <a style="display: none;" id="processProjectEngineers" href="/PMS_annualProject/status/engineers">참여기술자 모아보기</a>
                     <a style="display: none;" id="processProjectProgress" href="/PMS_annualProject/status/progress">진행중 사업 통합자료</a>
                     <a style="display: none;" id="completeProject" href="#" data-status = 'complete' onclick="viewCompleteProjects(this)">준공 사업 통합자료</a>
                     <a style="display: none;" id="stopProject" href="/PMS_annualProject/status/stop">용역중지 사업 통합자료</a>
                     <a id="annualBTN" href="#" onclick="viewAnnualProjects()" style="display: none;">연도별 통합자료</a>
-                    <!-- <a id="annualMoneyBTN" href="#" onclick="viewAnnualMoney()" style="display: none;">사업비 수령내역 모아보기</a> -->
+                    <a id="annualMoneyBTN" href="#" onclick="viewAnnualMoney()" style="display: none;">사업비 수령내역 모아보기</a>
                 </div>
             </li>
-            <li><button class="year-button" onclick="addProject('{{ selected_year }}')">프로젝트 추가</button></li>
+            <li class="dropdown">
+                <button class="year-button dropbtn">프로젝트 관리 ▼</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="addProject('{{ selected_year }}')">프로젝트 추가</a>
+                    <a href="#" onclick="openTransfer()">엑셀 데이터 이관</a>
+                </div>
+            </li>
             <li><button class="year-button" onclick="checkLaborCosts()">기준정보 확인</button></li>
             <li id="meeting-li" style="display: none;"><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
             {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
             <li><button class="year-button" type="button" onclick="viewWeeklyReports()">주간보고서</button></li>
             <li style="display:none;"><button class="year-button" type="button" onclick="viewDailyReports()">일일보고서</button></li>
             {% endif %}
-            <li><button class="year-button" onclick="openTransfer()">엑셀 데이터 이관</button></li>
             <li id="setting-li" style="display: none;">
                 <button id="setting" class="year-button" onclick="openSettings()">설정관리</button>
             </li>

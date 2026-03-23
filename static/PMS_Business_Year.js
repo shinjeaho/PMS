@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const dataAuth = Number(document.getElementById('sessionDataAuth')?.value || 0) === 1;
     if (dataAuth) {
+        const integrationLi = document.getElementById("integration-li");
+        if (integrationLi) integrationLi.style.display = "list-item";
         document.getElementById("annualBTN").style.display = "list-item";
         const annualMoneyBtn = document.getElementById("annualMoneyBTN");
         if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";

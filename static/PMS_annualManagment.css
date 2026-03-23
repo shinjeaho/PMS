@@ -1,0 +1,80 @@
+@import url('/static/PMS_annualProject.css');
+
+.annual-managment-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 6px 0 10px;
+}
+
+.annual-tab-btn {
+    border: 1px solid #c9ced4;
+    background: #f5f7fa;
+    color: #222;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.annual-tab-btn.active {
+    background: #1e7ee9;
+    color: #fff;
+    border-color: #1e7ee9;
+}
+
+#annualManagmentTable .sticky-col {
+    left: 0 !important;
+    width: 95px;
+    min-width: 95px;
+    max-width: 95px;
+    z-index: 16;
+}
+
+#annualManagmentTable .sticky-col-2 {
+    left: 95px !important;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    z-index: 16;
+}
+
+#annualManagmentTable thead th.sticky-col,
+#annualManagmentTable thead th.sticky-col-2 {
+    z-index: 20 !important;
+}
+
+#annualManagmentTable td.sticky-col-2 a {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#annualExpenseTable .sticky-col {
+    left: 0 !important;
+    width: 95px;
+    min-width: 95px;
+    max-width: 95px;
+    z-index: 16;
+}
+
+#annualExpenseTable .sticky-col-2 {
+    left: 95px !important;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    z-index: 16;
+}
+
+#annualExpenseTable thead th.sticky-col,
+#annualExpenseTable thead th.sticky-col-2 {
+    z-index: 20 !important;
+}
+
+#annualExpenseTable td.sticky-col-2 a {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}

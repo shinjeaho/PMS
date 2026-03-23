@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ year }}년 실제진행비 MD 통합관리</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_annualManagment.css') }}">
+    <script src="{{ url_for('static', filename='PMS_annualManagment.js') }}" defer></script>
+</head>
+
+<body>
+    <header style="display: flex; align-items: center; position: relative;">
+        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
+            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+        </button>
+        <h1 style="flex: 1; text-align: center;" id="projectName">{{ year }}년 실제진행비 MD 통합관리</h1>
+    </header>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 10px 0 8px 0;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <label for="annualManagmentYear" style="font-weight:600;">연도</label>
+            <select id="annualManagmentYear" class="settingSelect" style="width: 160px; height: 36px;">
+                {% for y in available_years %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}년</option>
+                {% endfor %}
+            </select>
+
+            <label for="annualManagmentDepartment" style="font-weight:600; margin-left: 12px;">부서</label>
+            <select id="annualManagmentDepartment" class="settingSelect" style="width: 220px; height: 36px;">
+                <option value="전체" {% if selected_department == '전체' %}selected{% endif %}>전체</option>
+                {% for dept in departments %}
+                <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="font-size: 13px; color: #666;">단위 : MD / 원</div>
+    </div>
+
+    <div class="annual-managment-tabs">
+        <button type="button" class="annual-tab-btn active" data-tab="labor">인건비(MD/금액)</button>
+        <button type="button" class="annual-tab-btn" data-tab="expense">경비</button>
+    </div>
+
+    <main class="table-container" id="table-container">
+        <table class="custom-table no_wrap annual-tab-table" id="annualManagmentTable" data-tab="labor">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="sticky-col">사업번호</th>
+                    <th rowspan="2" class="sticky-col-2" style="border-right: 3px solid #999;">사업명</th>
+                    <th rowspan="2">계약일자</th>
+                    <th rowspan="2">준공일자</th>
+                    <th rowspan="2">D-Day</th>
+                    <th rowspan="2" style="border-right: 3px solid #999;">진행률</th>
+                    {% if positions %}
+                    {% for pos in positions %}
+                    <th colspan="3" style="border-right: 3px solid #999;">{{ pos }}</th>
+                    {% endfor %}
+                    {% endif %}
+                    <th rowspan="2" style="min-width: 90px;">합계(MD)</th>
+                    <th rowspan="2" style="min-width: 120px;">인건비금액</th>
+                </tr>
+                <tr>
+                    {% if positions %}
+                    {% for pos in positions %}
+                    <th>주간</th>
+                    <th>야간</th>
+                    <th style="border-right: 3px solid #999;">휴일</th>
+                    {% endfor %}
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="annualManagment_tbody"></tbody>
+        </table>
+
+        <table class="custom-table no_wrap annual-tab-table" id="annualExpenseTable" data-tab="expense" style="display:none;">
+            <thead>
+                <tr>
+                    <th class="sticky-col">사업번호</th>
+                    <th class="sticky-col-2" style="border-right: 3px solid #999;">사업명</th>
+                    <th>계약일자</th>
+                    <th>준공일자</th>
+                    <th>D-Day</th>
+                    <th style="border-right: 3px solid #999;">진행률</th>
+                    <th>경비금액</th>
+                </tr>
+            </thead>
+            <tbody id="annualExpense_tbody"></tbody>
+        </table>
+    </main>
+
+    <div class="fake-scrollbar" id="fake-scrollbar"></div>
+
+    <footer>
+        <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo">
+    </footer>
+
+    <script>
+        window.projects = {{ projects | tojson }};
+        window.positions = {{ positions | tojson }};
+        window.selectedYear = {{ selected_year | tojson }};
+    </script>
+</body>
+
+</html>

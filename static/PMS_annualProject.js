@@ -310,7 +310,7 @@ function renderAnnualProjectTable(dataList) {
           <td>${project.performance_review ? project.performance_review : '-'}</td>
 
           <td>${project.ProjectCost.toLocaleString()}</td>
-          <td>${project.ProjectCost_NoVAT.toLocaleString()}</td>
+          <td style="border-right:3px solid #999;">${project.ProjectCost_NoVAT.toLocaleString()}</td>
 
           <td>${project.contractCostShareVAT.toLocaleString()}</td>
           <td>${project.contractCostShare.toLocaleString()}</td>
@@ -320,7 +320,7 @@ function renderAnnualProjectTable(dataList) {
           <td>${project.estimated_other.toLocaleString()}</td>
           <td>${project.estimated_performance.toLocaleString()}</td>
           <td style="color: ${estColor};" class="estimated_margin">${project.estimated_profit.toLocaleString()}</td>
-          <td style="color: ${estColor};" class="estimated_margin">${project.estimated_margin}%</td>
+          <td style="color: ${estColor}; border-right:3px solid #999;" class="estimated_margin">${project.estimated_margin}%</td>
 
           <td>${project.realCostShare_VAT.toLocaleString()}</td>
           <td>${project.realCostShare.toLocaleString()}</td>
@@ -330,15 +330,16 @@ function renderAnnualProjectTable(dataList) {
           <td>${project.actual_other.toLocaleString()}</td>
           <td>${project.actual_performance.toLocaleString()}</td>
           <td style="color: ${actColor};" class="actual_margin">${project.actual_profit.toLocaleString()}</td>
-          <td style="color: ${actColor};" class="actual_margin">${project.actual_margin}%</td>
+          <td style="color: ${actColor}; border-right:3px solid #999;" class="actual_margin">${project.actual_margin}%</td>
 
-          <!--수령내역 (현재 연도 기준 색상 적용, 기성금 1차/2차 분리) -->
-          <td style="color: ${project.hasCurrentYearAdvance ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearAdvance ? 'bold' : 'normal'};">${project.advanceTotal.toLocaleString()}</td>
-          <td style="color: black; font-weight: normal;">${project.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 (올해 이전) -->
-          <td style="color: ${project.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: ${project.progress2ndTotal > 0 ? 'bold' : 'normal'};">${project.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 (0이면 검은색, 0 초과면 빨간색) -->
-          <td style="color: ${project.hasCurrentYearCompletion ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearCompletion ? 'bold' : 'normal'};">${project.completionTotal.toLocaleString()}</td>
-          <td style="border-left:3px solid #999;">${project.outsourcing_paid.toLocaleString()}</td>
-          <td>${Math.abs(project.outsourcing_balance).toLocaleString()}</td>
+                    <!--수령내역 (현재 연도 기준 색상 적용, 기성금 1차/2차 분리) -->
+                    <td style="color: ${project.hasCurrentYearAdvance ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearAdvance ? 'bold' : 'normal'};">${project.advanceTotal.toLocaleString()}</td>
+                    <td style="color: black; font-weight: normal;">${project.progress1stTotal.toLocaleString()}</td>
+                    <td style="color: ${project.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: ${project.progress2ndTotal > 0 ? 'bold' : 'normal'};">${project.progress2ndTotal.toLocaleString()}</td>
+                    <td style="color: ${project.hasCurrentYearCompletion ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearCompletion ? 'bold' : 'normal'}; border-right:3px solid #999;">${project.completionTotal.toLocaleString()}</td>
+
+                    <td>${project.outsourcing_paid.toLocaleString()}</td>
+                    <td style="border-right:3px solid #999;">${Math.abs(project.outsourcing_balance).toLocaleString()}</td>
         `;
         // 리스크 존재 시 연한 빨간색 강조
         if (project.has_risk) {
@@ -359,9 +360,9 @@ function renderAnnualProjectTable(dataList) {
     totalRow.innerHTML = `
         <td colspan="9" style="text-align:center;">합계</td>
         <td>${total.ProjectCost.toLocaleString()}</td>
-        <td>${total.ProjectCost_NoVAT.toLocaleString()}</td>
+        <td style="border-right:3px solid #999;">${total.ProjectCost_NoVAT.toLocaleString()}</td>
 
-    <td id="sum_contractCostShare">${total.contractCostShareVAT.toLocaleString()}</td>
+        <td id="sum_contractCostShare">${total.contractCostShareVAT.toLocaleString()}</td>
         <td id="sum_contractCostShare">${total.contractCostShare.toLocaleString()}</td>
         <td id="sum_EX_money">${total.EX_money.toLocaleString()}</td>
         <td id="sum_estimated_labor">${total.estimated_labor.toLocaleString()}</td>
@@ -369,9 +370,9 @@ function renderAnnualProjectTable(dataList) {
         <td id="sum_estimated_other">${total.estimated_other.toLocaleString()}</td>
         <td id="sum_estimated_performance">${total.estimated_performance.toLocaleString()}</td>
         <td id="sum_estimated_profit" style="color:${getTextColorByProfit(total.estimated_profit, estMargin)};">${total.estimated_profit.toLocaleString()}</td>
-        <td id="sum_estimated_margin" style="color:${getTextColorByProfit(total.estimated_profit, estMargin)};">${estMargin}%</td>
+        <td id="sum_estimated_margin" style="color:${getTextColorByProfit(total.estimated_profit, estMargin)}; border-right:3px solid #999;">${estMargin}%</td>
 
-    <td>${total.realCostShare_VAT.toLocaleString()}</td>
+        <td>${total.realCostShare_VAT.toLocaleString()}</td>
         <td id="sum_realCostShare">${total.realCostShare.toLocaleString()}</td>
         <td id="sum_AC_money">${total.AC_money.toLocaleString()}</td>
         <td id="sum_actual_labor">${total.actual_labor.toLocaleString()}</td>
@@ -379,15 +380,15 @@ function renderAnnualProjectTable(dataList) {
         <td id="sum_actual_other">${total.actual_other.toLocaleString()}</td>
         <td id="sum_actual_performance">${total.actual_performance.toLocaleString()}</td>
         <td id="sum_actual_profit" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${total.actual_profit.toLocaleString()}</td>
-        <td id="sum_actual_margin" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${actMargin}%</td>
+        <td id="sum_actual_margin" style="color:${getTextColorByProfit(total.actual_profit, actMargin)}; border-right:3px solid #999;">${actMargin}%</td>
 
-        <!--합계 행 수령내역 (기성금 1차/2차 분리, 색상 적용) -->
-    <td style="color: ${totalHasCurrentYearAdvance ? 'red' : 'black'}; font-weight: bold;" id="sum_advanceTotal">${total.advanceTotal.toLocaleString()}</td>
-        <td style="color: black; font-weight: bold;" id="sum_progress1stTotal">${total.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 합계 -->
-        <td style="color: ${total.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: bold;" id="sum_progress2ndTotal">${total.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 합계 (0이면 검은색, 0 초과면 빨간색) -->
-    <td style="color: ${totalHasCurrentYearCompletion ? 'red' : 'black'}; font-weight: bold;" id="sum_completionTotal">${total.completionTotal.toLocaleString()}</td>
-    <td id="sum_outsourcing_paid" style="border-left:3px solid #999;">${(total.outsourcing_paid || 0).toLocaleString()}</td>
-    <td id="sum_outsourcing_balance">${Math.abs(total.outsourcing_balance || 0).toLocaleString()}</td>
+        <td style="color: ${totalHasCurrentYearAdvance ? 'red' : 'black'}; font-weight: bold;" id="sum_advanceTotal">${total.advanceTotal.toLocaleString()}</td>
+        <td style="color: black; font-weight: bold;" id="sum_progress1stTotal">${total.progress1stTotal.toLocaleString()}</td>
+        <td style="color: ${total.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: bold;" id="sum_progress2ndTotal">${total.progress2ndTotal.toLocaleString()}</td>
+        <td style="color: ${totalHasCurrentYearCompletion ? 'red' : 'black'}; font-weight: bold; border-right:3px solid #999;" id="sum_completionTotal">${total.completionTotal.toLocaleString()}</td>
+
+        <td id="sum_outsourcing_paid">${(total.outsourcing_paid || 0).toLocaleString()}</td>
+        <td id="sum_outsourcing_balance" style="border-right:3px solid #999;">${Math.abs(total.outsourcing_balance || 0).toLocaleString()}</td>
     `;
 
     table.appendChild(totalRow);
