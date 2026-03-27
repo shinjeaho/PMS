@@ -182,11 +182,14 @@ def save_task_quantity():
     data = request.get_json()
     contract_code = data.get('contractCode', '')
     task_data_A = data.get('taskA', [])
+    selected_department = (data.get('selectedDepartment', '') or '').strip()
     department_bohal = data.get('departmentBohal', 0)
-    if not task_data_A or not contract_code:
+    if not contract_code:
         return jsonify({'message': 'No data provided'}), 400
 
-    department = task_data_A[0]['department']
+    department = selected_department or (task_data_A[0]['department'] if task_data_A else '')
+    if not department:
+        return jsonify({'message': 'Department is required'}), 400
 
     conn = create_connection()
     cursor = conn.cursor(dictionary=True)
@@ -280,6 +283,97 @@ def save_task_quantity():
         conn.rollback()
         return jsonify({'message': f'Error: {str(e)}'}), 500
 
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/api/task_quantity_departments', methods=['GET'])
+def get_task_quantity_departments():
+    contract_code = request.args.get('contract_code', '').strip()
+    if not contract_code:
+        return jsonify({'departments': []})
+
+    conn = create_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                tq.department AS department,
+                COUNT(*) AS item_count,
+                COALESCE(MAX(pd.bohal), 0) AS bohal
+            FROM taskquantity tq
+            LEFT JOIN project_depbohal pd
+                ON pd.contractcode = tq.ContractCode
+                AND pd.department = tq.department
+            WHERE tq.ContractCode = %s
+            GROUP BY tq.department
+            ORDER BY tq.department ASC
+            """,
+            (contract_code,),
+        )
+        rows = cursor.fetchall() or []
+        departments = []
+        for row in rows:
+            departments.append({
+                'department': row.get('department') or '',
+                'item_count': int(row.get('item_count') or 0),
+                'bohal': float(row.get('bohal') or 0),
+            })
+        return jsonify({'departments': departments})
+    except Exception as e:
+        print(f"[task_quantity_departments 조회 오류] {e}")
+        return jsonify({'departments': []})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/api/delete_task_quantity_department', methods=['POST'])
+def delete_task_quantity_department():
+    data = request.get_json(silent=True) or {}
+    contract_code = (data.get('contractCode') or '').strip()
+    department = (data.get('department') or '').strip()
+
+    if not contract_code or not department:
+        return jsonify({'message': 'Invalid parameters'}), 400
+
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            DELETE FROM taskassignment
+            WHERE contractCode = %s AND department = %s
+            """,
+            (contract_code, department),
+        )
+
+        cursor.execute(
+            """
+            DELETE FROM taskquantity
+            WHERE ContractCode = %s AND department = %s
+            """,
+            (contract_code, department),
+        )
+
+        cursor.execute(
+            """
+            DELETE FROM project_depbohal
+            WHERE contractcode = %s AND department = %s
+            """,
+            (contract_code, department),
+        )
+
+        conn.commit()
+        return jsonify({'message': 'Delete successful'})
+    except Exception as e:
+        print(f"[task_quantity 부서삭제 오류] {e}")
+        conn.rollback()
+        return jsonify({'message': f'Error: {str(e)}'}), 500
     finally:
         cursor.close()
         conn.close()

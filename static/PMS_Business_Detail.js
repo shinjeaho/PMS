@@ -3556,6 +3556,18 @@ function getPrice(selectElement) {
         priceTd.classList.add('edit_cell');
     }
 }
+
+function openStandardInfoModal() {
+    document.body.classList.add('modal-open');
+    const modal = document.getElementById('modal_standardInfo');
+    if (modal) modal.style.display = 'block';
+}
+
+function closeStandardInfoModal() {
+    const modal = document.getElementById('modal_standardInfo');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
 // 모달 열기
 function openModal(button) {
     document.body.classList.add('modal-open');  // body 스크롤 막기
@@ -3564,6 +3576,7 @@ function openModal(button) {
 
     if (btnID == 'quantityModal') {
         document.getElementById('modal_quantityModal').style.display = 'block';
+        loadExistingTaskDepartments();
     }
     else if (btnID == 'itemModal') {
         document.getElementById('modal_itemModal').style.display = 'block';
@@ -3612,6 +3625,8 @@ function closeQuantityModal() {
     document.getElementById('modal_statusModal').style.display = 'none';
     document.getElementById('modal_EXrecordsModal').style.display = 'none';
     document.getElementById('modal_copyData').style.display = 'none';
+    const standardInfoModal = document.getElementById('modal_standardInfo');
+    if (standardInfoModal) standardInfoModal.style.display = 'none';
 }
 
 function updateRecordTable(data) {
@@ -3693,6 +3708,18 @@ function initializeModalSections() {
     document.getElementById('modal_item1').addEventListener('change', function () {
         handleSectionDisplay('modal_item1', 'modal_ALabel', 'modal_ASection', 'quantityModal_A_tbody', 3);
     });
+
+    const existingTbody = document.getElementById('existing_task_dept_tbody');
+    if (existingTbody && !existingTbody.dataset.bound) {
+        existingTbody.dataset.bound = '1';
+        existingTbody.addEventListener('click', function (e) {
+            const btn = e.target.closest('.existing-task-dept-delete');
+            if (!btn) return;
+            const department = btn.getAttribute('data-department') || '';
+            if (!department) return;
+            deleteTaskQuantityDepartment(department);
+        });
+    }
 }
 
 // 섹션을 표시하고 라벨을 업데이트하는 함수
@@ -3762,6 +3789,93 @@ function fetchQuantityData(department, contractCode, tableId) {
         });
 }
 
+function loadExistingTaskDepartments() {
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    const tbody = document.getElementById('existing_task_dept_tbody');
+    if (!tbody || !contractCode) return;
+
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#666;">조회 중...</td></tr>';
+
+    fetch(`/api/task_quantity_departments?contract_code=${encodeURIComponent(contractCode)}`)
+        .then(response => response.json())
+        .then(data => {
+            const list = Array.isArray(data?.departments) ? data.departments : [];
+            renderExistingTaskDepartments(list);
+        })
+        .catch(error => {
+            console.error('Error fetching task quantity departments:', error);
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#b00020;">부서 목록 조회 실패</td></tr>';
+        });
+}
+
+function renderExistingTaskDepartments(departments) {
+    const tbody = document.getElementById('existing_task_dept_tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!Array.isArray(departments) || departments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#666;">입력된 부서가 없습니다.</td></tr>';
+        return;
+    }
+
+    departments.forEach((dept) => {
+        const tr = document.createElement('tr');
+        const department = String(dept.department || '').trim();
+        const itemCount = Number(dept.item_count || 0);
+        const bohal = dept.bohal === null || dept.bohal === undefined || dept.bohal === ''
+            ? ''
+            : formatSmartNumber(dept.bohal);
+
+        tr.innerHTML = `
+            <td style="text-align:left;">${escapeHtmlSafe(department)}</td>
+            <td style="text-align:center;">${itemCount.toLocaleString()}</td>
+            <td style="text-align:right;">${bohal}</td>
+            <td style="text-align:center;">
+                <button type="button" class="remove-row-btn existing-task-dept-delete" data-department="${escapeHtmlSafe(department)}" style="width: 22px; height: 22px; line-height: 18px; padding: 0;">x</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function deleteTaskQuantityDepartment(department) {
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    if (!contractCode || !department) return;
+
+    if (!confirm(`[${department}] 부서의 사업물량 데이터를 삭제하시겠습니까?`)) return;
+
+    fetch('/api/delete_task_quantity_department', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contractCode: contractCode,
+            department: department
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message === 'Delete successful') {
+                const selectedDept = document.getElementById('modal_item1')?.value || '';
+                if (selectedDept === department) {
+                    const tbody = document.getElementById('quantityModal_A_tbody');
+                    if (tbody) tbody.innerHTML = '';
+                    addRows('quantityModal_A_tbody', 1);
+                }
+                loadExistingTaskDepartments();
+                alert('삭제되었습니다.');
+                setTimeout(() => reloadWithCurrentState(), 500);
+            } else {
+                alert('삭제에 실패했습니다. 다시 시도하세요.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('삭제에 실패했습니다. 다시 시도하세요.');
+        });
+}
+
 
 // form 데이터 처리
 document.getElementById('modal_quantityModal').addEventListener('submit', function (event) {
@@ -3809,7 +3923,8 @@ function removeTextbox(containerID, count) {
 
 function saveTaskQuantity() {
     const contractCode = document.getElementById('project-contractCode').value;
-    const aLabel = document.getElementById('modal_ALabel').innerText.trim();
+    const selectedDepartment = (document.getElementById('modal_item1')?.value || '').trim();
+    const aLabel = selectedDepartment || document.getElementById('modal_ALabel').innerText.trim();
     // 부서 단위 사업보할(%) 기본값
     const deptBohalInput = document.getElementById('modal_projectBohal');
     let defaultBohal = deptBohalInput ? (parseFloat(deptBohalInput.value) || 0) : 0;
@@ -3848,8 +3963,8 @@ function saveTaskQuantity() {
     }
 
     // 데이터 검증 및 서버 전송
-    if (taskDataA.length === 0) {
-        alert('저장할 데이터가 없습니다. 부서 또는 항목을 입력해주세요.');
+    if (!selectedDepartment) {
+        alert('부서를 선택해주세요.');
         return;
     }
 
@@ -3861,6 +3976,7 @@ function saveTaskQuantity() {
         body: JSON.stringify({
             taskA: taskDataA,
             contractCode: contractCode,
+            selectedDepartment: selectedDepartment,
             departmentBohal: defaultBohal
         })
     })
@@ -3868,6 +3984,7 @@ function saveTaskQuantity() {
         .then(data => {
             if (data.message === 'Save successful') {
                 alert('저장이 완료되었습니다.');
+                loadExistingTaskDepartments();
                 reloadWithCurrentState();
             } else {
                 alert('저장에 실패했습니다. 다시 시도하세요.');

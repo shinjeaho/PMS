@@ -1451,7 +1451,9 @@ function createWeeklyToolbar() {
 
   el.appendChild(mkBtn('파랑', () => weeklyApplyColor('#2563eb'), 'color:#2563eb'));
   el.appendChild(mkBtn('빨강', () => weeklyApplyColor('#ef4444'), 'color:#ef4444'));
-  el.appendChild(mkBtn('굵게', () => weeklyToggleBold(), 'font-weight:600'));
+  const weeklyBoldBtn = mkBtn('굵게', () => weeklyToggleBold(), 'font-weight:600');
+  weeklyBoldBtn.style.display = 'none';
+  el.appendChild(weeklyBoldBtn);
   el.appendChild(mkBtn('기본', () => weeklyClearFormat(), ''));
 
   document.body.appendChild(el);

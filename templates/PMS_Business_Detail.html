@@ -29,8 +29,12 @@
             <!-- BIT -->
             <!-- <img src="{{ url_for('static', filename='img/BIT_home.png') }}" alt="뒤로" style="width: 150px; height: 80px;"> -->
         </button>
-        <h1 style="flex: 1; text-align: center; margin: 0;" id="projectName"></h1>
+        <h1 style="position: absolute; left: 50%; transform: translateX(-50%); text-align: center; margin: 0;" id="projectName"></h1>
         <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
+            <div class="standard-hover-wrap">
+                <button type="button" class="info-button standard-info-btn header-standard-btn"
+                    onclick="openStandardInfoModal()">기준정보</button>
+            </div>
             <button class="edit-button" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
 
         </div>
@@ -84,6 +88,16 @@
         </div>
     </div>
 
+    <div id="modal_standardInfo" class="modal" onclick="if(event.target===this) closeStandardInfoModal()">
+        <div class="modal-content standard-info-modal-content">
+            <span class="modal_close" onclick="closeStandardInfoModal()">&times;</span>
+            <div class="modal-body standard-info-modal-body">
+                <iframe id="standardInfoFrame" src="/PMS_Expenses/{{ project['StartDate'].strftime('%Y') }}"
+                    title="기준정보"></iframe>
+            </div>
+        </div>
+    </div>
+
     <!-- 사업물량 입력 창 HTML -->
     <div id="modal_quantityModal" class="modal">
         <div class="modal-content" style="width: 650px;">
@@ -92,6 +106,25 @@
             <hr class="modal_hr">
 
             <div class="modal-body">
+                <div class="modal_section" id="existing_task_dept_section">
+                    <label>입력된 부서</label>
+                    <table class="custom-table" style="width: 100%; margin-top: 6px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">부서</th>
+                                <th style="width: 30%;">항목 수</th>
+                                <th style="width: 20%;">보할(%)</th>
+                                <th style="width: 10%; white-space: nowrap;">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody id="existing_task_dept_tbody">
+                            <tr>
+                                <td colspan="4" style="text-align:center; color:#666;">조회 중...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <!-- 수행부서 섹션 -->
                 <div class="modal_section">
                     <label for="modal_item1">부서</label>
@@ -897,7 +930,13 @@
                                 <thead id="progress_overview_thead"></thead>
                                 <tbody id="progress_overview_tbody"><!-- JS 동적 렌더링 --></tbody>
                             </table>
-                            <h2>예상 사업수행비 현황</h2>
+                            <div class="section-title-row">
+                                <h2>예상 사업수행비 현황</h2>
+                                <div class="standard-hover-wrap">
+                                    <button type="button" class="info-button standard-info-btn section-standard-btn"
+                                        onclick="openStandardInfoModal()">기준정보</button>
+                                </div>
+                            </div>
                             <!-- 사전비용 -->
                             <input type="hidden" id="AcademicResearchRate"
                                 value="{{ project['AcademicResearchRate'] }}">
@@ -947,7 +986,13 @@
 
 
                         <div class="right-bottom">
-                            <h2>실제 사업수행비 현황</h2>
+                            <div class="section-title-row">
+                                <h2>실제 사업수행비 현황</h2>
+                                <div class="standard-hover-wrap">
+                                    <button type="button" class="info-button standard-info-btn section-standard-btn"
+                                        onclick="openStandardInfoModal()">기준정보</button>
+                                </div>
+                            </div>
 
                             <hr style="margin-bottom: 20px;">
                             <table class="custom-table" id="actual_fee_table">
