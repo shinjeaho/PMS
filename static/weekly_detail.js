@@ -1295,6 +1295,58 @@ function weeklyScheduleLiveValidate(el, { showAlert = true } = {}) {
   return false;
 }
 
+function weeklySanitizeHtmlForSave(html) {
+  const host = document.createElement('div');
+  host.innerHTML = String(html || '');
+
+  host.querySelectorAll('script, style').forEach((el) => el.remove());
+
+  const blockedStyleKeys = new Set([
+    'overflow',
+    'overflow-x',
+    'overflow-y',
+    'height',
+    'max-height',
+    'min-height',
+    'position',
+  ]);
+
+  host.querySelectorAll('*').forEach((el) => {
+    const attrs = Array.from(el.attributes || []);
+    attrs.forEach((attr) => {
+      const name = String(attr.name || '').toLowerCase();
+      if (!name) return;
+
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+        return;
+      }
+
+      if (name === 'style') {
+        const raw = String(attr.value || '');
+        const kept = [];
+        raw.split(';').forEach((decl) => {
+          const idx = decl.indexOf(':');
+          if (idx < 0) return;
+          const key = decl.slice(0, idx).trim().toLowerCase();
+          const val = decl.slice(idx + 1).trim();
+          if (!key) return;
+          if (blockedStyleKeys.has(key)) return;
+          if (/overflow|scroll/i.test(val)) return;
+          kept.push(`${key}: ${val}`);
+        });
+        if (kept.length === 0) {
+          el.removeAttribute('style');
+        } else {
+          el.setAttribute('style', kept.join('; '));
+        }
+      }
+    });
+  });
+
+  return host.innerHTML;
+}
+
 function _collectWeeklyPayload() {
   const root = document.getElementById('weeklyDetailRoot');
   const week_start = root?.dataset?.weekStart || '';
@@ -1304,18 +1356,18 @@ function _collectWeeklyPayload() {
 
   const scheduleEditables = document.querySelectorAll('#weeklyScheduleTable tbody .weekly-editable');
   const schedule = {
-    mon: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[0]?.innerHTML || ''),
-    tue: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[1]?.innerHTML || ''),
-    wed: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[2]?.innerHTML || ''),
-    thu: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[3]?.innerHTML || ''),
-    fri: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[4]?.innerHTML || ''),
-    sat: weeklyPreserveLeadingSpacesInHtml(scheduleEditables[5]?.innerHTML || '')
+    mon: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[0]?.innerHTML || '')),
+    tue: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[1]?.innerHTML || '')),
+    wed: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[2]?.innerHTML || '')),
+    thu: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[3]?.innerHTML || '')),
+    fri: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[4]?.innerHTML || '')),
+    sat: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(scheduleEditables[5]?.innerHTML || ''))
   };
 
   const issuesEditables = document.querySelectorAll('#weeklyIssuesTable tbody .weekly-editable');
   const issues = {
-    prev: weeklyPreserveLeadingSpacesInHtml(issuesEditables[0]?.innerHTML || ''),
-    curr: weeklyPreserveLeadingSpacesInHtml(issuesEditables[1]?.innerHTML || '')
+    prev: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(issuesEditables[0]?.innerHTML || '')),
+    curr: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(issuesEditables[1]?.innerHTML || ''))
   };
 
   return { week_start, schedule, issues };

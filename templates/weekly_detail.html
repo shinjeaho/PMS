@@ -364,6 +364,13 @@
         margin: 0;
         /* @page 여백으로 상단 여백을 통일하고, 컨테이너 상단 padding은 제거 */
         padding: 0;
+        overflow: visible !important;
+        max-width: none !important;
+      }
+
+      #weeklyDetailRoot,
+      #weeklyDetailRoot * {
+        overflow: visible !important;
       }
 
       /* 부서 컬럼 폭 축소 및 다른 컬럼 재계산 (인쇄 전용) */

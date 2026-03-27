@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
@@ -8,6 +9,84 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from ..db import create_connection
 
 bp = Blueprint('weekly_detail', __name__)
+
+
+_BLOCKED_STYLE_KEYS = {
+    'overflow',
+    'overflow-x',
+    'overflow-y',
+    'height',
+    'max-height',
+    'min-height',
+    'position',
+}
+
+
+def _sanitize_weekly_html(value: str | None) -> str:
+    """주간보고 HTML에서 인쇄 레이아웃을 깨뜨리는 속성만 제거한다."""
+    s = str(value or '')
+    if not s:
+        return ''
+
+    # script/style 태그 제거
+    s = re.sub(r'(?is)<\s*(script|style)\b[^>]*>.*?<\s*/\s*\1\s*>', '', s)
+
+    # 이벤트 핸들러 제거(onclick 등)
+    s = re.sub(r'(?is)\s+on[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)', '', s)
+
+    def _style_filter(match: re.Match) -> str:
+        raw = (match.group(1) or '').strip()
+        kept: list[str] = []
+        for part in raw.split(';'):
+            if ':' not in part:
+                continue
+            key, val = part.split(':', 1)
+            key_clean = key.strip().lower()
+            val_clean = val.strip()
+            if not key_clean:
+                continue
+            if key_clean in _BLOCKED_STYLE_KEYS:
+                continue
+            # 값에 overflow/scroll 키워드가 섞여 있으면 제거
+            if re.search(r'(?i)overflow|scroll', val_clean):
+                continue
+            kept.append(f"{key_clean}: {val_clean}")
+        if not kept:
+            return ''
+        return ' style="' + '; '.join(kept) + '"'
+
+    s = re.sub(r'(?is)\s+style\s*=\s*"([^"]*)"', _style_filter, s)
+    s = re.sub(r"(?is)\s+style\s*=\s*'([^']*)'", _style_filter, s)
+
+    return s.strip()
+
+
+def _sanitize_weekly_segments(schedule: dict | None, issues: dict | None) -> tuple[dict, dict]:
+    src_schedule = schedule or {}
+    src_issues = issues or {}
+    cleaned_schedule = {
+        'mon': _sanitize_weekly_html(src_schedule.get('mon')),
+        'tue': _sanitize_weekly_html(src_schedule.get('tue')),
+        'wed': _sanitize_weekly_html(src_schedule.get('wed')),
+        'thu': _sanitize_weekly_html(src_schedule.get('thu')),
+        'fri': _sanitize_weekly_html(src_schedule.get('fri')),
+        'sat': _sanitize_weekly_html(src_schedule.get('sat')),
+    }
+    cleaned_issues = {
+        'prev': _sanitize_weekly_html(src_issues.get('prev')),
+        'curr': _sanitize_weekly_html(src_issues.get('curr')),
+    }
+    return cleaned_schedule, cleaned_issues
+
+
+def _build_weekly_segments(department: str, week_start: date, schedule: dict | None, issues: dict | None) -> dict:
+    cleaned_schedule, cleaned_issues = _sanitize_weekly_segments(schedule, issues)
+    return {
+        'department': department,
+        'week_start': week_start.isoformat(),
+        'schedule': cleaned_schedule,
+        'issues': cleaned_issues,
+    }
 
 
 def _compute_week_title(week_start: date) -> str:
@@ -222,16 +301,16 @@ def _get_weekly_detail(week_start: date):
                     sch = j.get('schedule') or {}
                     iss = j.get('issues') or {}
                     schedule = {
-                        'mon': sch.get('mon') or '',
-                        'tue': sch.get('tue') or '',
-                        'wed': sch.get('wed') or '',
-                        'thu': sch.get('thu') or '',
-                        'fri': sch.get('fri') or '',
-                        'sat': sch.get('sat') or '',
+                        'mon': _sanitize_weekly_html(sch.get('mon') or ''),
+                        'tue': _sanitize_weekly_html(sch.get('tue') or ''),
+                        'wed': _sanitize_weekly_html(sch.get('wed') or ''),
+                        'thu': _sanitize_weekly_html(sch.get('thu') or ''),
+                        'fri': _sanitize_weekly_html(sch.get('fri') or ''),
+                        'sat': _sanitize_weekly_html(sch.get('sat') or ''),
                     }
                     issues = {
-                        'prev': iss.get('prev') or '',
-                        'curr': iss.get('curr') or '',
+                        'prev': _sanitize_weekly_html(iss.get('prev') or ''),
+                        'curr': _sanitize_weekly_html(iss.get('curr') or ''),
                     }
             except Exception:
                 pass
@@ -470,22 +549,7 @@ def api_weekly_save():
             return jsonify({'ok': False, 'message': 'DB 연결 실패'}), 500
 
         report_id = _ensure_weekly_report(conn, week_start, department, created_by)
-        segments = {
-            'department': department,
-            'week_start': week_start.isoformat(),
-            'schedule': {
-                'mon': schedule.get('mon') or '',
-                'tue': schedule.get('tue') or '',
-                'wed': schedule.get('wed') or '',
-                'thu': schedule.get('thu') or '',
-                'fri': schedule.get('fri') or '',
-                'sat': schedule.get('sat') or '',
-            },
-            'issues': {
-                'prev': issues.get('prev') or '',
-                'curr': issues.get('curr') or '',
-            },
-        }
+        segments = _build_weekly_segments(department, week_start, schedule, issues)
         _replace_weekly_entry(conn, report_id, segments, created_by)
         _log_weekly_api('WEEKLY_SAVE_OK', payload, user, department, created_by, report_id=report_id)
         try:
@@ -546,22 +610,7 @@ def api_weekly_save_split():
             dept_issues = item.get('issues') or {}
 
             report_id = _ensure_weekly_report(conn, week_start, dept_name, created_by)
-            segments = {
-                'department': dept_name,
-                'week_start': week_start.isoformat(),
-                'schedule': {
-                    'mon': dept_schedule.get('mon') or '',
-                    'tue': dept_schedule.get('tue') or '',
-                    'wed': dept_schedule.get('wed') or '',
-                    'thu': dept_schedule.get('thu') or '',
-                    'fri': dept_schedule.get('fri') or '',
-                    'sat': dept_schedule.get('sat') or '',
-                },
-                'issues': {
-                    'prev': dept_issues.get('prev') or '',
-                    'curr': dept_issues.get('curr') or '',
-                },
-            }
+            segments = _build_weekly_segments(dept_name, week_start, dept_schedule, dept_issues)
             _replace_weekly_entry(conn, report_id, segments, created_by)
             report_ids.append(report_id)
 
@@ -624,22 +673,7 @@ def api_weekly_submit():
                 dept_issues = item.get('issues') or {}
 
                 report_id = _ensure_weekly_report(conn, week_start, dept_name, created_by)
-                segments = {
-                    'department': dept_name,
-                    'week_start': week_start.isoformat(),
-                    'schedule': {
-                        'mon': dept_schedule.get('mon') or '',
-                        'tue': dept_schedule.get('tue') or '',
-                        'wed': dept_schedule.get('wed') or '',
-                        'thu': dept_schedule.get('thu') or '',
-                        'fri': dept_schedule.get('fri') or '',
-                        'sat': dept_schedule.get('sat') or '',
-                    },
-                    'issues': {
-                        'prev': dept_issues.get('prev') or '',
-                        'curr': dept_issues.get('curr') or '',
-                    },
-                }
+                segments = _build_weekly_segments(dept_name, week_start, dept_schedule, dept_issues)
                 _replace_weekly_entry(conn, report_id, segments, created_by)
                 report_ids.append(report_id)
 
@@ -665,22 +699,7 @@ def api_weekly_submit():
             return jsonify({'ok': True, 'report_ids': report_ids})
 
         report_id = _ensure_weekly_report(conn, week_start, department, created_by)
-        segments = {
-            'department': department,
-            'week_start': week_start.isoformat(),
-            'schedule': {
-                'mon': schedule.get('mon') or '',
-                'tue': schedule.get('tue') or '',
-                'wed': schedule.get('wed') or '',
-                'thu': schedule.get('thu') or '',
-                'fri': schedule.get('fri') or '',
-                'sat': schedule.get('sat') or '',
-            },
-            'issues': {
-                'prev': issues.get('prev') or '',
-                'curr': issues.get('curr') or '',
-            },
-        }
+        segments = _build_weekly_segments(department, week_start, schedule, issues)
         _replace_weekly_entry(conn, report_id, segments, created_by)
 
         cur = conn.cursor()
