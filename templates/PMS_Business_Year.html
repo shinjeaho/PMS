@@ -24,7 +24,11 @@
                 <span class="user-sep">/</span>
                 <span class="user-name">{{ session['user']['name'] }}</span>
             </div>
-            <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
+                <button id="year-standard-info-btn" class="search-button" type="button" onclick="checkLaborCosts()"
+                    style="display: none;">기준정보 확인</button>
+            </div>
         </div>
 
         <input type="hidden" id="sessionName" value="{{ session['user']['name'] }}">
@@ -33,6 +37,7 @@
         <input type="hidden" id="sessionProjectAuth" value="{{ session['user'].get('projectAUTH', 0) }}">
         <input type="hidden" id="sessionReportAuth" value="{{ session['user'].get('reportAUTH', 0) }}">
         <input type="hidden" id="sessionMeetingAuth" value="{{ session['user'].get('meetingAuth', session['user'].get('meetingauth', 0)) }}">
+        <input type="hidden" id="sessionAdminAuth" value="{{ session['user'].get('adminAUTH', 0) }}">
         <input type="hidden" id="sessionDept" value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
         <input type="hidden" id="projectYEAR" value="{{ selected_year }}">
     </header>
@@ -52,22 +57,31 @@
                 <div class="dropdown-content">
                     <a href="#" onclick="viewYearlyProjects()">연차사업</a>
                     <a href="#" onclick="viewExamineProjects()">검토사업</a>
+                </div>
+            </li>
+            <li class="dropdown" id="integration-li" style="display: none;">
+                <button class="year-button dropbtn">통합자료 ▼</button>
+                <div class="dropdown-content">
                     <a style="display: none;" id="processProjectEngineers" href="/PMS_annualProject/status/engineers">참여기술자 모아보기</a>
                     <a style="display: none;" id="processProjectProgress" href="/PMS_annualProject/status/progress">진행중 사업 통합자료</a>
                     <a style="display: none;" id="completeProject" href="#" data-status = 'complete' onclick="viewCompleteProjects(this)">준공 사업 통합자료</a>
                     <a style="display: none;" id="stopProject" href="/PMS_annualProject/status/stop">용역중지 사업 통합자료</a>
                     <a id="annualBTN" href="#" onclick="viewAnnualProjects()" style="display: none;">연도별 통합자료</a>
-                    <!-- <a id="annualMoneyBTN" href="#" onclick="viewAnnualMoney()" style="display: none;">사업비 수령내역 모아보기</a> -->
+                    <a id="annualMoneyBTN" href="/PMS_annualMoney?year={{ selected_year }}" style="display: none;">사업비 수령내역 모아보기</a>
                 </div>
             </li>
-            <li><button class="year-button" onclick="addProject('{{ selected_year }}')">프로젝트 추가</button></li>
-            <li><button class="year-button" onclick="checkLaborCosts()">기준정보 확인</button></li>
+            <li class="dropdown">
+                <button class="year-button dropbtn">프로젝트 관리 ▼</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="addProject('{{ selected_year }}')">프로젝트 추가</a>
+                    <a href="#" onclick="openTransfer()">엑셀 데이터 이관</a>
+                </div>
+            </li>
             <li id="meeting-li" style="display: none;"><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
             {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
             <li><button class="year-button" type="button" onclick="viewWeeklyReports()">주간보고서</button></li>
             <li style="display:none;"><button class="year-button" type="button" onclick="viewDailyReports()">일일보고서</button></li>
             {% endif %}
-            <li><button class="year-button" onclick="openTransfer()">엑셀 데이터 이관</button></li>
             <li id="setting-li" style="display: none;">
                 <button id="setting" class="year-button" onclick="openSettings()">설정관리</button>
             </li>
@@ -128,7 +142,8 @@
                                             <col style="width:110px;" />    <!-- 직위 -->
                                             <col style="width:140px;" />    <!-- 입사일 -->
                                             <col style="width:120px;" />    <!-- 번호 -->
-                                            <col style="width:140px;" />    <!-- 접근수준 -->
+                                            <col style="width:140px;" />    <!-- PMS 접근등급 -->
+                                            <col style="width:90px;" />     <!-- 관리자 -->
                                             <col style="width:60px;" />     <!-- PMS (권한열 동일폭) -->
                                             <col style="width:60px;" />     <!-- 통합자료 (권한열 동일폭) -->
                                             <col style="width:60px;" />     <!-- 업무보고 (권한열 동일폭) -->
@@ -138,7 +153,7 @@
                                             <tr>
                                                 <th class="staff-select-col" rowspan="2" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="check-all" aria-label="전체 선택"></th>
                                                 <th colspan="7" style="text-align:center;">구분</th>
-                                                <th colspan="5" style="text-align:center;">권한</th>
+                                                <th colspan="6" style="text-align:center;">권한</th>
                                             </tr>
                                             <tr>
                                                 <th>사번</th>
@@ -148,7 +163,8 @@
                                                 <th id="staffSortPosition" class="staff-sortable" title="직위 정렬">직위</th>
                                                 <th>입사일</th>
                                                 <th>휴대폰 번호</th>
-                                                <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">접근등급</th>
+                                                <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">PMS 접근 등급</th>
+                                                <th>관리자</th>
                                                 <th>PMS</th>
                                                 <th>통합자료</th>
                                                 <th>업무보고</th>
@@ -182,12 +198,13 @@
                                                 <td data-field="phone">{{ user.get('phone', user.get('Phone', '')) }}</td>
                                                 <td data-field="auth">
                                                     <select>
-                                                        {% set auths = ['읽기', '읽기/쓰기', '관리자'] %}
+                                                        {% set auths = ['읽기', '읽기/쓰기'] %}
                                                         {% for auth in auths %}
-                                                        <option value="{{ auth }}" {% if user.Auth==auth %}selected{% endif %}>{{ auth }}</option>
+                                                        <option value="{{ auth }}" {% if user.Auth==auth or (auth == '읽기/쓰기' and user.Auth == '관리자') %}selected{% endif %}>{{ auth }}</option>
                                                         {% endfor %}
                                                     </select>
                                                 </td>
+                                                <td style="text-align:center;"><input type="checkbox" class="adminauth-check" {% if (user.adminAUTH|int) == 1 %}checked{% endif %} /></td>
                                                 <td style="text-align:center;"><input type="checkbox" class="projectauth-check" {% if (user.projectAUTH|int) == 1 %}checked{% endif %} /></td>
                                                 <td style="text-align:center;"><input type="checkbox" class="dataauth-check" {% if (user.dataauth|int) == 1 %}checked{% endif %} /></td>
                                                 <td style="text-align:center;"><input type="checkbox" class="reportauth-check" {% if (user.reportAUTH|int) == 1 %}checked{% endif %} /></td>

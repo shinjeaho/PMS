@@ -27,6 +27,7 @@ def ensure_users_extended_columns(cursor) -> None:
         'Position': "ALTER TABLE users ADD COLUMN Position VARCHAR(50) NULL AFTER Department",
         'JoinDate': "ALTER TABLE users ADD COLUMN JoinDate DATE NULL AFTER Position",
         'Phone': "ALTER TABLE users ADD COLUMN Phone VARCHAR(30) NULL AFTER JoinDate",
+        'adminAUTH': "ALTER TABLE users ADD COLUMN adminAUTH TINYINT(1) NOT NULL DEFAULT 0 AFTER Auth",
         'meetingAuth': "ALTER TABLE users ADD COLUMN meetingAuth TINYINT(1) NOT NULL DEFAULT 0 AFTER reportAUTH",
     }
 
@@ -207,6 +208,7 @@ def business(year: int):
                  COALESCE(Position, '') AS position,
                  JoinDate AS join_date,
                  COALESCE(Phone, '') AS phone,
+                                    COALESCE(adminAUTH, 0) AS adminAUTH,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
                      COALESCE(meetingAuth, 0) AS meetingAuth,
@@ -226,6 +228,7 @@ def business(year: int):
             cursor.execute(
                 """
                 SELECT userID, Name, Department, COALESCE(Position, '') AS Position, Auth,
+                      COALESCE(adminAUTH, 0) AS adminAUTH,
                        COALESCE(dataauth, 0) AS dataauth,
                        COALESCE(reportAUTH, 0) AS reportAUTH,
                        COALESCE(meetingAuth, 0) AS meetingAuth,
@@ -244,6 +247,7 @@ def business(year: int):
                     'department': fresh_user.get('Department', ''),
                     'position': (fresh_user.get('Position', '') or '').strip(),
                     'auth': fresh_user.get('Auth', ''),
+                    'adminAUTH': int(fresh_user.get('adminAUTH', 0) or 0),
                     'dataauth': int(fresh_user.get('dataauth', 0) or 0),
                     'reportAUTH': int(fresh_user.get('reportAUTH', 0) or 0),
                     'meetingAuth': int(fresh_user.get('meetingAuth', 0) or 0),
@@ -462,6 +466,7 @@ def save_staff():
                  COALESCE(Position, '') AS Position,
                  JoinDate,
                  COALESCE(Phone, '') AS Phone,
+                                    COALESCE(adminAUTH, 0) AS adminAUTH,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
                                      COALESCE(meetingAuth, 0) AS meetingAuth,
@@ -477,6 +482,7 @@ def save_staff():
                 'Position': row.get('Position', '') or '',
                 'JoinDate': row.get('JoinDate', None),
                 'Phone': row.get('Phone', '') or '',
+                'adminAUTH': int(row.get('adminAUTH', 0) or 0),
                 'dataauth': int(row.get('dataauth', 0) or 0),
                 'reportAUTH': int(row.get('reportAUTH', 0) or 0),
                 'meetingAuth': int(row.get('meetingAuth', 0) or 0),
@@ -603,10 +609,26 @@ def save_staff():
                 except Exception:
                     meetingAuth = 0
 
+            incoming_admin = user.get('adminAUTH', None)
+            if incoming_admin is None:
+                adminAUTH = prev['adminAUTH'] if prev is not None else 0
+            else:
+                try:
+                    if isinstance(incoming_admin, bool):
+                        adminAUTH = 1 if incoming_admin else 0
+                    elif isinstance(incoming_admin, (int, float)):
+                        adminAUTH = 1 if int(incoming_admin) == 1 else 0
+                    elif isinstance(incoming_admin, str):
+                        adminAUTH = 1 if incoming_admin.lower() in ('1', 'true', 'y', 'yes') else 0
+                    else:
+                        adminAUTH = 0
+                except Exception:
+                    adminAUTH = 0
+
             cursor.execute(
                 """
-                INSERT INTO users (userID, Password, Name, Department, Position, JoinDate, Phone, Auth, EmpNo, note, dataauth, reportAUTH, meetingAuth, projectAUTH, CreateDate, UpdateDate)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO users (userID, Password, Name, Department, Position, JoinDate, Phone, Auth, adminAUTH, EmpNo, note, dataauth, reportAUTH, meetingAuth, projectAUTH, CreateDate, UpdateDate)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     userID,
@@ -617,6 +639,7 @@ def save_staff():
                     join_date,
                     phone,
                     user.get('Auth', ''),
+                    adminAUTH,
                     emp_no,
                     note,
                     dataauth,

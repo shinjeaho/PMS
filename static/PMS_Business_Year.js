@@ -30,9 +30,12 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchProjects(1);
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
+    const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
 
     const dataAuth = Number(document.getElementById('sessionDataAuth')?.value || 0) === 1;
     if (dataAuth) {
+        const integrationLi = document.getElementById("integration-li");
+        if (integrationLi) integrationLi.style.display = "list-item";
         document.getElementById("annualBTN").style.display = "list-item";
         const annualMoneyBtn = document.getElementById("annualMoneyBTN");
         if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
@@ -45,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     //관리자일 때 설정 버튼 보여주기
-    if (userAuth === '관리자') {
+    if (userAuth === '관리자' || sessionAdminAuth) {
         document.getElementById("setting-li").style.display = "list-item";
     }
 
@@ -69,10 +72,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const header = document.querySelector('header.pageheader');
-    if (header) {
-        header.style.cursor = 'pointer';
-        header.addEventListener('click', function () {
+    const yearTitleEl = document.getElementById('yearTitle');
+    if (yearTitleEl) {
+        yearTitleEl.style.cursor = 'pointer';
+        yearTitleEl.addEventListener('click', function () {
             window.location.href = '/';
         });
     }
@@ -232,7 +235,7 @@ function setStaffFormControlsEditable(isEditable) {
     const table = document.getElementById('staffGrid');
     if (!table) return;
 
-    table.querySelectorAll('td[data-field="department"] select, td[data-field="auth"] select, td[data-field="join_date"] input[type="date"]').forEach((control) => {
+    table.querySelectorAll('td[data-field="department"] select, td[data-field="auth"] select, input.adminauth-check, td[data-field="join_date"] input[type="date"]').forEach((control) => {
         control.disabled = !isEditable;
     });
 }
@@ -373,7 +376,8 @@ function uaGetSearchTextFromRow(row) {
     const position = (row.querySelector('td[data-field="position"]')?.textContent || '').trim();
     const phone = (row.querySelector('td[data-field="phone"]')?.textContent || '').trim();
     const auth = (row.querySelector('td[data-field="auth"] select')?.value || '').trim();
-    return [empNo, userId, dept, name, position, phone, auth].join(' ').toLowerCase();
+    const adminFlag = row.querySelector('input.adminauth-check')?.checked ? '관리자' : '';
+    return [empNo, userId, dept, name, position, phone, auth, adminFlag].join(' ').toLowerCase();
 }
 
 function uaApplyStaffSearch() {
@@ -1230,11 +1234,11 @@ function viewAnnualProjects() {
 function viewAnnualMoney() {
     const year = document.getElementById('projectYEAR')?.value;
     if (year) {
-        window.location.href = `/PMS_annualProject/money/${encodeURIComponent(year)}`;
+        window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(year)}`;
         return;
     }
     const nowYear = new Date().getFullYear();
-    window.location.href = `/PMS_annualProject/money/${encodeURIComponent(nowYear)}`;
+    window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(nowYear)}`;
 }
 
 function viewAnnualManagment() {
@@ -2783,7 +2787,7 @@ function weeklyInputDeptLabelHtml(deptName) {
 
 function initWeeklyInput() {
     const dept = getSessionDepartment();
-    const isAdmin = isWeeklyAdminByName();
+    const isAdmin = isWeeklyAdminByAccess();
 
     // 기본 주차: 일반 사용자는 차주, 관리자는 금주
     weeklyCurrentMonday = isAdmin
@@ -3012,8 +3016,9 @@ function getSessionName() {
     return (nameEl && nameEl.value) ? String(nameEl.value).trim() : '';
 }
 
-function isWeeklyAdminByName() {
-    return getSessionName() === '관리자';
+function isWeeklyAdminByAccess() {
+    const adminAuthEl = document.getElementById('sessionAdminAuth');
+    return Number(adminAuthEl?.value || 0) === 1;
 }
 
 function weeklyInputSetAdminMode(isAdmin) {
@@ -3332,7 +3337,7 @@ function _collectWeeklyPayload() {
     // 주 시작일(월요일)
     const week_start = formatDateISO(weeklyCurrentMonday);
 
-    if (isWeeklyAdminByName()) {
+    if (isWeeklyAdminByAccess()) {
         const departments = weeklyInputCollectAllDepartments();
         return { week_start, departments };
     }
@@ -3462,6 +3467,7 @@ function createWeeklyToolbar() {
     const btnBlue = mkBtn('파랑', () => weeklyApplyColor('#2563eb'), 'color:#2563eb');
     const btnRed = mkBtn('빨강', () => weeklyApplyColor('#ef4444'), 'color:#ef4444');
     const btnBold = mkBtn('굵게', weeklyToggleBold, 'font-weight:600');
+    btnBold.style.display = 'none';
     const btnReset = mkBtn('기본', weeklyClearFormat, '');
 
     el.appendChild(btnBlue);
@@ -4447,8 +4453,8 @@ function addStaffRow() {
         '경영지원부', '총무부', '임원실'
     ];
 
-    // 권한 목록
-    const auths = ['읽기', '읽기/쓰기', '관리자'];
+    // 접근 등급 목록
+    const auths = ['읽기', '읽기/쓰기'];
 
     // 부서 select 생성
     const deptSelect = document.createElement("select");
@@ -4459,7 +4465,7 @@ function addStaffRow() {
         deptSelect.appendChild(option);
     });
 
-    // 권한 select 생성
+    // 접근 등급 select 생성
     const authSelect = document.createElement("select");
     auths.forEach(auth => {
         const option = document.createElement("option");
@@ -4468,7 +4474,7 @@ function addStaffRow() {
         authSelect.appendChild(option);
     });
 
-    // 행 생성 및 삽입 (체크박스열 + 구분 7칸 + 권한 4칸)
+    // 행 생성 및 삽입 (체크박스열 + 구분 7칸 + 권한 5칸)
     row.innerHTML = `
             <td class="staff-select-col" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="row-check" aria-label="행 선택"></td>
             <td data-field="emp_no"></td>
@@ -4479,6 +4485,7 @@ function addStaffRow() {
             <td data-field="join_date"><input type="date" class="join-date-input" /></td>
             <td data-field="phone"></td>
             <td data-field="auth"></td>
+            <td style="text-align:center;"><input type="checkbox" class="adminauth-check" /></td>
             <td style="text-align:center;"><input type="checkbox" class="projectauth-check" /></td>
             <td style="text-align:center;"><input type="checkbox" class="dataauth-check" /></td>
             <td style="text-align:center;"><input type="checkbox" class="reportauth-check" /></td>
@@ -4488,9 +4495,8 @@ function addStaffRow() {
 
     // 부서 셀에 select 삽입
     row.children[3].appendChild(deptSelect);
-    // 권한 셀에 select 삽입
+    // 접근 등급 셀에 select 삽입
     row.children[8].appendChild(authSelect);
-
     // 텍스트 셀 클릭 편집 가능하게
     enableTdEditing("staffGrid");
     uaApplyStaffRowZebra();
@@ -4614,6 +4620,7 @@ function saveStaff() {
     rows.forEach(row => {
         const deptSelect = row.querySelector('td[data-field="department"] select');
         const authSelect = row.querySelector('td[data-field="auth"] select');
+        const adminAuthCheckbox = row.querySelector('input.adminauth-check');
 
         const dataAuthCheckbox = row.querySelector('input.dataauth-check');
         const reportAuthCheckbox = row.querySelector('input.reportauth-check');
@@ -4631,12 +4638,13 @@ function saveStaff() {
             Name: (nameCell?.textContent || '').trim(),
             userID: (userIdCell?.textContent || '').trim(),
             Department: deptSelect ? deptSelect.value : '',
-            Auth: authSelect ? authSelect.value : '',
+            Auth: authSelect ? authSelect.value : '읽기',
             EmpNo: (empNoCell?.textContent || '').trim(),
             Position: (positionCell?.textContent || '').trim(),
             JoinDate: joinDateInput ? (joinDateInput.value || '') : '',
             Phone: formatPhoneNumber((phoneCell?.textContent || '').trim()),
             note: '',
+            adminAUTH: adminAuthCheckbox ? (adminAuthCheckbox.checked ? 1 : 0) : 0,
             dataauth: dataAuthCheckbox ? (dataAuthCheckbox.checked ? 1 : 0) : 0,
             reportAUTH: reportAuthCheckbox ? (reportAuthCheckbox.checked ? 1 : 0) : 0,
             meetingAuth: meetingAuthCheckbox ? (meetingAuthCheckbox.checked ? 1 : 0) : 0,
@@ -4910,7 +4918,7 @@ async function saveDataAuth() {
 }
 
 function saveWeeklySplit() {
-    if (!isWeeklyAdminByName()) {
+    if (!isWeeklyAdminByAccess()) {
         alert('권한이 없습니다.');
         return;
     }
