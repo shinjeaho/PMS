@@ -52,6 +52,11 @@ def _sanitize_filename(filename: str) -> str:
     return filename.replace(" ", "_")
 
 
+def _is_allowed_meeting_attachment(filename: str) -> bool:
+    ext = Path(filename or '').suffix.lower()
+    return ext in {'.pdf', '.hwp', '.hwpx', '.xls', '.xlsx'}
+
+
 def _get_viewer_info():
     user = session.get('user') or {}
     name = (user.get('name') or user.get('Name') or '').strip()
@@ -221,6 +226,11 @@ def upload_meeting_pdf():
     if not filename_lower.endswith('.pdf'):
         return jsonify({'success': False, 'message': 'PDF 파일만 업로드할 수 있습니다.'}), 400
 
+    attachment_files = [f for f in request.files.getlist('attachments') if f and f.filename]
+    for attachment in attachment_files:
+        if not _is_allowed_meeting_attachment(attachment.filename):
+            return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
+
     doc_number = (request.form.get('docNumber') or '').strip()
     contractcode = (request.form.get('contractcode') or '').strip()
     project_name = (request.form.get('projectName') or '').strip()
@@ -258,6 +268,9 @@ def upload_meeting_pdf():
     name_parts = [p for p in (doc_number, contractcode, timestamp, safe_name) if p]
     final_name = "_".join(name_parts)
     file_path = os.path.join(year_folder, final_name)
+    attachment_folder = os.path.join(year_folder, 'attachments')
+    os.makedirs(attachment_folder, exist_ok=True)
+    saved_attachments = []
 
     try:
         if contractcode:
@@ -286,6 +299,24 @@ def upload_meeting_pdf():
         file.save(file_path)
         file_url = f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/{final_name}"
         file_size = os.path.getsize(file_path)
+
+        for attachment in attachment_files:
+            safe_attachment_name = _sanitize_filename(attachment.filename)
+            attachment_name_parts = [
+                p for p in (doc_number, contractcode, timestamp, 'att', safe_attachment_name) if p
+            ]
+            final_attachment_name = "_".join(attachment_name_parts)
+            attachment_path = os.path.join(attachment_folder, final_attachment_name)
+            attachment.save(attachment_path)
+            attachment_url = (
+                f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/attachments/{final_attachment_name}"
+            )
+            attachment_size = os.path.getsize(attachment_path)
+            saved_attachments.append({
+                'fileUrl': attachment_url,
+                'originalName': attachment.filename,
+                'fileSize': attachment_size,
+            })
 
         conn = create_connection()
         if conn is None:
