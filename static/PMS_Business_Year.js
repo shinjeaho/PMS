@@ -1313,8 +1313,9 @@ function _dailyHideSection() {
 }
 
 function _weeklyParseYearFromWeekStart(weekStartStr) {
-    const m = /^\s*(\d{4})-\d{2}-\d{2}\s*$/.exec(String(weekStartStr || ''));
-    return m ? Number(m[1]) : null;
+    const d = parseISODateLocal(weekStartStr);
+    if (isNaN(d.getTime())) return null;
+    return getISOWeekInfo(d).isoYear;
 }
 
 function _weeklyGetAvailableYearsForFilter(weeks) {
@@ -2172,25 +2173,26 @@ function meetingViewBackdropHandler(event) {
     }
 }
 
-// 주 시작일(월요일) 문자열로 제목 계산: "M월 N주차" (간단 표기)
+// 주 시작일(월요일) 문자열로 제목 계산: "YYYY년M월N주차" (목요일 기준)
 function computeWeekTitle(weekStartStr) {
     if (!weekStartStr) return '';
     const d = parseISODateLocal(weekStartStr);
     if (isNaN(d.getTime())) return weekStartStr;
     const monday = startOfWeekMonday(d);
+    const y = getISOWeekInfo(d).isoYear;
     const { month, weekIndex } = getMonthWeekIndexFromMonday(monday);
-    return `${month}월${weekIndex}주차`;
+    return `${y}년${month}월${weekIndex}주차`;
 }
 
-// 주 시작일(월요일) 문자열로 제목 계산: "YYYY년 M월N주차" (연도 포함)
+// 주 시작일(월요일) 문자열로 제목 계산: "YYYY년 M월N주차" (목요일 기준)
 function computeWeekTitleWithYear(weekStartStr) {
     if (!weekStartStr) return '';
     const d = parseISODateLocal(weekStartStr);
     if (isNaN(d.getTime())) return weekStartStr;
     const monday = startOfWeekMonday(d);
-    const year = monday.getFullYear();
+    const y = getISOWeekInfo(d).isoYear;
     const { month, weekIndex } = getMonthWeekIndexFromMonday(monday);
-    return `${year}년 ${month}월${weekIndex}주차`;
+    return `${y}년 ${month}월${weekIndex}주차`;
 }
 
 // ISO8601 기준의 주(연도/주번호) 계산
@@ -2222,19 +2224,17 @@ function _weeklyPickDisplayTitle(w) {
     if (raw) {
         if (/\d{2,4}\s*년/.test(raw)) return raw;
         const y = _weeklyParseYearFromWeekStart(w?.week_start);
-        if (y) return `${y}년 ${raw}`;
+        if (y) return `${y}년${raw}`;
         return raw;
     }
 
     try {
         const d = parseISODateLocal(w?.week_start);
         if (isNaN(d.getTime())) return '';
-        // 확실히 해당 주의 월요일을 기준으로 계산
         const monday = startOfWeekMonday(d);
+        const y = getISOWeekInfo(d).isoYear;
         const { month, weekIndex } = getMonthWeekIndexFromMonday(monday);
-        // 디버그: 데이터 불일치 추적용 콘솔 로그
-        console.debug('[weeklyTitle]', 'week_start=', String(w?.week_start), 'parsed=', formatDateISO(d), 'monday=', formatDateISO(monday), 'month=', month, 'weekIndex=', weekIndex);
-        return `${month}월${weekIndex}주차`;
+        return `${y}년${month}월${weekIndex}주차`;
     } catch (e) {
         return '';
     }
@@ -2257,17 +2257,21 @@ function startOfWeekMonday(date) {
     return d;
 }
 
-// 월 주차 계산 규칙: "1일이 포함된 주"를 1주차로 간주 (월~일 기준)
+// 월 주차 계산 규칙: 주의 목요일이 속한 달을 기준 달로 보고,
+// 해당 달의 첫 목요일이 포함된 주를 1주차로 간주
 function getMonthWeekIndexFromMonday(monday) {
+    // 목요일이 속한 달을 해당 주의 기준 달로 본다.
     const base = startOfWeekMonday(monday);
-    const yyyy = base.getFullYear();
-    const month0 = base.getMonth();
+    const thursday = addDays(base, 3);
+    const yyyy = thursday.getFullYear();
+    const month0 = thursday.getMonth();
     const firstOfMonth = new Date(yyyy, month0, 1);
 
-    // 이번 달 내부의 첫 번째 월요일을 1주차의 시작으로 삼는다.
+    // 기준 달의 첫 번째 목요일이 포함된 주의 월요일을 1주차 시작으로 삼는다.
     const dow = firstOfMonth.getDay(); // 0=Sun .. 6=Sat
-    const daysToFirstMonday = ((1 - dow) + 7) % 7; // 0이면 1일이 월요일
-    const firstMonthMonday = new Date(yyyy, month0, 1 + daysToFirstMonday);
+    const daysToFirstThursday = (4 - dow + 7) % 7;
+    const firstThursday = new Date(yyyy, month0, 1 + daysToFirstThursday);
+    const firstMonthMonday = addDays(firstThursday, -3);
 
     const msPerDay = 24 * 60 * 60 * 1000;
     const diffDays = Math.round((base.getTime() - firstMonthMonday.getTime()) / msPerDay);
@@ -3038,10 +3042,9 @@ function renderWeeklyTitle(monday) {
     const em = end.getMonth() + 1;
     // 항상 ~M/D 형식으로 표기
     const range = `${sm}/${monday.getDate()}~${em}/${end.getDate()}`;
-    // 월 기준 주차(해당 월의 첫 월요일을 1주차로 계산) 표시
-    const year = monday.getFullYear();
+    const y = getISOWeekInfo(monday).isoYear;
     const { month, weekIndex } = getMonthWeekIndexFromMonday(monday);
-    const label = `${year}년 ${month}월${weekIndex}주차`;
+    const label = `${y}년${month}월${weekIndex}주차`;
 
     const scheduleRangeEl = document.getElementById('weeklyScheduleRange');
     if (scheduleRangeEl) scheduleRangeEl.textContent = `(${label} ${range})`;

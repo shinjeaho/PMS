@@ -37,6 +37,55 @@ function addDays(base, n) {
   return d;
 }
 
+function weeklyGetISOWeekInfo(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const isoDay = (day + 6) % 7; // 0=Mon .. 6=Sun
+  const thursday = new Date(d);
+  thursday.setDate(d.getDate() + (3 - isoDay));
+  const isoYear = thursday.getFullYear();
+
+  const jan4 = new Date(isoYear, 0, 4);
+  const jan4Day = jan4.getDay();
+  const jan4IsoDay = (jan4Day + 6) % 7;
+  const firstThursday = new Date(isoYear, 0, 4);
+  firstThursday.setDate(4 + (3 - jan4IsoDay));
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const isoWeek = 1 + Math.floor((thursday.getTime() - firstThursday.getTime()) / (7 * msPerDay));
+  return { isoYear, isoWeek };
+}
+
+function weeklyGetThursdayMonthWeekInfo(date) {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const thursday = addDays(monday, 3);
+
+  const firstDay = new Date(thursday.getFullYear(), thursday.getMonth(), 1);
+  const firstDayDow = firstDay.getDay(); // 0=Sun .. 6=Sat
+  const daysToFirstThursday = (4 - firstDayDow + 7) % 7;
+  const firstThursday = new Date(thursday.getFullYear(), thursday.getMonth(), 1 + daysToFirstThursday);
+  const firstWeekMonday = addDays(firstThursday, -3);
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const weekIndex = Math.floor((monday.getTime() - firstWeekMonday.getTime()) / (7 * msPerDay)) + 1;
+  return { month: thursday.getMonth() + 1, weekIndex };
+}
+
+function weeklyBuildIsoWeekLabel(week, baseDate) {
+  const y = Number(week?.iso_year || week?.year || 0);
+  const month = Number(week?.month || 0);
+  const w = Number(week?.week_index || 0);
+  if (Number.isFinite(y) && y > 0 && Number.isFinite(month) && month > 0 && Number.isFinite(w) && w > 0) {
+    return `${y}년${month}월${w}주차`;
+  }
+  if (baseDate instanceof Date && !Number.isNaN(baseDate.getTime())) {
+    const iso = weeklyGetISOWeekInfo(baseDate);
+    const info = weeklyGetThursdayMonthWeekInfo(baseDate);
+    return `${iso.isoYear}년${info.month}월${info.weekIndex}주차`;
+  }
+  return '';
+}
+
 // 한국 고정 공휴일(간단 버전): 1/1, 3/1, 5/5, 6/6, 8/15, 10/3, 12/25
 // 대체/음력 공휴일은 제외. 필요 시 확장 가능.
 function isFixedHoliday(date) {
@@ -159,7 +208,8 @@ function renderWeeklyTables(root, data) {
   const endMonth = endDate.getMonth()+1;
   // 항상 ~M/D 형식으로 표기
   const rangeText = `${startMonth}/${weekStart.getDate()}~${endMonth}/${endDate.getDate()}`;
-  hSchedule.textContent = `부서별 주간일정표 (${week.month || startMonth}월 ${(week.week_index)||''}주차_${rangeText})`;
+  const weekLabel = weeklyBuildIsoWeekLabel(week, weekStart);
+  hSchedule.textContent = `부서별 주간일정표 (${weekLabel}_${rangeText})`;
   scheduleSection.appendChild(hSchedule);
 
   const tbl1 = document.createElement('table');
@@ -220,7 +270,7 @@ function renderWeeklyTables(root, data) {
   // 하단: 부서별 이슈사항
   const hIssues = document.createElement('div');
   hIssues.className = 'sub-title';
-  hIssues.textContent = `부서별 이슈사항 (${week.month || startMonth}월 ${(week.week_index)||''}주차_${rangeText})`;
+  hIssues.textContent = `부서별 이슈사항 (${weekLabel}_${rangeText})`;
   root.appendChild(hIssues);
 
   const tbl2 = document.createElement('table');
@@ -824,6 +874,30 @@ function weeklyRestoreIssuesTableAfterPrint(table) {
 // ====== 주간 입력/수정 모달 기능 ======
 let _weeklyEditMonday = null;
 
+function weeklyEditGetSessionAuth() {
+  const adminAuthEl = document.getElementById('sessionAdminAuth');
+  return Number(adminAuthEl?.value || 0) === 1 ? '관리자' : '';
+}
+
+function weeklyEditIsAdminByAccess() {
+  return weeklyEditGetSessionAuth() === '관리자';
+}
+
+function weeklyEditNearestMonday(d) {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+function weeklyEditFormatDateISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function openWeeklyEditModal() {
   const modal = document.getElementById('weeklyEditModal');
   if (!modal) return;
@@ -843,7 +917,14 @@ function openWeeklyEditModal() {
   const root = document.getElementById('weeklyDetailRoot');
   const weekStartStr = root?.dataset?.weekStart;
   _weeklyEditMonday = new Date(weekStartStr);
+  if (Number.isNaN(_weeklyEditMonday?.getTime?.())) {
+    _weeklyEditMonday = weeklyEditNearestMonday(new Date());
+  }
   initWeeklyEditTables();
+
+  if (weeklyEditIsAdminByAccess()) {
+    weeklyEditInitAdminWeekPicker(_weeklyEditMonday);
+  }
 
   // 버튼 핸들러 바인딩
   const saveBtn = document.getElementById('saveWeeklyBtn');
@@ -866,6 +947,17 @@ function initWeeklyEditTables() {
   const data = window.__weeklyDetailData__ || {};
   const { week = {}, departments = [] } = data;
   const monday = _weeklyEditMonday || new Date(week.week_start || document.getElementById('weeklyDetailRoot').dataset.weekStart);
+  const isAdmin = weeklyEditIsAdminByAccess();
+
+  const adminControls = document.getElementById('weeklyAdminControls');
+  if (adminControls) adminControls.style.display = isAdmin ? 'flex' : 'none';
+
+  if (isAdmin) {
+    renderEditTitles(monday, week);
+    renderEditScheduleTableForAdmin(monday, departments);
+    renderEditIssuesTableForAdmin(departments);
+    return;
+  }
 
   // 기준 부서 선택: 세션 부서 존재 시 우선, 없으면 첫 부서
   const sessionDeptEl = document.getElementById('sessionDept');
@@ -884,12 +976,11 @@ function initWeeklyEditTables() {
 }
 
 function renderEditTitles(monday, weekMeta) {
-  const month = monday.getMonth() + 1;
-  const firstDay = new Date(monday.getFullYear(), month - 1, 1);
-  const daysUntilMonday = (1 - firstDay.getDay() + 7) % 7;
-  const firstMonDate = 1 + daysUntilMonday;
-  const weekIndex = Math.floor((monday.getDate() - firstMonDate) / 7) + 1;
+  const iso = weeklyGetISOWeekInfo(monday);
+  const info = weeklyGetThursdayMonthWeekInfo(monday);
+  const weekLabel = `${iso.isoYear}년${info.month}월${info.weekIndex}주차`;
   const end = addDays(monday, 6);
+  const month = monday.getMonth() + 1;
   const endMonth = end.getMonth()+1;
   // 항상 ~M/D 형식으로 표기
   const range = `${month}/${monday.getDate()}~${endMonth}/${end.getDate()}`;
@@ -898,7 +989,7 @@ function renderEditTitles(monday, weekMeta) {
   if (scheduleRangeEl) scheduleRangeEl.textContent = `부서별 주간일정표 (${range})`;
 
   const issuesTitleEl = document.getElementById('weeklyIssuesTitle');
-  if (issuesTitleEl) issuesTitleEl.textContent = `부서별 이슈사항 (${month}월 ${weekIndex}주차_${range})`;
+  if (issuesTitleEl) issuesTitleEl.textContent = `부서별 이슈사항 (${weekLabel}_${range})`;
 }
 
 function renderEditScheduleTable(monday, dept) {
@@ -1035,6 +1126,245 @@ function renderEditIssuesTable(dept) {
 
   tbody.appendChild(tr);
   table.appendChild(tbody);
+}
+
+function renderEditScheduleTableForAdmin(monday, departments) {
+  const table = document.getElementById('weeklyScheduleTable');
+  if (!table) return;
+  table.innerHTML = '';
+
+  const dayNames = ['월', '화', '수', '목', '금', '토'];
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  const thDept = document.createElement('th');
+  thDept.textContent = '부서';
+  thDept.className = 'dept-col';
+  trh.appendChild(thDept);
+
+  for (let i = 0; i < 6; i++) {
+    const d = addDays(monday, i);
+    const th = document.createElement('th');
+    const isSat = d.getDay() === 6;
+    const isHoliday = isFixedHoliday(d);
+    let dayLabel;
+    let dateLabel;
+    if (isHoliday) {
+      dayLabel = `<span class="red">${dayNames[i]}</span>`;
+      dateLabel = `<span class="red">(${d.getDate()})</span>`;
+    } else if (isSat) {
+      dayLabel = `<span class="blue">${dayNames[i]}</span>`;
+      dateLabel = `<span class="blue">(${d.getDate()})</span>`;
+    } else {
+      dayLabel = dayNames[i];
+      dateLabel = `<span>(${d.getDate()})</span>`;
+    }
+    th.innerHTML = `${dayLabel}${dateLabel}`;
+    th.className = 'day-col';
+    trh.appendChild(th);
+  }
+
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const list = Array.isArray(departments) ? departments : [];
+  const rows = list.length ? list : [{ department: '-' }];
+
+  rows.forEach((deptObj) => {
+    const tr = document.createElement('tr');
+    const deptTd = document.createElement('td');
+    deptTd.innerHTML = weeklyDeptLabelHtml(deptObj?.department || '-');
+    deptTd.className = 'dept-col';
+    tr.appendChild(deptTd);
+
+    const schedule = deptObj?.schedule || {};
+    const values = [schedule.mon, schedule.tue, schedule.wed, schedule.thu, schedule.fri, schedule.sat];
+    values.forEach((val) => {
+      const td = document.createElement('td');
+      td.className = 'day-col';
+      const div = document.createElement('div');
+      div.className = 'weekly-editable';
+      div.contentEditable = 'true';
+      div.innerHTML = val || '';
+      div.setAttribute('spellcheck', 'false');
+      div.setAttribute('autocorrect', 'off');
+      div.setAttribute('autocapitalize', 'off');
+      div.setAttribute('data-gramm', 'false');
+      div.setAttribute('data-gramm_editor', 'false');
+      div.style.minHeight = '60px';
+      div.style.outline = 'none';
+      div.style.whiteSpace = 'pre-wrap';
+      div.style.wordBreak = 'break-word';
+      div.style.overflowWrap = 'anywhere';
+      div.dataset.weeklyLastGoodHtml = div.innerHTML || '';
+      td.appendChild(div);
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+}
+
+function renderEditIssuesTableForAdmin(departments) {
+  const table = document.getElementById('weeklyIssuesTable');
+  if (!table) return;
+  table.innerHTML = '';
+
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  ['부서', '전주', '금주'].forEach((h, idx) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    th.className = idx === 0 ? 'dept-col' : 'issue-col';
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const list = Array.isArray(departments) ? departments : [];
+  const rows = list.length ? list : [{ department: '-' }];
+
+  rows.forEach((deptObj) => {
+    const tr = document.createElement('tr');
+    const deptTd = document.createElement('td');
+    deptTd.innerHTML = weeklyDeptNameHtml(deptObj?.department || '-');
+    deptTd.className = 'dept-col';
+    tr.appendChild(deptTd);
+
+    const issues = deptObj?.issues || {};
+    [issues.prev || '', issues.curr || ''].forEach((val) => {
+      const td = document.createElement('td');
+      td.className = 'issue-col';
+      const div = document.createElement('div');
+      div.className = 'weekly-editable';
+      div.contentEditable = 'true';
+      div.innerHTML = val;
+      div.setAttribute('spellcheck', 'false');
+      div.setAttribute('autocorrect', 'off');
+      div.setAttribute('autocapitalize', 'off');
+      div.setAttribute('data-gramm', 'false');
+      div.setAttribute('data-gramm_editor', 'false');
+      div.style.minHeight = '120px';
+      div.style.outline = 'none';
+      div.style.whiteSpace = 'pre-wrap';
+      div.style.wordBreak = 'break-word';
+      div.style.overflowWrap = 'anywhere';
+      td.appendChild(div);
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+}
+
+function weeklyEditExtractDeptName(raw) {
+  const text = String(raw || '').replace(/\s*\(\d+\s*줄\)\s*$/g, '').trim();
+  return text || '';
+}
+
+function weeklyEditCollectAllDepartments() {
+  const map = new Map();
+
+  const scheduleRows = document.querySelectorAll('#weeklyScheduleTable tbody tr');
+  scheduleRows.forEach((tr) => {
+    const cells = tr.querySelectorAll('td');
+    const deptName = weeklyEditExtractDeptName(cells[0]?.textContent || '');
+    if (!deptName) return;
+    const editables = tr.querySelectorAll('.weekly-editable');
+    map.set(deptName, {
+      department: deptName,
+      schedule: {
+        mon: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[0]?.innerHTML || '')),
+        tue: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[1]?.innerHTML || '')),
+        wed: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[2]?.innerHTML || '')),
+        thu: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[3]?.innerHTML || '')),
+        fri: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[4]?.innerHTML || '')),
+        sat: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[5]?.innerHTML || '')),
+      },
+      issues: { prev: '', curr: '' },
+    });
+  });
+
+  const issueRows = document.querySelectorAll('#weeklyIssuesTable tbody tr');
+  issueRows.forEach((tr) => {
+    const cells = tr.querySelectorAll('td');
+    const deptName = weeklyEditExtractDeptName(cells[0]?.textContent || '');
+    if (!deptName) return;
+    const editables = tr.querySelectorAll('.weekly-editable');
+    const existing = map.get(deptName) || {
+      department: deptName,
+      schedule: { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '' },
+      issues: { prev: '', curr: '' },
+    };
+    existing.issues = {
+      prev: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[0]?.innerHTML || '')),
+      curr: weeklyPreserveLeadingSpacesInHtml(weeklySanitizeHtmlForSave(editables[1]?.innerHTML || '')),
+    };
+    map.set(deptName, existing);
+  });
+
+  return Array.from(map.values());
+}
+
+function weeklyEditInitAdminWeekPicker(monday) {
+  const controls = document.getElementById('weeklyAdminControls');
+  const picker = document.getElementById('weeklyWeekStartPicker');
+  const applyBtn = document.getElementById('weeklyWeekStartApply');
+  if (!controls || !picker) return;
+
+  controls.style.display = 'flex';
+  picker.value = weeklyEditFormatDateISO(monday);
+
+  const apply = () => {
+    const value = String(picker.value || '').trim();
+    if (!value) return;
+    const picked = new Date(value);
+    if (Number.isNaN(picked.getTime())) return;
+    const nextMonday = weeklyEditNearestMonday(picked);
+    _weeklyEditMonday = nextMonday;
+    weeklyEditFetchAndRenderAll(nextMonday);
+  };
+
+  picker.onchange = apply;
+  if (applyBtn) applyBtn.onclick = apply;
+}
+
+function weeklyEditFetchAndRenderAll(monday) {
+  if (!monday) return;
+  const weekStart = weeklyEditFormatDateISO(monday);
+  const root = document.getElementById('weeklyDetailRoot');
+  if (root) root.dataset.weekStart = weekStart;
+
+  fetch(`/api/weekly_detail?week_start=${encodeURIComponent(weekStart)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.ok) {
+        renderEditTitles(monday, {});
+        renderEditScheduleTableForAdmin(monday, []);
+        renderEditIssuesTableForAdmin([]);
+        return;
+      }
+      window.__weeklyDetailData__ = data;
+      renderEditTitles(monday, data.week || {});
+      const departments = Array.isArray(data.departments) ? data.departments : [];
+      renderEditScheduleTableForAdmin(monday, departments);
+      renderEditIssuesTableForAdmin(departments);
+    })
+    .catch((err) => {
+      console.warn('weeklyEditFetchAndRenderAll error:', err);
+      renderEditTitles(monday, {});
+      renderEditScheduleTableForAdmin(monday, []);
+      renderEditIssuesTableForAdmin([]);
+    })
+    .finally(() => {
+      createWeeklyToolbar();
+      bindWeeklyEditableEvents();
+    });
 }
 
 // ====== 일정표(week schedule) 칸: 부서별 줄 수 제한 (인쇄 기준, 방법 B) ======
@@ -1350,6 +1680,13 @@ function weeklySanitizeHtmlForSave(html) {
 function _collectWeeklyPayload() {
   const root = document.getElementById('weeklyDetailRoot');
   const week_start = root?.dataset?.weekStart || '';
+
+  if (weeklyEditIsAdminByAccess()) {
+    return {
+      week_start,
+      departments: weeklyEditCollectAllDepartments(),
+    };
+  }
 
   // 일정표 칸만: 부서별 줄 수 제한(인쇄 기준) 적용
   weeklyTrimScheduleCellsBeforeSubmit();

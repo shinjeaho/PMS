@@ -89,24 +89,29 @@ def _build_weekly_segments(department: str, week_start: date, schedule: dict | N
     }
 
 
+def _compute_iso_week_fields(week_start: date) -> dict:
+    iso = week_start.isocalendar()
+    thursday = week_start + timedelta(days=3)
+
+    first_day = date(thursday.year, thursday.month, 1)
+    # 해당 달의 첫 번째 목요일을 구하고, 그 주의 월요일을 1주차 시작으로 사용
+    days_to_first_thursday = (3 - first_day.weekday()) % 7
+    first_thursday = first_day + timedelta(days=days_to_first_thursday)
+    first_week_monday = first_thursday - timedelta(days=3)
+    week_index = ((week_start - first_week_monday).days // 7) + 1
+
+    return {
+        'iso_year': int(iso.year),
+        'iso_week': int(iso.week),
+        'display_month': int(thursday.month),
+        'month_week_index': int(week_index),
+    }
+
+
 def _compute_week_title(week_start: date) -> str:
-    """제목: YY년 M월 N주차
-    규칙: 주차는 '해당 월 내부의 첫 월요일'을 1주차의 시작으로 간주.
-    즉, 그 달의 1일이 월요일이면 그 날이 1주차 시작이고, 그렇지 않으면 그 달의 첫 월요일이 1주차 시작이다.
-    """
-    yy = str(week_start.year)[-2:]
-    month = week_start.month
-
-    first_day = date(week_start.year, month, 1)
-    # 첫 월요일(같은 달 내부)을 찾음
-    dow = first_day.weekday()  # 0=Mon .. 6=Sun
-    days_to_first_monday = (0 - dow) % 7
-    first_month_monday = first_day + timedelta(days=days_to_first_monday)
-    # 만약 week_start가 first_month_monday 이전이라면 0으로 처리(현실적으로 드물음)
-    delta_days = (week_start - first_month_monday).days
-    week_index = (delta_days // 7) + 1 if delta_days >= 0 else 0
-
-    return f"{yy}년{month}월{week_index}주차"
+    """제목: 목요일 기준 월 주차 표기(YYYY년M월N주차)."""
+    fields = _compute_iso_week_fields(week_start)
+    return f"{fields['iso_year']}년{fields['display_month']}월{fields['month_week_index']}주차"
 
 
 def _list_weekly_reports(year: int | None):
@@ -117,28 +122,15 @@ def _list_weekly_reports(year: int | None):
 
     cur = conn.cursor(dictionary=True)
     try:
-        if year is not None:
-            cur.execute(
-                """
-                SELECT r.week_start, MAX(r.title) AS title
-                  FROM weekly_report r
-                 WHERE r.year = %s
-                   AND EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
-                 GROUP BY r.week_start
-                 ORDER BY r.week_start DESC
-                """,
-                (year,),
-            )
-        else:
-            cur.execute(
-                """
-                SELECT r.week_start, MAX(r.title) AS title
-                  FROM weekly_report r
-                 WHERE EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
-                 GROUP BY r.week_start
-                 ORDER BY r.week_start DESC
-                """
-            )
+        cur.execute(
+            """
+            SELECT r.week_start, MAX(r.title) AS title
+              FROM weekly_report r
+             WHERE EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
+             GROUP BY r.week_start
+             ORDER BY r.week_start DESC
+            """
+        )
 
         rows = cur.fetchall() or []
         for row in rows:
@@ -152,7 +144,10 @@ def _list_weekly_reports(year: int | None):
             # Always compute title from week_start using current rules to avoid
             # showing stale DB values that were computed with old logic.
             if isinstance(ws_date, date):
-                title = _compute_week_title(ws_date)
+                meta = _compute_week_meta(ws_date)
+                if year is not None and int(meta['year']) != int(year):
+                    continue
+                title = meta['title']
 
             items.append(
                 {
@@ -225,26 +220,21 @@ def _compute_week_range(week_start: date) -> str:
 
 
 def _compute_week_meta(week_start: date):
-    y = week_start.year
-    m = week_start.month
-    first_day = date(y, m, 1)
-    dow = first_day.weekday()  # 0=Mon .. 6=Sun
-    days_to_first_monday = (0 - dow) % 7
-    first_month_monday = first_day + timedelta(days=days_to_first_monday)
-    delta_days = (week_start - first_month_monday).days
-    week_index = (delta_days // 7) + 1 if delta_days >= 0 else 0
+    fields = _compute_iso_week_fields(week_start)
+    y = fields['iso_year']
+    m = fields['display_month']
+    week_index = fields['month_week_index']
 
-    if m == 12:
-        days_in_month = 31
-    else:
-        days_in_month = (date(y, m + 1, 1) - timedelta(days=1)).day
-    crosses_next_month = (week_start.day + 6) > days_in_month
+    thursday = week_start + timedelta(days=3)
+    week_end = week_start + timedelta(days=6)
+    crosses_next_month = thursday.month != week_end.month
 
     title = _compute_week_title(week_start)
     return {
         'year': y,
         'month': m,
         'week_index': week_index,
+        'iso_year': y,
         'crosses_next_month': 1 if crosses_next_month else 0,
         'title': title,
     }
@@ -263,6 +253,7 @@ def _get_weekly_detail(week_start: date):
             'week_start': week_start.isoformat(),
             'title': meta['title'],
             'year': meta['year'],
+            'iso_year': meta['iso_year'],
             'month': meta['month'],
             'week_index': meta['week_index'],
             'range': _compute_week_range(week_start),
