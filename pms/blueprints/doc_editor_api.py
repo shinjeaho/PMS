@@ -47,6 +47,65 @@ def _column_exists(cursor, table_name: str, column_name: str) -> bool:
     return bool(row and row[0])
 
 
+def _column_collation(cursor, table_name: str, column_name: str) -> str | None:
+    cursor.execute(
+        """
+        SELECT collation_name
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+        LIMIT 1
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone()
+    if isinstance(row, dict):
+        return row.get('collation_name') or row.get('COLLATION_NAME')
+    if row and len(row) > 0:
+        return row[0]
+    return None
+
+
+def _meeting_viewers_fk_column(cursor) -> str:
+    if _column_exists(cursor, 'meeting_viewers', 'meeting_id'):
+        return 'meeting_id'
+    return 'record_id'
+
+
+def _meeting_viewers_user_column(cursor) -> str:
+    if _column_exists(cursor, 'meeting_viewers', 'user_name'):
+        return 'user_name'
+    if _column_exists(cursor, 'meeting_viewers', 'viewer_name'):
+        return 'viewer_name'
+    return 'user_name'
+
+
+def _meeting_viewers_has_department(cursor) -> bool:
+    return _column_exists(cursor, 'meeting_viewers', 'department')
+
+
+def _meeting_viewers_has_position(cursor) -> bool:
+    return _column_exists(cursor, 'meeting_viewers', 'position')
+
+
+def _meeting_viewers_time_column(cursor) -> str | None:
+    if _column_exists(cursor, 'meeting_viewers', 'viewed_at'):
+        return 'viewed_at'
+    if _column_exists(cursor, 'meeting_viewers', 'create_at'):
+        return 'create_at'
+    if _column_exists(cursor, 'meeting_viewers', 'created_at'):
+        return 'created_at'
+    return None
+
+
+def _meeting_viewers_join_collation(cursor) -> str:
+    user_col = _meeting_viewers_user_column(cursor)
+    return (
+        _column_collation(cursor, 'users', 'Name')
+        or _column_collation(cursor, 'meeting_viewers', user_col)
+        or 'utf8mb4_unicode_ci'
+    )
+
+
 def _sanitize_filename(filename: str) -> str:
     filename = re.sub(r"[^\w가-힣._-]", "", filename)
     return filename.replace(" ", "_")
@@ -127,33 +186,37 @@ def _get_session_user_name() -> str:
 
 
 def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
+    has_department = _meeting_viewers_has_department(cursor)
+    has_position = _meeting_viewers_has_position(cursor)
+    if not has_department and not has_position:
+        return
+
+    fk_col = _meeting_viewers_fk_column(cursor)
+    user_col = _meeting_viewers_user_column(cursor)
+    join_collation = _meeting_viewers_join_collation(cursor)
     params = []
     where_clause = ""
     if meeting_id:
-        where_clause = " AND mv.meeting_id = %s"
+        where_clause = f" AND mv.{fk_col} = %s"
         params.append(meeting_id)
+
+    set_clauses = []
+    if has_department:
+        set_clauses.append("mv.department = COALESCE(NULLIF(TRIM(u.Department), ''), mv.department)")
+
+    if has_position:
+        set_clauses.append("mv.position = COALESCE(NULLIF(TRIM(u.Position), ''), mv.position)")
 
     cursor.execute(
         f"""
         UPDATE meeting_viewers mv
-        JOIN users u ON mv.user_name = u.Name
-        SET
-            mv.department = CASE
-                WHEN mv.department IS NULL OR TRIM(mv.department) = '' OR mv.department = '-'
-                    THEN COALESCE(NULLIF(TRIM(u.Department), ''), mv.department)
-                ELSE mv.department
-            END,
-            mv.position = CASE
-                WHEN mv.position IS NULL OR TRIM(mv.position) = '' OR mv.position = '-'
-                    THEN COALESCE(NULLIF(TRIM(u.Position), ''), mv.position)
-                ELSE mv.position
-            END
+        JOIN users u ON (
+            CONVERT(mv.{user_col} USING utf8mb4) COLLATE {join_collation}
+            = CONVERT(u.Name USING utf8mb4) COLLATE {join_collation}
+        )
+        SET {', '.join(set_clauses)}
         WHERE 1=1
           {where_clause}
-          AND (
-              mv.department IS NULL OR TRIM(mv.department) = '' OR mv.department = '-'
-              OR mv.position IS NULL OR TRIM(mv.position) = '' OR mv.position = '-'
-          )
         """,
         tuple(params),
     )
@@ -791,14 +854,22 @@ def increment_meeting_view():
     cursor = conn.cursor(dictionary=True)
     try:
         try:
+            fk_col = _meeting_viewers_fk_column(cursor)
+            user_col = _meeting_viewers_user_column(cursor)
+            has_department = _meeting_viewers_has_department(cursor)
+            has_position = _meeting_viewers_has_position(cursor)
+            time_col = _meeting_viewers_time_column(cursor)
+
+            department_select = "COALESCE(NULLIF(TRIM(department), ''), '-') AS department" if has_department else "'-' AS department"
+            position_select = "COALESCE(NULLIF(TRIM(position), ''), '-') AS position" if has_position else "'-' AS position"
             cursor.execute(
                 """
                                 SELECT id,
-                                             COALESCE(NULLIF(TRIM(department), ''), '-') AS department,
-                                             COALESCE(NULLIF(TRIM(position), ''), '-') AS position
+                                             """ + department_select + """,
+                                             """ + position_select + """
                 FROM meeting_viewers
-                WHERE meeting_id = %s
-                                    AND user_name = %s
+                WHERE """ + fk_col + """ = %s
+                                    AND """ + user_col + """ = %s
                 LIMIT 1
                 """,
                                 (record_id, viewer['name']),
@@ -806,13 +877,31 @@ def increment_meeting_view():
             existing = cursor.fetchone()
 
             if not existing:
+                insert_cols = [fk_col, user_col]
+                insert_values = ["%s", "%s"]
+                insert_params = [record_id, viewer['name']]
+
+                if has_department:
+                    insert_cols.append('department')
+                    insert_values.append('%s')
+                    insert_params.append(viewer['department'])
+
+                if has_position:
+                    insert_cols.append('position')
+                    insert_values.append('%s')
+                    insert_params.append(viewer['position'])
+
+                if time_col == 'viewed_at':
+                    insert_cols.append('viewed_at')
+                    insert_values.append('NOW()')
+
                 cursor.execute(
                     """
                     INSERT INTO meeting_viewers
-                    (meeting_id, user_name, department, position, viewed_at)
-                    VALUES (%s, %s, %s, %s, NOW())
+                    (""" + ', '.join(insert_cols) + """)
+                    VALUES (""" + ', '.join(insert_values) + """)
                     """,
-                    (record_id, viewer['name'], viewer['department'], viewer['position']),
+                    tuple(insert_params),
                 )
                 cursor.execute(
                     """
@@ -824,36 +913,55 @@ def increment_meeting_view():
                 )
                 conn.commit()
             else:
-                if (
-                    ((existing.get('department') or '-').strip() in ('', '-')) and viewer['department'] != '-'
-                ) or (
-                    ((existing.get('position') or '-').strip() in ('', '-')) and viewer['position'] != '-'
-                ):
+                if time_col == 'viewed_at':
                     cursor.execute(
                         """
                         UPDATE meeting_viewers
-                        SET department = CASE
+                        SET viewed_at = NOW()
+                        WHERE id = %s
+                        """,
+                        (existing['id'],),
+                    )
+
+                if (
+                    has_department and ((existing.get('department') or '-').strip() in ('', '-')) and viewer['department'] != '-'
+                ) or (
+                    has_position and ((existing.get('position') or '-').strip() in ('', '-')) and viewer['position'] != '-'
+                ):
+                    update_set = []
+                    update_params = []
+                    if has_department:
+                        update_set.append(
+                            """
+                            department = CASE
                                 WHEN department IS NULL OR TRIM(department) = '' OR department = '-'
-                                    THEN %s ELSE department END,
+                                    THEN %s ELSE department END
+                            """
+                        )
+                        update_params.append(viewer['department'])
+
+                    if has_position:
+                        update_set.append(
+                            """
                             position = CASE
                                 WHEN position IS NULL OR TRIM(position) = '' OR position = '-'
                                     THEN %s ELSE position END
+                            """
+                        )
+                        update_params.append(viewer['position'])
+
+                    cursor.execute(
+                        """
+                        UPDATE meeting_viewers
+                        SET """ + ', '.join(update_set) + """
                         WHERE id = %s
                         """,
-                        (viewer['department'], viewer['position'], existing['id']),
+                        tuple(update_params + [existing['id']]),
                     )
-                    conn.commit()
-        except Exception:
+                conn.commit()
+        except Exception as e:
             conn.rollback()
-            cursor.execute(
-                """
-                UPDATE meeting_files
-                SET view_count = COALESCE(view_count, 0) + 1
-                WHERE id = %s
-                """,
-                (record_id,),
-            )
-            conn.commit()
+            return jsonify({'success': False, 'message': str(e)}), 500
 
         cursor.execute(
             """
@@ -886,25 +994,41 @@ def list_meeting_viewers():
     cursor = conn.cursor(dictionary=True)
     try:
         try:
+            fk_col = _meeting_viewers_fk_column(cursor)
+            user_col = _meeting_viewers_user_column(cursor)
+            has_department = _meeting_viewers_has_department(cursor)
+            has_position = _meeting_viewers_has_position(cursor)
+            time_col = _meeting_viewers_time_column(cursor)
+
+            user_select = f"{user_col} AS user_name"
+            department_select = "COALESCE(NULLIF(TRIM(department), ''), '-') AS department" if has_department else "'-' AS department"
+            position_select = "COALESCE(NULLIF(TRIM(position), ''), '-') AS position" if has_position else "'-' AS position"
+            if time_col:
+                time_select = f"DATE_FORMAT({time_col}, '%Y-%m-%d %H:%i') AS viewed_at"
+                order_clause = f"ORDER BY {time_col} DESC, id DESC"
+            else:
+                time_select = "'-' AS viewed_at"
+                order_clause = "ORDER BY id DESC"
+
             _backfill_meeting_viewers_profile(cursor, str(meeting_id))
             conn.commit()
 
             cursor.execute(
                 """
-                SELECT user_name,
-                       COALESCE(NULLIF(TRIM(department), ''), '-') AS department,
-                       COALESCE(NULLIF(TRIM(position), ''), '-') AS position,
-                       DATE_FORMAT(viewed_at, '%Y-%m-%d %H:%i') AS viewed_at
+                SELECT """ + user_select + """,
+                       """ + department_select + """,
+                       """ + position_select + """,
+                       """ + time_select + """
                 FROM meeting_viewers
-                WHERE meeting_id = %s
-                ORDER BY viewed_at DESC, id DESC
+                WHERE """ + fk_col + """ = %s
+                """ + order_clause + """
                 """,
                 (meeting_id,),
             )
             items = cursor.fetchall() or []
             return jsonify({'success': True, 'items': items})
-        except Exception:
-            return jsonify({'success': True, 'items': []})
+        except Exception as e:
+            return jsonify({'success': False, 'items': [], 'message': str(e)}), 500
     finally:
         cursor.close()
         conn.close()
