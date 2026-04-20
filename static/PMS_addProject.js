@@ -327,6 +327,18 @@ function initContributionRateInput() {
 }
 
 // 참조사업 데이터 수집 (saveBudget와 유사한 방식 적용)
+function normalizeReferenceCode(value) {
+    const normalized = (value || '').trim();
+    if (!normalized) return '';
+
+    const lowerValue = normalized.toLowerCase();
+    if (['none', 'null', 'undefined', '-'].includes(lowerValue)) {
+        return '';
+    }
+
+    return normalized;
+}
+
 function collectReferenceProjects() {
     const referenceProjects = [];
     const rows = document.querySelectorAll('#referenceProjectTbody tr');
@@ -334,11 +346,11 @@ function collectReferenceProjects() {
     rows.forEach((row, index) => {
         // <input> 태그에서 value 값을 읽어옴
         const input = row.cells[1].querySelector('input');
-        const value = input?.value.trim(); // input이 있을 경우 value를 가져옴
+        const value = normalizeReferenceCode(input?.value); // input이 있을 경우 value를 가져옴
         console.log(`[DEBUG] Row ${index + 1}, Input Value:`, value); // 디버깅 출력
 
         // 값이 비어있지 않으면 배열에 추가
-        if (value && !['None', 'NULL', '-', ''].includes(value)) {
+        if (value) {
             referenceProjects.push({
                 referenceCode: value
             });
@@ -592,7 +604,10 @@ function renderReferenceProjectChip(td) {
     input.style.display = 'none';
     td.querySelectorAll('.reference-chip').forEach((chip) => chip.remove());
 
-    const code = (input.value || '').trim();
+    const code = normalizeReferenceCode(input.value);
+    if (input.value !== code) {
+        input.value = code;
+    }
     if (!code) return;
 
     const projectName = (input.dataset.projectName || '').trim();
@@ -636,6 +651,17 @@ let uploadedFileList = [];
 
 // 수정 모드 초기 파일 목록
 let savedFileList = window.savedFileList || [];
+
+function renderInitialFileList() {
+    if (isEditMode) {
+        if (Array.isArray(savedFileList) && savedFileList.length > 0) {
+            renderFilePreview(savedFileList, true);
+        }
+        return;
+    }
+
+    renderFilePreview(uploadedFileList, false);
+}
 
 // 공통: 미리보기 렌더링
 function renderFilePreview(files, isSaved = false) {

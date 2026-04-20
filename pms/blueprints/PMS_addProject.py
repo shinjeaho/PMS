@@ -28,11 +28,23 @@ def get_add_or_edit_project():
         expenses = None
         project_files = []
 
+        def normalize_reference_code(code):
+            if code is None:
+                return None
+            text = str(code).strip()
+            if not text or text.lower() in ['none', 'null', 'undefined', '-']:
+                return None
+            return text
+
         if project_id:
             cursor.execute("SELECT * FROM projects WHERE ProjectID = %s", (project_id,))
             project = cursor.fetchone()
             if not project:
                 return "Project not found", 404
+
+            for ref_field in ['referenceProject1', 'referenceProject2', 'referenceProject3', 'referenceProject4', 'referenceProject5']:
+                if ref_field in project:
+                    project[ref_field] = normalize_reference_code(project.get(ref_field))
 
             cursor.execute(
                 """

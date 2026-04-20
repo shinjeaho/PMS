@@ -203,7 +203,7 @@
                                 <td>참조사업 {{ i }}</td>
                                 <td style="height: 30px; cursor: pointer;" onclick="openSearchModal(this)">
                                     <input type="text" name="referenceProject{{ i }}"
-                                        value="{% if is_edit or is_clone %}{{ project['referenceProject' ~ i] }}{% else %}{% endif %}"
+                                        value="{% if is_edit or is_clone %}{{ project['referenceProject' ~ i] if project['referenceProject' ~ i] not in [None, 'None', 'NULL', 'undefined', '-'] else '' }}{% else %}{% endif %}"
                                         style="width: 100%; border: none; background: transparent; pointer-events: none;"
                                         readonly>
                                 </td>
@@ -293,6 +293,7 @@
     <script>
         window.isEditMode = {{ is_edit | tojson }};
         window.projectId = {% if project_id %}'{{ project_id }}'{% else %}null{% endif %};
+        window.savedFileList = {{ files | tojson }};
     </script>
     <script src="{{ url_for('static', filename='PMS_addProject.js') }}"></script>
 </body>
