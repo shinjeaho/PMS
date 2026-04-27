@@ -34,6 +34,12 @@ python run.py
 - 실행 중 생성되는 `Logs/`, `backups/`, `uploads/`, `static/uploads/` 등도 레포에서 제외합니다.
 - 필요한 의존성은 `requirements.txt`로 재현합니다.
 
+## Docker 배포
+
+- Synology Container Manager 기준 배포 파일을 루트에 추가했습니다.
+- 사용 파일: `Dockerfile`, `docker-compose.yml`, `.env.example`
+- 상세 절차는 `deploy/synology/README.md`를 참고합니다.
+
 ## 개발용 도구
 
 - 블루프린트/엔드포인트 헬스체크: `python tools/healthcheck_blueprints.py`

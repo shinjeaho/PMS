@@ -14,6 +14,7 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+.env
 
 # Project data (excluded by policy)
 backups/

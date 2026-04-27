@@ -12,8 +12,8 @@ from pms.middleware import init_address_lock, init_login_gate
 def create_app() -> Flask:
     app = Flask(__name__, static_folder='static')
 
-    # 기존 동작 유지: 재시작 시 세션키가 바뀌는 구조(원본과 동일)
-    app.secret_key = os.urandom(24)
+    # 배포 환경에서는 고정 세션키를 허용하고, 없으면 기존처럼 임시 키를 사용합니다.
+    app.secret_key = os.getenv('PMS_SECRET_KEY') or os.urandom(24)
 
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')

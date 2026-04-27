@@ -1,0 +1,28 @@
+services:
+  pms-web:
+    container_name: pms-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PMS_HOST_PORT:-5000}:5000"
+    environment:
+      TZ: ${TZ:-Asia/Seoul}
+      PMS_HOST: 0.0.0.0
+      PMS_PORT: ${PMS_PORT:-5000}
+      PMS_THREADS: ${PMS_THREADS:-8}
+      PMS_SECRET_KEY: ${PMS_SECRET_KEY}
+      PMS_BACKUP_ON_START: ${PMS_BACKUP_ON_START:-0}
+      PMS_DAILY_BACKUP: ${PMS_DAILY_BACKUP:-0}
+      PMS_DAILY_BACKUP_TIME: ${PMS_DAILY_BACKUP_TIME:-00:00}
+      PMS_DB_PROFILE: ${PMS_DB_PROFILE:-default}
+      PMS_DB_HOST: ${PMS_DB_HOST}
+      PMS_DB_USER: ${PMS_DB_USER}
+      PMS_DB_PASSWORD: ${PMS_DB_PASSWORD}
+      PMS_DB_NAME: ${PMS_DB_NAME}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./Logs:/app/Logs
+      - ./backups:/app/backups
+      - ./static/uploads:/app/static/uploads
