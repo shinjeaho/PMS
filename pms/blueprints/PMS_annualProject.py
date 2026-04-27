@@ -10,8 +10,26 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 
 from ..db import create_connection
 from ..services.progress import calc_progress_bulk
+from ..services.project_status import (
+    ensure_project_status_history_table,
+    get_completed_project_ids_for_year,
+    get_project_status_map_for_year,
+    normalize_project_status,
+)
 
 bp = Blueprint('annual_project', __name__)
+
+
+def _apply_project_status_for_year(cursor, projects, selected_year):
+    if not projects:
+        return {}
+
+    target_year = int(selected_year or date.today().year)
+    status_map = get_project_status_map_for_year(cursor, projects, target_year)
+    for project in projects:
+        project_id = project.get('projectID')
+        project['project_status'] = status_map.get(project_id, normalize_project_status(project.get('project_status')))
+    return status_map
 
 
 def _fetch_engineers_summary(cursor, selected_year):
@@ -52,20 +70,6 @@ def _fetch_engineers_summary(cursor, selected_year):
     )
     results = cursor.fetchall()
 
-    def _normalize_project_status(raw_status):
-        if raw_status is None:
-            return '진행중'
-        status = str(raw_status).strip()
-        if not status:
-            return '진행중'
-        if status.startswith('준공'):
-            return '준공'
-        if status == '용역중지':
-            return '용역중지'
-        if status == '진행중':
-            return '진행중'
-        return status
-
     contract_codes = [row['ContractCode'] for row in results]
     if not contract_codes:
         return [], 1, available_years
@@ -101,10 +105,12 @@ def _fetch_engineers_summary(cursor, selected_year):
         elif role == '분참':
             grouped[code]['participants'].append(name)
 
+    status_map = get_project_status_map_for_year(cursor, results, selected_year or date.today().year)
+
     max_participants = 0
     for project in results:
         code = project['ContractCode']
-        project['project_status'] = _normalize_project_status(project.get('project_status'))
+        project['project_status'] = status_map.get(project.get('projectID'), normalize_project_status(project.get('project_status')))
         role_group = grouped.get(code, {'chief': [], 'subchief': [], 'participants': []})
         project['chief'] = role_group['chief']
         project['subchief'] = role_group['subchief']
@@ -128,17 +134,27 @@ def _fetch_engineers_summary(cursor, selected_year):
 
 
 @bp.route('/PMS_annualProject/<mode>/<int:year>')
-def annual_project(mode, year):
+def annual_project(mode, year, template_name='PMS_annualProject.html', extra_context=None):
     """
     연도별 비용산출 통합자료 상세페이지 (템플릿 렌더링)
     각 프로젝트의 시작연도에 맞는 인건비(Days)를 적용하여 실제 인건비를 계산합니다.
     """
     db = create_connection()
     cursor = db.cursor(dictionary=True)
+    context = dict(extra_context or {})
     try:
-        if mode == 'complete':
-            year_2digit = str(year)[2:]
+        if mode == 'money' and 'available_years' not in context:
+            cursor.execute(
+                """
+                SELECT DISTINCT YEAR(StartDate) AS year
+                FROM projects
+                WHERE StartDate IS NOT NULL
+                ORDER BY year DESC
+                """
+            )
+            context['available_years'] = [row['year'] for row in cursor.fetchall() if row.get('year')]
 
+        if mode == 'complete':
             cursor.execute(
                 """
                 SELECT
@@ -159,15 +175,40 @@ def annual_project(mode, year):
                     D_Day,
                     orderPlace
                 FROM projects
-                WHERE (
-                    project_status LIKE CONCAT('준공(', %s, ')') OR
-                    project_status LIKE CONCAT('준공(', %s, ')')
-                )
-                AND ContractCode NOT LIKE '%%-00'
-                AND ContractCode NOT LIKE '%%검토%%'
+                                WHERE ContractCode NOT LIKE '%%-00'
+                                    AND ContractCode NOT LIKE '%%검토%%'
+                                    AND (StartDate IS NULL OR StartDate <= %s)
                 ORDER BY ContractCode DESC
                 """,
-                (year, year_2digit),
+                                (date(int(year), 12, 31),),
+            )
+            results = cursor.fetchall()
+        elif mode == 'money':
+            cursor.execute(
+                """
+                SELECT
+                    p.projectID,
+                    p.ContractCode,
+                    p.ProjectName,
+                    p.ProjectCost,
+                    p.ProjectCost_NoVAT,
+                    p.ContributionRate,
+                    p.AcademicResearchRate,
+                    p.OperationalRate,
+                    p.EquipmentRate,
+                    p.StartDate,
+                    p.EndDate,
+                    p.ChangeProjectCost,
+                    p.project_status,
+                    p.yearProject,
+                    p.D_Day,
+                    p.orderPlace
+                FROM projects p
+                WHERE p.ContractCode NOT LIKE '%%검토%%'
+                                    AND (p.StartDate IS NULL OR p.StartDate <= %s)
+                ORDER BY p.ContractCode DESC
+                """,
+                                (date(int(year), 12, 31),),
             )
             results = cursor.fetchall()
         else:
@@ -200,10 +241,15 @@ def annual_project(mode, year):
             )
             results = cursor.fetchall()
 
+        _apply_project_status_for_year(cursor, results, year)
+        if mode == 'complete':
+            completed_project_ids = get_completed_project_ids_for_year(cursor, results, year)
+            results = [project for project in results if project.get('projectID') in completed_project_ids]
+
         contract_codes_all = [row['ContractCode'] for row in results]
         contract_codes = [row['ContractCode'] for row in results]
         if not contract_codes:
-            return render_template('PMS_annualProject.html', year=year, mode=mode, projects=[])
+            return render_template(template_name, year=year, mode=mode, projects=[], **context)
 
         format_strings = ','.join(['%s'] * len(contract_codes))
 
@@ -222,24 +268,26 @@ def annual_project(mode, year):
                 has_division = False
 
             if has_division:
-                cursor.execute(
-                    f"""
-                    SELECT DISTINCT contractcode
-                    FROM project_risks
-                    WHERE contractcode IN ({format_strings})
-                      AND (division IS NULL OR division <> '완료')
-                    """,
-                    contract_codes_all,
-                )
+                risk_where = [
+                    f"contractcode IN ({format_strings})",
+                    "(division IS NULL OR division <> '완료')",
+                ]
             else:
-                cursor.execute(
-                    f"""
-                    SELECT DISTINCT contractcode
-                    FROM project_risks
-                    WHERE contractcode IN ({format_strings})
-                    """,
-                    contract_codes_all,
-                )
+                risk_where = [f"contractcode IN ({format_strings})"]
+
+            risk_params = list(contract_codes_all)
+            if mode == 'money':
+                risk_where.append("write_date IS NOT NULL AND YEAR(write_date) = %s")
+                risk_params.append(year)
+
+            cursor.execute(
+                f"""
+                SELECT DISTINCT contractcode
+                FROM project_risks
+                WHERE {' AND '.join(risk_where)}
+                """,
+                tuple(risk_params),
+            )
 
             for r in cursor.fetchall() or []:
                 code = r.get('contractcode') if isinstance(r, dict) else (r[0] if isinstance(r, tuple) else None)
@@ -249,57 +297,61 @@ def annual_project(mode, year):
             risk_map = {}
 
         perf_review_map = {}
-        try:
-            cursor.execute(
-                f"""
-                SELECT ContractCode, performanceReview, reviewDate, UpdateDate
-                FROM performanceevaluationfee
-                WHERE ContractCode IN ({format_strings})
-                ORDER BY ContractCode, COALESCE(reviewDate, UpdateDate) DESC
-                """,
-                contract_codes_all,
-            )
-            rows = cursor.fetchall() or []
+        if mode != 'money':
+            try:
+                perf_review_where = [f"ContractCode IN ({format_strings})"]
+                perf_review_params = list(contract_codes_all)
 
-            def _normalize_review_status(v):
-                if v is None:
-                    return None
-                s = str(v).strip()
-                if not s:
-                    return None
-                if s.lower() == 'none':
-                    return None
-                if s == '-':
-                    return None
-                return s
+                cursor.execute(
+                    f"""
+                    SELECT ContractCode, performanceReview, reviewDate, UpdateDate
+                    FROM performanceevaluationfee
+                    WHERE {' AND '.join(perf_review_where)}
+                    ORDER BY ContractCode, COALESCE(reviewDate, UpdateDate) DESC
+                    """,
+                    tuple(perf_review_params),
+                )
+                rows = cursor.fetchall() or []
 
-            def _review_score(s):
-                if not s:
-                    return 0
-                if s == '완료':
-                    return 30
-                if s == '접수':
-                    return 20
-                if s == '없음':
-                    return 10
-                return 5
+                def _normalize_review_status(v):
+                    if v is None:
+                        return None
+                    s = str(v).strip()
+                    if not s:
+                        return None
+                    if s.lower() == 'none':
+                        return None
+                    if s == '-':
+                        return None
+                    return s
 
-            for r in rows:
-                if not isinstance(r, dict):
-                    continue
-                code = r.get('ContractCode')
-                if not code:
-                    continue
+                def _review_score(s):
+                    if not s:
+                        return 0
+                    if s == '완료':
+                        return 30
+                    if s == '접수':
+                        return 20
+                    if s == '없음':
+                        return 10
+                    return 5
 
-                status_val = _normalize_review_status(r.get('performanceReview'))
-                if not status_val:
-                    continue
+                for r in rows:
+                    if not isinstance(r, dict):
+                        continue
+                    code = r.get('ContractCode')
+                    if not code:
+                        continue
 
-                prev = perf_review_map.get(code)
-                if (prev is None) or (_review_score(status_val) > _review_score(prev)):
-                    perf_review_map[code] = status_val
-        except Exception:
-            perf_review_map = {}
+                    status_val = _normalize_review_status(r.get('performanceReview'))
+                    if not status_val:
+                        continue
+
+                    prev = perf_review_map.get(code)
+                    if (prev is None) or (_review_score(status_val) > _review_score(prev)):
+                        perf_review_map[code] = status_val
+            except Exception:
+                perf_review_map = {}
 
         cursor.execute(
             f"""
@@ -333,27 +385,102 @@ def annual_project(mode, year):
         )
         outsourcing_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
 
+        outsourcing_paid_where = f"o.contract_code IN ({format_strings})"
+        outsourcing_paid_params = list(contract_codes_all)
+        if mode == 'money':
+            outsourcing_paid_where += " AND omp.PaymentDate IS NOT NULL AND YEAR(omp.PaymentDate) = %s"
+            outsourcing_paid_params.append(year)
+
         cursor.execute(
             f"""
             SELECT o.contract_code, SUM(omp.Cost_NoVAT) AS total
             FROM outSourcing_MoneyPayment AS omp
             JOIN outsourcing AS o ON o.id = omp.outsourcing_id
-            WHERE o.contract_code IN ({format_strings})
+            WHERE {outsourcing_paid_where}
             GROUP BY o.contract_code
             """,
-            contract_codes_all,
+            tuple(outsourcing_paid_params),
         )
         outsourcing_paid_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
+
+        outsourcing_paid_cumulative_map = outsourcing_paid_map
+        outsourcing_paid_previous_map = {}
+        outsourcing_payment_details_map = {}
+        if mode == 'money':
+            cursor.execute(
+                f"""
+                SELECT o.contract_code, SUM(omp.Cost_NoVAT) AS total
+                FROM outSourcing_MoneyPayment AS omp
+                JOIN outsourcing AS o ON o.id = omp.outsourcing_id
+                WHERE o.contract_code IN ({format_strings})
+                  AND omp.PaymentDate IS NOT NULL
+                  AND YEAR(omp.PaymentDate) <= %s
+                GROUP BY o.contract_code
+                """,
+                tuple(contract_codes_all) + (year,),
+            )
+            outsourcing_paid_cumulative_map = {
+                row['contract_code']: float(row['total'] or 0)
+                for row in cursor.fetchall()
+            }
+
+            cursor.execute(
+                f"""
+                SELECT o.contract_code, SUM(omp.Cost_NoVAT) AS total
+                FROM outSourcing_MoneyPayment AS omp
+                JOIN outsourcing AS o ON o.id = omp.outsourcing_id
+                WHERE o.contract_code IN ({format_strings})
+                  AND omp.PaymentDate IS NOT NULL
+                  AND YEAR(omp.PaymentDate) < %s
+                GROUP BY o.contract_code
+                """,
+                tuple(contract_codes_all) + (year,),
+            )
+            outsourcing_paid_previous_map = {
+                row['contract_code']: float(row['total'] or 0)
+                for row in cursor.fetchall()
+            }
+
+            cursor.execute(
+                f"""
+                SELECT o.contract_code, omp.PaymentDate, SUM(omp.Cost_NoVAT) AS total
+                FROM outSourcing_MoneyPayment AS omp
+                JOIN outsourcing AS o ON o.id = omp.outsourcing_id
+                WHERE o.contract_code IN ({format_strings})
+                  AND omp.PaymentDate IS NOT NULL
+                  AND YEAR(omp.PaymentDate) = %s
+                GROUP BY o.contract_code, omp.PaymentDate
+                ORDER BY o.contract_code, omp.PaymentDate
+                """,
+                tuple(contract_codes_all) + (year,),
+            )
+            for row in cursor.fetchall():
+                code = row.get('contract_code')
+                if not code:
+                    continue
+                if code not in outsourcing_payment_details_map:
+                    outsourcing_payment_details_map[code] = []
+                pay_date = row.get('PaymentDate')
+                outsourcing_payment_details_map[code].append({
+                    'payment_date': pay_date.strftime('%Y-%m-%d') if pay_date else None,
+                    'amount': float(row.get('total') or 0),
+                })
+
+        receipt_where = f"ContractCode IN ({format_strings})"
+        receipt_params = list(contract_codes)
+        if mode == 'money':
+            receipt_where += " AND ReceiptDate IS NOT NULL AND YEAR(ReceiptDate) <= %s"
+            receipt_params.append(year)
 
         cursor.execute(
             f"""
             SELECT ContractCode, division, SUM(amount) as total, ReceiptDate
             FROM businessreceiptdetails
-            WHERE ContractCode IN ({format_strings})
+            WHERE {receipt_where}
             GROUP BY ContractCode, division, ReceiptDate
             ORDER BY ContractCode, ReceiptDate ASC
             """,
-            contract_codes,
+            tuple(receipt_params),
         )
         receipt_data = cursor.fetchall()
 
@@ -468,8 +595,12 @@ def annual_project(mode, year):
             project['actual_total'] = actual_labor + actual_expense + actual_other + actual_performance
 
             paid = outsourcing_paid_map.get(code, 0.0)
+            paid_previous = outsourcing_paid_previous_map.get(code, 0.0)
+            paid_cumulative = outsourcing_paid_cumulative_map.get(code, 0.0)
             project['outsourcing_paid'] = paid
-            project['outsourcing_balance'] = actual_other - paid
+            project['outsourcing_paid_previous'] = paid_previous
+            project['outsourcing_balance'] = actual_other - paid_cumulative
+            project['outsourcing_payment_details'] = outsourcing_payment_details_map.get(code, [])
 
             project_receipts = [
                 {
@@ -489,13 +620,26 @@ def annual_project(mode, year):
             project['performance_review'] = perf_review_map.get(code)
             project['has_risk'] = bool(risk_map.get(code))
 
-        return render_template('PMS_annualProject.html', year=year, mode=mode, projects=results)
+        return render_template(template_name, year=year, mode=mode, projects=results, **context)
     except Exception as e:
         print(f'[ERROR] 연도별 통합자료 조회 실패: {e}')
-        return render_template('PMS_annualProject.html', year=year, projects=[], mode=mode, error=str(e))
+        return render_template(template_name, year=year, projects=[], mode=mode, error=str(e), **context)
     finally:
         cursor.close()
         db.close()
+
+
+@bp.route('/PMS_annualMoney')
+def annual_money_page():
+    year = request.args.get('year', type=int)
+    if year is None:
+        year = date.today().year
+    return annual_project(
+        'money',
+        year,
+        template_name='PMS_annualMoney.html',
+        extra_context={'selected_year': year},
+    )
 
 
 @bp.route('/PMS_annualProject/status/<status>')
@@ -866,53 +1010,67 @@ def get_complete_projects_years():
         db = create_connection()
         cursor = db.cursor(dictionary=True)
 
+        ensure_project_status_history_table(cursor)
         cursor.execute(
             """
-            SELECT
-                CASE
-                    WHEN project_status LIKE '준공(%' THEN
-                        TRIM(TRAILING ')' FROM SUBSTRING(project_status, 4))
-                END as year,
-                COUNT(*) as count
-            FROM projects
-            WHERE project_status LIKE '준공%'
-              AND ContractCode NOT LIKE '%%검토%%'
-              AND ContractCode NOT LIKE '%%-00'
-              AND ContractCode NOT LIKE '%%-000'
-            GROUP BY year
-            ORDER BY year DESC
+                        SELECT YEAR(h.effective_date) AS year, COUNT(DISTINCT h.project_id) AS count
+                        FROM project_status_history h
+                        JOIN projects p ON p.ProjectID = h.project_id
+                        WHERE h.status = '준공'
+                            AND p.ContractCode NOT LIKE '%%검토%%'
+                            AND p.ContractCode NOT LIKE '%%-00'
+                            AND p.ContractCode NOT LIKE '%%-000'
+            GROUP BY YEAR(h.effective_date)
+            ORDER BY YEAR(h.effective_date) DESC
             """
         )
 
-        results = cursor.fetchall()
+        year_totals = {
+            int(row['year']): int(row['count'])
+            for row in (cursor.fetchall() or [])
+            if row.get('year')
+        }
 
-        processed_results = []
-        for row in results:
-            try:
-                year_str = str(row['year']).strip()
+        cursor.execute(
+            """
+                        SELECT ProjectID, project_status, EndDate
+            FROM projects
+                        WHERE project_status LIKE '준공%'
+              AND ContractCode NOT LIKE '%%검토%%'
+              AND ContractCode NOT LIKE '%%-00'
+              AND ContractCode NOT LIKE '%%-000'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM project_status_history h
+                  WHERE h.project_id = projects.ProjectID
+              )
+            """
+        )
 
-                if len(year_str) == 2 and year_str.isdigit():
-                    year_val = int('20' + year_str)
-                elif len(year_str) == 4 and year_str.isdigit():
-                    year_val = int(year_str)
-                else:
-                    continue
-
-                processed_results.append({'year': year_val, 'count': row['count']})
-
-            except (ValueError, TypeError):
+        for row in cursor.fetchall() or []:
+            raw_status = row.get('project_status')
+            if not raw_status:
                 continue
-
-        year_totals = {}
-        for item in processed_results:
-            year_val = item['year']
-            count = item['count']
-            if year_val in year_totals:
-                year_totals[year_val] += count
+            status_text = str(raw_status)
+            if '(' in status_text and ')' in status_text:
+                year_text = status_text[status_text.find('(') + 1:status_text.find(')')].strip()
             else:
-                year_totals[year_val] = count
+                year_text = ''
+            if len(year_text) == 2 and year_text.isdigit():
+                year_val = int(f'20{year_text}')
+            elif len(year_text) == 4 and year_text.isdigit():
+                year_val = int(year_text)
+            else:
+                end_date = row.get('EndDate')
+                year_val = end_date.year if end_date else None
+            if not year_val:
+                continue
+            year_totals[year_val] = year_totals.get(year_val, 0) + 1
 
-        final_results = [{'year': year_val, 'count': count} for year_val, count in sorted(year_totals.items(), reverse=True)]
+        final_results = [
+            {'year': year_val, 'count': count}
+            for year_val, count in sorted(year_totals.items(), reverse=True)
+        ]
 
         return jsonify(final_results)
 

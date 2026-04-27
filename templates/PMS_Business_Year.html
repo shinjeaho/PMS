@@ -71,9 +71,9 @@
                 </div>
             </li>
             <li class="dropdown">
-                <button class="year-button dropbtn">프로젝트 관리 ▼</button>
+                <button class="year-button dropbtn">사업 관리 ▼</button>
                 <div class="dropdown-content">
-                    <a href="#" onclick="addProject('{{ selected_year }}')">프로젝트 추가</a>
+                    <a href="#" onclick="addProject('{{ selected_year }}')">사업 추가</a>
                     <a href="#" onclick="openTransfer()">엑셀 데이터 이관</a>
                 </div>
             </li>
@@ -204,11 +204,11 @@
                                                         {% endfor %}
                                                     </select>
                                                 </td>
-                                                <td style="text-align:center;"><input type="checkbox" class="adminauth-check" {% if (user.adminAUTH|int) == 1 %}checked{% endif %} /></td>
-                                                <td style="text-align:center;"><input type="checkbox" class="projectauth-check" {% if (user.projectAUTH|int) == 1 %}checked{% endif %} /></td>
-                                                <td style="text-align:center;"><input type="checkbox" class="dataauth-check" {% if (user.dataauth|int) == 1 %}checked{% endif %} /></td>
-                                                <td style="text-align:center;"><input type="checkbox" class="reportauth-check" {% if (user.reportAUTH|int) == 1 %}checked{% endif %} /></td>
-                                                <td style="text-align:center;"><input type="checkbox" class="meetingauth-check" {% if (user.meetingAuth|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="adminauth-check" {% if (user.get('adminAUTH', user.get('adminauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="projectauth-check" {% if (user.get('projectAUTH', user.get('projectauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="dataauth-check" {% if (user.get('dataauth', 0)|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="reportauth-check" {% if (user.get('reportAUTH', user.get('reportauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="meetingauth-check" {% if (user.get('meetingAuth', user.get('meetingauth', 0))|int) == 1 %}checked{% endif %} /></td>
                                             </tr>
                                             {% endfor %}
                                         </tbody>

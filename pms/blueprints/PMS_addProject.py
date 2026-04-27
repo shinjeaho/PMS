@@ -7,6 +7,10 @@ from flask import Blueprint, request, render_template, jsonify
 
 from ..db import create_connection
 from ..services.dday import calculate_d_day_value, auto_insert_risk_for_contract
+from ..services.project_status import (
+    ensure_initial_project_status_history,
+    sync_project_status_history_contract_code,
+)
 from ..utils.files import UPLOAD_FOLDER, format_file_size
 
 bp = Blueprint('project_form', __name__)
@@ -317,7 +321,7 @@ def post_add_or_edit_project():
 
             elif project_id:
                 cursor.execute(
-                    "SELECT contractCode, project_status, endDate FROM projects WHERE ProjectID = %s",
+                    "SELECT contractCode, project_status, endDate, startDate FROM projects WHERE ProjectID = %s",
                     (project_id,),
                 )
                 old_contract_code_row = cursor.fetchone()
@@ -326,6 +330,7 @@ def post_add_or_edit_project():
                 old_contract_code = old_contract_code_row[0]
                 current_status = old_contract_code_row[1] if len(old_contract_code_row) > 1 else None
                 current_end = old_contract_code_row[2] if len(old_contract_code_row) > 2 else None
+                current_start = old_contract_code_row[3] if len(old_contract_code_row) > 3 else None
 
                 new_status = current_status
                 new_end_date = project_data['endDate'] if project_data['endDate'] is not None else current_end
@@ -372,6 +377,16 @@ def post_add_or_edit_project():
                         project_id,
                     ),
                 )
+
+                ensure_initial_project_status_history(
+                    cursor,
+                    project_id,
+                    old_contract_code,
+                    current_start,
+                    current_status=current_status,
+                    project_end_date=current_end,
+                )
+                sync_project_status_history_contract_code(cursor, project_id, project_data['contractCode'])
 
                 auto_insert_risk_for_contract(cursor, project_data['contractCode'])
 
@@ -487,6 +502,15 @@ def post_add_or_edit_project():
                     ),
                 )
                 project_id = cursor.lastrowid
+
+                ensure_initial_project_status_history(
+                    cursor,
+                    project_id,
+                    project_data['contractCode'],
+                    project_data['startDate'],
+                    current_status=None,
+                    project_end_date=project_data['endDate'],
+                )
 
                 Project_type = False if ('검토' in project_data['contractCode']) else True
 

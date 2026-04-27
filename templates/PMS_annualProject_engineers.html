@@ -11,11 +11,11 @@
 </head>
 
 <body>
-    <header style="display: flex; align-items: center; position: relative;">
-        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+    <header class="annual-topbar">
+        <button onclick="window.location.href='/'" class="back-button annual-home-btn">
+            <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
         </button>
-        <h1 style="flex: 1; text-align: center;" id="projectName">참여기술자 모아보기</h1>
+        <h1 id="projectName">참여기술자 모아보기</h1>
     </header>
 
     

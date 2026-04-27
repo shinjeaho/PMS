@@ -16,6 +16,85 @@ from ..services.progress import calc_progress_bulk
 bp = Blueprint('common_api', __name__)
 
 
+def _to_int_amount(value) -> int:
+    try:
+        return int(round(float(value or 0)))
+    except Exception:
+        return 0
+
+
+def _get_receipt_base_balance(cursor, contract_code: str) -> int:
+    cursor.execute(
+        """
+        SELECT COALESCE(Cost_ShareRate, 0) AS cost_sharerate
+        FROM BusinessChangeHistory
+        WHERE ContractCode = %s
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (contract_code,),
+    )
+    latest_change = cursor.fetchone()
+    if latest_change:
+        if isinstance(latest_change, dict):
+            latest_share_amount = latest_change.get('cost_sharerate', 0)
+        else:
+            latest_share_amount = latest_change[0] if len(latest_change) > 0 else 0
+        latest_share_amount = _to_int_amount(latest_share_amount)
+        if latest_share_amount > 0:
+            return latest_share_amount
+
+    cursor.execute(
+        """
+        SELECT COALESCE(ProjectCost_NoVAT, 0) AS project_cost_novat,
+               COALESCE(ContributionRate, 0) AS contribution_rate
+        FROM projects
+        WHERE ContractCode = %s
+        LIMIT 1
+        """,
+        (contract_code,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return 0
+
+    if isinstance(row, dict):
+        project_cost_novat = row.get('project_cost_novat', 0)
+        contribution_rate = row.get('contribution_rate', 0)
+    else:
+        project_cost_novat = row[0] if len(row) > 0 else 0
+        contribution_rate = row[1] if len(row) > 1 else 0
+
+    base_balance = int(round(float(project_cost_novat or 0) * (float(contribution_rate or 0) / 100.0)))
+    if base_balance == 1:
+        return 0
+    return max(base_balance, 0)
+
+
+def _recompute_receipt_rows(cursor, contract_code: str, receipts: list[dict]) -> list[dict]:
+    remaining_balance = _get_receipt_base_balance(cursor, contract_code)
+    normalized_rows = []
+
+    for receipt in receipts or []:
+        normalized = dict(receipt or {})
+        amount = _to_int_amount(normalized.get('amount'))
+        amount_no_vat = int(round(amount / 1.1))
+        if amount_no_vat == 1:
+            amount_no_vat = 0
+
+        remaining_balance -= amount_no_vat
+        if remaining_balance == 1:
+            remaining_balance = 0
+        remaining_balance = max(remaining_balance, 0)
+
+        normalized['amount'] = amount
+        normalized['Amount_NoVAT'] = amount_no_vat
+        normalized['balance'] = remaining_balance
+        normalized_rows.append(normalized)
+
+    return normalized_rows
+
+
 @bp.route('/api/save_outsourcing_payments', methods=['POST'])
 def save_outsourcing_payments():
     data = request.get_json(silent=True) or {}
@@ -336,9 +415,21 @@ def delete_task_quantity_department():
     data = request.get_json(silent=True) or {}
     contract_code = (data.get('contractCode') or '').strip()
     department = (data.get('department') or '').strip()
+    user_info = session.get('user') if isinstance(session.get('user'), dict) else {}
+    session_department = str((user_info or {}).get('department') or '').strip()
 
     if not contract_code or not department:
         return jsonify({'message': 'Invalid parameters'}), 400
+
+    if not session_department:
+        return jsonify({'message': 'Department session missing'}), 403
+
+    allowed_departments = {session_department}
+    if session_department == 'GIS사업부':
+        allowed_departments.add('GIS사업지원부')
+
+    if department not in allowed_departments:
+        return jsonify({'message': 'Permission denied'}), 403
 
     conn = create_connection()
     cursor = conn.cursor()
@@ -1529,7 +1620,7 @@ def get_project_receipts(contract_code):
             (contract_code,),
         )
 
-        receipts = cursor.fetchall()
+        receipts = _recompute_receipt_rows(cursor, contract_code, cursor.fetchall())
         return jsonify(receipts)
 
     except Exception as e:
@@ -1656,7 +1747,9 @@ def save_project_changes():
             (contract_code,),
         )
 
-        for index, receipt in enumerate(data['receipts'], start=1):
+        normalized_receipts = _recompute_receipt_rows(cursor, contract_code, data.get('receipts', []))
+
+        for index, receipt in enumerate(normalized_receipts, start=1):
             receipt_date = None
             if receipt['receipt_date']:
                 date_str = receipt['receipt_date'].replace('.', '').strip()

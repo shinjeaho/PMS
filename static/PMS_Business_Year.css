@@ -1019,15 +1019,22 @@ main {
 
 /* 회의록 목록: 행 폰트 크기 통일 */
 .projectList tbody tr[data-meeting-id] td{
-    font-size: 18px;
+    font-size: 14px;
     padding: 10px 12px;
 }
 
 /* 회의록 목록: 작성일 한 줄 고정 */
 .meeting-date-cell{
-    font-size: 18px;
+    font-size: 14px;
     line-height: 1.3;
     white-space: nowrap;
+}
+
+.projectList tbody td.meeting-title-cell{
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 작은 화면 대응 */
@@ -1354,21 +1361,37 @@ body.modal-open {
 
 .projectList {
     width: 100%;
-    border-collapse: collapse;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #cfd8e3;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .projectList thead {
-    background-color: #808080;
-    color: white;
-    border-bottom: 2px solid #ddd;
+    background-color: #e5e7eb;
+    color: #1f2937;
+    border-bottom: 1px solid #cfd8e3;
 }
 
 .projectList thead th {
-    padding: 20px;
+    padding: 14px 16px;
     text-align: center;
-    /* font-weight: bold; */
-    border-right: 3px solid #ddd;
-    border-bottom: 5px outset #000000;
+    font-weight: 700;
+    font-size: 15px;
+    border-right: 1px solid #d6dde7;
+    border-bottom: 1px solid #cfd8e3;
+    background-color: #e5e7eb;
+    letter-spacing: -0.1px;
+}
+
+.projectList thead th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.projectList thead th:last-child {
+    border-top-right-radius: 12px;
 }
 
 .projectList thead th:last-child {
@@ -1393,15 +1416,27 @@ body.modal-open {
     line-height: 1;
     font-size: 12px;
     font-weight: 700;
-    color: #ffffff;
+    color: #374151;
 }
 
 .projectList tbody td {
-    padding: 20px;
+    padding: 10px 12px;
     text-align: center;
-    border-bottom: 3px solid #ddd;
+    border-bottom: 2px solid #d8dde5;
     cursor: pointer;
-    font-size: 20px;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.projectList tbody tr {
+    height: 54px;
+}
+
+.projectList tbody td:nth-child(2) {
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .projectList tbody tr:hover {
@@ -1410,7 +1445,7 @@ body.modal-open {
 
 /* 리스크 존재 사업 강조 */
 .risk-row td {
-    background-color: #fc6868 !important;
+    background-color: #fb8d8d !important;
 }
 
 .pagination {
@@ -2235,6 +2270,263 @@ body.modal-open {
         font-size: 12px;
         height: 40px;
     }
+}
+
+/* =========================
+   Year Page Visual Refresh
+========================= */
+:root {
+    --year-bg-top: #f7f9fc;
+    --year-bg-bottom: #eef3f9;
+    --year-card: #ffffff;
+    --year-text: #0f172a;
+    --year-muted: #475569;
+    --year-line: #d6dde8;
+    --year-primary: #1f4f8f;
+    --year-primary-strong: #173f72;
+}
+
+body {
+    width: min(1600px, 96%);
+    background: linear-gradient(180deg, var(--year-bg-top) 0%, var(--year-bg-bottom) 100%);
+    color: var(--year-text);
+    font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif;
+}
+
+header.pageheader {
+    border-radius: 16px 16px 0 0;
+    border: 1px solid var(--year-line);
+    border-bottom: 0;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    background-color: var(--year-card);
+    padding: 26px 24px 22px;
+}
+
+#yearTitle {
+    margin: 8px 0 14px !important;
+    color: #0b2540;
+    letter-spacing: -0.03em;
+}
+
+.user-logout-box {
+    top: 16px;
+    right: 16px;
+    gap: 8px;
+}
+
+.user-logout-box .user-label {
+    border-color: #d4dde9;
+    color: #1e293b;
+    background: #f8fbff;
+}
+
+.navbar {
+    border: 1px solid var(--year-line);
+    border-top: 0;
+    border-bottom: 0;
+    background: linear-gradient(180deg, #2f6db2 0%, #255e9d 100%);
+}
+
+.navbar li {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.year-button {
+    background-color: transparent;
+    border: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.navbar button.year-button {
+    background-color: transparent;
+    padding: 14px 12px;
+}
+
+.navbar button.year-button:hover,
+.navbar button.active {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.dropdown-content {
+    border: 1px solid #d2dbe7;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+    top: 100%;
+    left: 0;
+    margin-top: 0;
+}
+
+.dropdown-content a {
+    padding: 10px 14px;
+    text-align: center;
+    color: #1e293b;
+}
+
+.dropdown-content a:hover {
+    background-color: #edf3fb;
+}
+
+#searchDIV {
+    margin: 18px 0 12px;
+    padding: 12px;
+    border: 1px solid var(--year-line);
+    border-radius: 12px;
+    background: #f8fbff;
+}
+
+#search,
+#searchScope {
+    border-color: #d3dce8;
+    border-radius: 10px;
+    background-color: #ffffff;
+}
+
+.search-button {
+    border-radius: 10px;
+    font-weight: 700;
+    background: linear-gradient(180deg, #2d70b8 0%, #205790 100%);
+}
+
+.search-button:hover {
+    background: linear-gradient(180deg, #2a66a6 0%, #194876 100%);
+}
+
+.meeting-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.meeting-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-toolbar-year {
+    flex: 0 0 auto;
+    min-width: 240px;
+}
+
+.meeting-toolbar-label {
+    font-weight: 700;
+    color: #334155;
+    font-size: 14px;
+}
+
+.meeting-year-filter {
+    width: 180px;
+    height: 38px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    background-color: #fff;
+    font-size: 14px;
+}
+
+.meeting-toolbar-search {
+    flex: 1 1 360px;
+    justify-content: center;
+}
+
+.meeting-search-wrap {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-search-input {
+    height: 38px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    background-color: #fff;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+.meeting-search-input:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+    outline: none;
+}
+
+.meeting-search-wrap #meetingSearchBtn,
+.meeting-toolbar-actions .search-button {
+    height: 38px;
+    padding: 0 16px;
+    white-space: nowrap;
+}
+
+.meeting-toolbar-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+@media (max-width: 980px) {
+    .meeting-toolbar-row {
+        align-items: stretch;
+    }
+
+    .meeting-toolbar-year,
+    .meeting-toolbar-search,
+    .meeting-toolbar-actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .meeting-search-wrap {
+        max-width: none;
+    }
+}
+
+.main-section {
+    width: 100% !important;
+    max-width: none;
+    border-radius: 0 0 16px 16px;
+    border: 1px solid var(--year-line);
+    border-top: 0;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    padding: 16px;
+}
+
+.table-container {
+    border: 1px solid #d8e0eb;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 10px;
+}
+
+.projectList {
+    border-radius: 10px;
+    border-color: #cfd8e4;
+}
+
+.projectList thead th {
+    font-size: 14px;
+    color: #1f2f44;
+}
+
+.projectList tbody tr {
+    transition: background-color 0.18s ease;
+}
+
+.projectList tbody tr:hover {
+    background-color: #eef4fb;
+}
+
+.projectList tbody td {
+    color: #0f172a;
+}
+
+.risk-row td {
+    background-color: #fca5a5 !important;
 }
 
 /* =====================================

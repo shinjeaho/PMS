@@ -1260,8 +1260,8 @@ function setTableHead(mode) {
     } else if (mode === 'meeting') {
         thead.innerHTML = `
             <tr>
-                <th style="width: 10%; text-align:center;">문서번호</th>
-                <th style="width: 5%; text-align:center; white-space:nowrap;">사업번호</th>
+                <th style="width: 6%; text-align:center;">문서번호</th>
+                <th style="width: 12%; text-align:center; white-space:nowrap;">사업번호</th>
                 <th style="width: 36%;">제목</th>
                 <th style="width: 8%; text-align:center;">작성자</th>
                 <th style="width: 16%; text-align:center;">작성일</th>
@@ -1573,12 +1573,12 @@ function _weeklyRenderWeeklyRowsGroupedByYear(tableBody, weeks) {
     const years = Array.from(byYear.keys()).sort((a, b) => b - a);
     years.forEach(y => {
         const hdr = document.createElement('tr');
-        hdr.innerHTML = `<td style="padding: 10px 15px; font-size: 15px; font-weight: 800; background:#f1f5f9;">${y || '-'}년</td>`;
+        hdr.innerHTML = `<td style="padding: 10px 15px; font-size: 14px; font-weight: 800; background:#f1f5f9;">${y || '-'}년</td>`;
         tableBody.appendChild(hdr);
         (byYear.get(y) || []).forEach(w => {
             const row = document.createElement('tr');
             const title = _weeklyPickDisplayTitle(w);
-            row.innerHTML = `<td style="padding: 15px; font-size: 16px; cursor: pointer; transition: background-color 0.2s;"
+            row.innerHTML = `<td style="padding: 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;"
                 onmouseover="this.style.backgroundColor='#f1f5f9'"
                 onmouseout="this.style.backgroundColor=''">${title}</td>`;
             row.addEventListener('click', () => {
@@ -1602,7 +1602,7 @@ function _weeklyLoadAndRenderReports({ year = null } = {}) {
 
             if (weeks.length === 0) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td style="padding: 15px; font-size: 16px;">데이터가 없습니다</td>`;
+                row.innerHTML = `<td style="padding: 15px; font-size: 14px;">데이터가 없습니다</td>`;
                 tableBody.appendChild(row);
                 return;
             }
@@ -1613,7 +1613,7 @@ function _weeklyLoadAndRenderReports({ year = null } = {}) {
                 weeks.forEach(w => {
                     const row = document.createElement('tr');
                     const title = _weeklyPickDisplayTitle(w);
-                    row.innerHTML = `<td style="padding: 15px; font-size: 16px; cursor: pointer; transition: background-color 0.2s;"
+                    row.innerHTML = `<td style="padding: 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;"
                         onmouseover="this.style.backgroundColor='#f1f5f9'"
                         onmouseout="this.style.backgroundColor=''">${title}</td>`;
                     row.addEventListener('click', () => {
@@ -1676,19 +1676,21 @@ function viewMeetingMinutes() {
     if (weeklyBtn) weeklyBtn.style.display = 'none';
     if (toolbar) {
         toolbar.innerHTML = `
-            <div style="display:flex; align-items:center; gap:12px; width:100%;">
-                <div style="display:flex; align-items:center; gap:8px; min-width:260px; flex:1;">
-                    <div style="font-weight:700;">연도</div>
-                    <select id="meetingYearFilter" class="settingSelect" style="width: 180px; height: 40px;">
+            <div class="meeting-toolbar-row">
+                <div class="meeting-toolbar-group meeting-toolbar-year">
+                    <div class="meeting-toolbar-label">연도</div>
+                    <select id="meetingYearFilter" class="settingSelect meeting-year-filter">
                         <option value="">전체</option>
                     </select>
                 </div>
-                <div style="display:flex; align-items:center; justify-content:center; gap:8px; flex:1;">
-                    <input id="meetingSearchInput" type="text" class="meeting-form-input" style="width:260px; height:40px; border:1px solid black;" placeholder="회의록 검색" autocomplete="off">
-                    <button id="meetingSearchBtn" class="search-button" type="button" style="height:40px; padding:0 16px;">검색</button>
+                <div class="meeting-toolbar-group meeting-toolbar-search">
+                    <div class="meeting-search-wrap">
+                        <input id="meetingSearchInput" type="text" class="meeting-form-input meeting-search-input" placeholder="회의록 제목, 사업번호, 사업명 검색" autocomplete="off">
+                        <button id="meetingSearchBtn" class="search-button" type="button">검색</button>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; flex:1;">
-                    <button class="search-button" type="button" onclick="openMeetingUploadModal()" style="height:40px; padding:0 16px;">회의록 작성</button>
+                <div class="meeting-toolbar-group meeting-toolbar-actions">
+                    <button class="search-button" type="button" onclick="openMeetingUploadModal()">회의록 작성</button>
                 </div>
             </div>
         `;
@@ -2076,10 +2078,15 @@ function loadMeetingViewerList(meetingId) {
     tbody.innerHTML = '<tr><td colspan="4" style="padding: 12px; text-align:center;">불러오는 중...</td></tr>';
 
     fetch(`/doc_editor_api/meeting/viewers?meeting_id=${encodeURIComponent(meetingId)}`)
-        .then(res => res.json())
-        .then(data => {
-            if (!data.success) {
-                tbody.innerHTML = '<tr><td colspan="4" style="padding: 12px; text-align:center;">데이터가 없습니다</td></tr>';
+        .then(async (res) => {
+            const data = await res.json();
+            return { ok: res.ok, data };
+        })
+        .then(({ ok, data }) => {
+            if (!ok || !data.success) {
+                const msg = data?.message || '조회자 조회 실패';
+                console.error('[meeting viewers] load failed:', msg);
+                tbody.innerHTML = `<tr><td colspan="4" style="padding: 12px; text-align:center;">${escapeHtmlSafe(msg)}</td></tr>`;
                 return;
             }
             const items = Array.isArray(data.items) ? data.items : [];
@@ -2359,7 +2366,7 @@ function renderTable(projects) {
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
-            <td>${truncateText(project.ProjectName, 25)}</td>
+            <td>${project.ProjectName || '-'}</td>
             <td>${statusText}</td>
             <td>${project.progress ? formatProgress(project.progress) + '%' : '0%'}</td>
             <td>

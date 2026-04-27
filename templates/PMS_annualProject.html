@@ -11,6 +11,8 @@
         진행 사업 산출 통합자료
         {% elif mode == 'complete' %}
         {{ year }}년 준공사업 통합자료
+        {% elif mode == 'money' %}
+        {{ year }}년 사업비 수령내역 모아보기
         {% else %}
         {{ year }}년 비용 산출 통합자료
         {% endif %}
@@ -20,18 +22,20 @@
     <script src="{{ url_for('static', filename='PMS_annualProject.js') }}" defer></script>
 </head>
 
-<body>
-    <header style="display: flex; align-items: center; position: relative;">
-        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+<body data-mode="{{ mode }}" data-year="{{ year }}">
+    <header class="annual-topbar">
+        <button onclick="window.location.href='/'" class="back-button annual-home-btn">
+            <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
         </button>
-        <h1 style="flex: 1; text-align: center;" id="projectName">
+        <h1 id="projectName">
             {% if mode == 'stop' %}
             용역중지 사업 산출 통합자료
             {% elif mode == 'progress' %}
             진행 사업 산출 통합자료
             {% elif mode == 'complete' %}
             {{ year }}년 준공사업 통합자료
+            {% elif mode == 'money' %}
+            {{ year }}년 사업비 수령내역 모아보기
             {% else %}
             {{ year }}년 비용 산출 통합자료
             {% endif %}
@@ -49,34 +53,125 @@
         style="display: flex; flex-direction: column; margin-top: 10px; margin-bottom: 0px; font-size: 14px; font-weight: bold;">
         <!-- 🔥 준공사업과 엑셀변환 버튼을 같은 줄에 배치 -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <!-- 왼쪽: 준공사업 표시 -->
-            <div style="display: flex; align-items: center;">
-                <span>*</span>
-                <div style="width: 10px; height: 10px; background-color: #77b6fa; margin-left: 8px; margin-right: 8px;">
-                </div>
+            <!-- 왼쪽: 범례 표시 -->
+            <div class="annual-money-legend">
+                <span>•</span>
+                <div class="annual-money-dot annual-money-dot-complete"></div>
                 <span>준공사업</span>
+                <div class="annual-money-dot annual-money-dot-stop"></div>
+                <span>용역중지 사업</span>
+                <div class="annual-money-dot annual-money-dot-issue"></div>
+                <span>이슈사업</span>
             </div>
 
             <!-- 오른쪽: 엑셀변환 버튼만 -->
-            <button id="excelExportBtn" class="excel-export-btn" onclick="exportToXlsx()">
-                <span>엑셀 변환</span>
-            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                {% if mode == 'complete' %}
+                <label class="annual-money-stats-toggle" for="annualMoneyStatsToggle" style="display:none;">
+                    <input type="checkbox" id="annualMoneyStatsToggle">
+                    <span>통계</span>
+                </label>
+                {% endif %}
+                <button id="excelExportBtn" class="excel-export-btn" onclick="exportToXlsx()">
+                    <span>엑셀 변환</span>
+                </button>
+            </div>
         </div>
 
-        <!-- 설명 텍스트와 단위 표시 -->
+        <!-- 설명 텍스트 -->
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
             <div style="display: flex; flex-direction: column; gap: 2px;">
                 <!-- <span>* 사업명/발주처 헤더 클릭 시 정렬됩니다. 정렬 우선순위: 특수문자 → 숫자 → 영어 → 한글</span> -->
                 <span>* 헤더 클릭 시 해당 열이 정렬됩니다. 정렬순서 : 오름차순 - 내림차순 - 사업번호</span>
                 <span>* 사업번호 또는 사업명 클릭 시 해당 사업으로 이동합니다.</span>
-                <span>* 1차 기성금은 올해 이전, 2차 기성금은 올해 이후 수령한 기성금의 합계 금액입니다.</span>
-            </div>
-
-            <div style="display: flex; align-items: flex-end; padding-top: 45px;">
-                <span style="white-space: nowrap; font-size: 14px; color: #666;">단위 : (원)</span>
+                <span>• 1차 기성금은 조회 연도 이전, 2차 기성금은 조회 연도 이후 수령한 기성금의 합계 금액입니다.</span>
             </div>
         </div>
     </div>
+
+    <div class="annual-vat-sticky-row">
+        <div class="annual-vat-tabs" aria-label="VAT 기준 선택">
+            <label class="annual-vat-check active" for="vatExcludeChk">
+                <input id="vatExcludeChk" type="checkbox" checked>
+                <span>VAT제외</span>
+            </label>
+            <label class="annual-vat-check" for="vatIncludeChk">
+                <input id="vatIncludeChk" type="checkbox">
+                <span>VAT포함</span>
+            </label>
+        </div>
+        <span class="annual-vat-unit">단위 : (원)</span>
+    </div>
+
+    {% if mode == 'complete' %}
+    <div id="annualMoneyStatsPanel" class="annual-money-stats-panel" style="display:none; margin-bottom: 10px;">
+        <table class="annual-money-stats-table" aria-label="준공사업 통계 요약">
+            <colgroup>
+                <col style="width:12%;">
+                <col style="width:12%;">
+                <col style="width:12%;">
+                <col style="width:12%;">
+                <col style="width:8%;">
+                <col style="width:22%;">
+                <col style="width:22%;">
+            </colgroup>
+            <tr>
+                <td class="label" colspan="4">수주 총괄 사업비</td>
+                <td class="label annual-money-stats-spacer" rowspan="10"></td>
+                <td class="label" colspan="2">수주 지분 사업비</td>
+            </tr>
+            <tr>
+                <td class="value" id="statsOrderTotalCost" colspan="4">0</td>
+                <td class="value" id="statsOrderShareCost" colspan="2">0</td>
+            </tr>
+            <tr>
+                <td class="label" colspan="4"><span class="annual-money-year-label">N</span>년도 사업비 수령내역</td>
+                <td class="label"><span class="annual-money-year-label">N</span>년도 수익금액</td>
+                <td class="label"><span class="annual-money-year-label">N</span>년도 수익비율</td>
+            </tr>
+            <tr>
+                <td class="label">선금</td>
+                <td class="label">1차 기성금</td>
+                <td class="label">2차 기성금</td>
+                <td class="label">준공금</td>
+                <td class="value" id="statsProfitAmount" rowspan="2">0</td>
+                <td class="value" id="statsProfitRatio" rowspan="2">0%</td>
+            </tr>
+            <tr>
+                <td class="value" id="statsAdvanceTotal">0</td>
+                <td class="value" id="statsProgress1stTotal">0</td>
+                <td class="value" id="statsProgress2ndTotal">0</td>
+                <td class="value" id="statsCompletionTotal">0</td>
+            </tr>
+            <tr>
+                <td class="value" id="statsReceiptTotal" colspan="4">합계 : 0</td>
+                <td class="label">그래프</td>
+                <td class="label">원형그래프</td>
+            </tr>
+            <tr>
+                <td class="label" colspan="4"><span class="annual-money-year-label">N</span>년도 사업비 지출내역</td>
+                <td rowspan="4">
+                    <div id="statsBarGraph" class="annual-money-bar-graph"></div>
+                </td>
+                <td rowspan="4">
+                    <div id="statsPieGraph" class="annual-money-pie-wrap"></div>
+                </td>
+            </tr>
+            <tr>
+                <td class="label" colspan="2">실제진행비</td>
+                <td class="label" colspan="2">외주비 지급내역</td>
+            </tr>
+            <tr>
+                <td class="value" id="statsActualCost" colspan="2">0</td>
+                <td class="value" id="statsOutsourcingPaid" colspan="2">0</td>
+            </tr>
+            <tr>
+                <td class="value" id="statsExpenseTotal" colspan="4">합계 : 0</td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+
     <main class="table-container" id="table-container">
         <table class="custom-table no_wrap">
             <thead>
@@ -99,11 +194,11 @@
                     <th onclick="sortBy('D_Day','number')" style="cursor:pointer;">D-Day</th>
                     <th onclick="sortBy('total_progress','number')" style="cursor:pointer;">진행률</th>
                     <th onclick="sortBy('performance_review','string')" style="cursor:pointer;">성과심사 여부</th>
-                    <th onclick="sortBy('ProjectCost','number')" style="cursor:pointer;">사업비(총괄,VAT포함)</th>
-                    <th style="border-right: 2px solid #999;" onclick="sortBy('ProjectCost_NoVAT','number')" style="cursor:pointer;">사업비(총괄,VAT제외)</th>
+                    <th class="vat-col-include" onclick="sortBy('ProjectCost','number')" style="cursor:pointer;">사업비(총괄,VAT포함)</th>
+                    <th class="vat-col-exclude" style="border-right: 2px solid #999;" onclick="sortBy('ProjectCost_NoVAT','number')" style="cursor:pointer;">사업비(총괄,VAT제외)</th>
                     <!-- 예상 -->
-                    <th onclick="sortBy('contractCostShareVAT','number')" style="cursor:pointer;">사업비(지분,VAT포함)</th>
-                    <th onclick="sortBy('contractCostShare','number')" style="cursor:pointer;">사업비(지분,VAT제외)</th>
+                    <th class="vat-col-include" onclick="sortBy('contractCostShareVAT','number')" style="cursor:pointer;">사업비(지분,VAT포함)</th>
+                    <th class="vat-col-exclude" onclick="sortBy('contractCostShare','number')" style="cursor:pointer;">사업비(지분,VAT제외)</th>
                     <th onclick="sortBy('EX_company_money','number')" style="cursor:pointer;">제경비</th>
                     <th onclick="sortBy('estimated_labor','number')" style="cursor:pointer;">자체인건비</th>
                     <th onclick="sortBy('estimated_expense','number')" style="cursor:pointer;">자체경비</th>
@@ -114,8 +209,8 @@
                     <th style="border-right: 2px solid #999;" id="EX_filterMargin" onclick="sortBy('estimated_margin','number')" style="cursor:pointer;">손익비율
                     </th>
                     <!-- 실제 -->
-                    <th onclick="sortBy('realCostShare_VAT','number')" style="cursor:pointer;">사업비(지분,VAT포함)</th>
-                    <th onclick="sortBy('realCostShare','number')" style="cursor:pointer;">사업비(지분,VAT제외)</th>
+                    <th class="vat-col-include" onclick="sortBy('realCostShare_VAT','number')" style="cursor:pointer;">사업비(지분,VAT포함)</th>
+                    <th class="vat-col-exclude" onclick="sortBy('realCostShare','number')" style="cursor:pointer;">사업비(지분,VAT제외)</th>
                     <th onclick="sortBy('AC_company_money','number')" style="cursor:pointer;">제경비</th>
                     <th onclick="sortBy('actual_labor','number')" style="cursor:pointer;">자체인건비</th>
                     <th onclick="sortBy('actual_expense','number')" style="cursor:pointer;">자체경비</th>

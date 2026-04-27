@@ -146,38 +146,51 @@
 
     /* 화면용 헤더 스타일 (전역 적용) */
     header.page-header {
-      position: relative;
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      font-family: 'Outfit', 'Noto Sans KR', 'Segoe UI', sans-serif;
       display: flex;
       align-items: center;
-      justify-content: center;
-      /* 정확한 중앙 정렬 */
-      gap: 0;
-      background-color: #007bff;
+      justify-content: flex-start;
+      gap: 10px;
+      background-color: #ffffff;
       background-image: none !important;
-      /* 배너 이미지 백그라운드 제거 */
-      color: #fff;
-      padding: 12px 20px;
-      margin-bottom: 20px;
-      height: 75px;
+      color: #334155;
+      padding: 12px 24px;
+      margin-bottom: 0;
+      height: 60px;
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: none;
     }
 
     header.page-header h1 {
       margin: 0;
-      font-weight: 800;
-      text-align: center;
-      font-size: 32px;
+      font-weight: 600;
+      text-align: left;
+      font-size: 20px;
+      color: #334155;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* 뒤로가기 버튼은 레이아웃에 영향 주지 않도록 절대 배치 */
     header.page-header .back-button {
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
       background: transparent;
       border: none;
       padding: 0;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    header.page-header .back-button img {
+      width: 110px;
+      height: 56px;
+      object-fit: contain;
     }
 
     /* 배너 이미지는 유지, 헤더 배경이미지만 제거 */
@@ -581,21 +594,18 @@
 </head>
 
 <body>
-  <header class="page-header"
-    style="display: flex; align-items: center; gap: 12px; width: 100%; height: 75px; background-color: #007bff; color: #fff; padding: 12px 20px; margin-bottom: 20px; box-sizing: border-box;">
-    <button type="button" onclick="window.location.href='/'" class="back-button"
-      style="margin-left: 20px; background: transparent; border: none; padding: 0; cursor: pointer;">
-      <img src="{{ url_for('static', filename='img/home.png') }}" alt="배너" style="width: 150px; height: 80px;">
+  <header class="page-header">
+    <button type="button" onclick="window.location.href='/'" class="back-button">
+      <img src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
     </button>
-    <h1 id="projectName"
-      style="flex: 1; text-align: center; margin: 0; font-weight: 800; font-size: 32px; min-width:0; max-width:100%; overflow-x:auto; white-space:nowrap;">
-      {{ week_title }} 주간보고</h1>
-    <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;"></div>
+    <h1 id="projectName">{{ week_title }} 주간보고</h1>
+    <div class="header-actions"></div>
   </header>
 
   <div class="weekly-detail-container" style="overflow-x:auto; max-width:100vw;">
     <input type="hidden" id="sessionDept"
       value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
+    <input type="hidden" id="sessionAdminAuth" value="{{ session['user'].get('adminAUTH', 0) }}">
     <div class="print-toolbar">
       <button type="button" class="print-btn" onclick="window.print()">인쇄</button>
       <button type="button" class="edit-btn" onclick="openWeeklyEditModal()">수정</button>
@@ -612,6 +622,11 @@
         <button type="button" class="close" aria-label="닫기" onclick="closeWeeklyEditModal()">✕</button>
       </div>
       <div class="modal-body">
+        <div id="weeklyAdminControls" style="display:none; align-items:center; gap:10px; margin:8px 0 12px;">
+          <label for="weeklyWeekStartPicker" style="font-weight:600;">주차 선택</label>
+          <input type="date" id="weeklyWeekStartPicker" name="weeklyWeekStartPicker" min="1900-01-01" max="2100-12-31">
+          <button type="button" class="submit-btn" id="weeklyWeekStartApply" style="width:auto; padding:8px 16px;">조회</button>
+        </div>
         <div class="sub-title" id="weeklyScheduleRange" style="margin-top:4px;">주간일정표</div>
         <table id="weeklyScheduleTable" class="weekly-table" style="margin-top:6px;"></table>
 

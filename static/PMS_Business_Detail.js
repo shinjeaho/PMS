@@ -291,10 +291,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         statusRadios.forEach(radio => {
             radio.addEventListener('change', function () {
-                if (this.value === '준공' && this.checked) {
+                if (this.checked && yearSelect) {
                     yearSelect.style.display = 'block';
-                } else if (this.checked) {
-                    yearSelect.style.display = 'none';
                 }
             });
         });
@@ -1678,6 +1676,7 @@ async function updateUIComponents() {
     processTableCells(document.querySelectorAll('.Budget_table td'));
     processTableCells(document.querySelectorAll('.specific-table td'));
     makeYear();
+    syncProjectStatusControls();
 }
 
 // 4. 차트 및 테이블 초기화 함수
@@ -7036,6 +7035,7 @@ function createProjectChangeTable() {
         `;
 
             tbody.innerHTML = changeRows + nextChangeRow;
+            recalculateReceiptBalances();
         })
         .catch(error => {
             console.error('Error fetching project changes:', error);
@@ -7150,7 +7150,8 @@ function createProjectChangeTable() {
             }
 
             //  정상 데이터가 있는 경우 테이블 구성
-            const receiptRows = receipts.map(receipt => {
+            const normalizedReceipts = normalizeReceiptBalances(receipts);
+            const receiptRows = normalizedReceipts.map(receipt => {
                 let balance = parseInt(receipt.balance || 0);
                 if (balance === 1) balance = 0; // 잔액이 1원이면 0으로 변경
 
@@ -7293,94 +7294,21 @@ function createProjectChangeTable() {
 
 // 잔액 자동 계산 함수 (모든 행을 순차적으로 업데이트)
 function updateReceiptBalances(targetRow) {
-    const projectCostElement = document.getElementById('ContributionCost');
-    // 사업비 가져오기
-    if (!projectCostElement) {
-        console.error('❌ Project cost element not found!');
-        return;
-    }
-
-    const projectCost = parseInt(projectCostElement.textContent.replace(/,/g, '').trim(), 10);
-
-    if (isNaN(projectCost)) {
-        console.error('❌ 유효하지 않은 사업비입니다.');
-        return;
-    }
-
     if (!targetRow) {
         console.error('❌ targetRow is missing!');
         return;
     }
 
-    // 현재 행의 인덱스 가져오기
-    const table = targetRow.closest('table'); // 해당 행이 속한 테이블 찾기
-    const rows = Array.from(table.querySelectorAll('tbody tr')); // 모든 행 가져오기
-    const rowIndex = rows.indexOf(targetRow); // 현재 행의 인덱스
-
-    //특정 행의 셀만 가져와서 업데이트
-    const divisionCell = targetRow.querySelector('td:nth-child(2)'); // 체크박스 추가로 +1
-    const amountCell = targetRow.querySelector('td:nth-child(3)'); // 금액 셀
-    const NoVATamountCell = targetRow.querySelector('td:nth-child(4)'); // 금액(VAT 제외) 셀
-    const balanceCell = targetRow.querySelector('td:nth-child(5)'); // 잔액 셀
-
-    if (!divisionCell || !amountCell || !NoVATamountCell || !balanceCell) {
-        console.error(`❌ Missing cells in row:`, targetRow);
-        return;
-    }
-
-    // 금액 값 가져오기
-    let amount = parseFloat(amountCell.textContent.replace(/,/g, '').trim());
-    if (isNaN(amount)) {
-        amount = 0; // 숫자가 아니면 0으로 처리
-    }
-
-    // VAT 제외 계산
-    const amountNoVAT = Math.round(amount / 1.1);
-
-    //첫 번째 행이면 사업비(A)에서 잔액 계산
-    let previousBalance = projectCost;
-    if (rowIndex > 0) {
-        // 이전 행에서 잔액 값 가져오기
-        const previousRow = rows[rowIndex - 1];
-        const prevBalanceCell = previousRow.querySelector('td:nth-child(4)');
-
-        if (prevBalanceCell) {
-            previousBalance = parseInt(prevBalanceCell.textContent.replace(/,/g, '').trim(), 10) || projectCost;
-        }
-    }
-
-    //모든 비용을 잔액에서 차감
-    let remainingBalance = previousBalance - amountNoVAT;
-    // 🔹 잔액이 1원이면 0원으로 설정
-    if (remainingBalance === 1) {
-        remainingBalance = 0;
-    }
-
-    // 🔹 잔액이 음수가 되지 않도록 방지
-    remainingBalance = Math.max(remainingBalance, 0);
-
-    // 셀 업데이트
-    NoVATamountCell.textContent = amountNoVAT.toLocaleString();
-    balanceCell.textContent = remainingBalance.toLocaleString();
+    recalculateReceiptBalances();
 }
 
 
 
 //사업비 변경에 맞춰 잔액을 재계산하는 함수
 function recalculateReceiptBalances() {
-    // 🔹 프로젝트 사업비 및 지분율 가져오기
-    const ProjectCost_NoVAT = parseFloat(
-        document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^0-9.-]/g, '') || 0
-    );
-    const ContributionRate = parseFloat(
-        document.getElementById('ContributionRate')?.textContent.replace(/[^0-9.-]/g, '') || 0
-    ) / 100;
+    const updatedProjectCost = getReceiptBaseProjectCost();
 
-    // 🔹 변경된 사업비 계산
-    let updatedProjectCost = Math.round(ProjectCost_NoVAT * ContributionRate);
-    if (updatedProjectCost === 1) updatedProjectCost = 0; // 잔액이 1원이면 0으로 변경
-
-    if (isNaN(updatedProjectCost) || updatedProjectCost <= 0) {
+    if (!Number.isFinite(updatedProjectCost) || updatedProjectCost <= 0) {
         console.error('❌ 유효하지 않은 사업비입니다.');
         return;
     }
@@ -7393,6 +7321,10 @@ function recalculateReceiptBalances() {
     }
 
     let remainingBalance = updatedProjectCost; // 초기 잔액 = 변경된 사업비
+    console.log('[ReceiptBalance] recalculate start', {
+        baseBalanceB: updatedProjectCost,
+        rowCount: rows.length,
+    });
 
     //모든 행을 순회하며 잔액 계산
     rows.forEach((row, index) => {
@@ -7412,15 +7344,114 @@ function recalculateReceiptBalances() {
         let amountNoVAT = Math.round(amount / 1.1);
         if (amountNoVAT === 1) amountNoVAT = 0; // 잔액이 1원이면 0으로 변경
 
-        //모든 비용이 잔액에서 차감
+        const previousBalance = remainingBalance;
+        // 잔액은 금액(VAT제외)=A 기준으로 차감
         remainingBalance -= amountNoVAT;
         if (remainingBalance === 1) remainingBalance = 0; // 잔액이 1원이면 0으로 변경
+        remainingBalance = Math.max(remainingBalance, 0);
 
         // 🔹 계산된 값을 테이블에 반영
         NoVATamountCell.textContent = amountNoVAT.toLocaleString();
-        balanceCell.textContent = Math.max(remainingBalance, 0).toLocaleString(); // 음수 방지
+        balanceCell.textContent = remainingBalance.toLocaleString();
+        console.log('[ReceiptBalance] recalculate row', {
+            rowIndex: index + 1,
+            baseOrPreviousBalanceB: previousBalance,
+            grossAmount: amount,
+            vatExcludedAmountA: amountNoVAT,
+            nextBalance: remainingBalance,
+            formula: `${previousBalance} - ${amountNoVAT} = ${remainingBalance}`,
+        });
     });
 
+}
+
+function getReceiptBaseProjectCost() {
+    const projectChangeRows = Array.from(document.querySelectorAll('#project_change_tbody tr'));
+    for (let index = projectChangeRows.length - 1; index >= 0; index -= 1) {
+        const cells = projectChangeRows[index]?.cells;
+        if (!cells || cells.length < 6) continue;
+        const shareAmount = parseFloat(cells[5]?.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(shareAmount) && shareAmount > 0) {
+            console.log('[ReceiptBalance] base from project_change_tbody', {
+                rowIndex: index + 1,
+                shareAmount: Math.round(shareAmount),
+            });
+            return Math.round(shareAmount);
+        }
+    }
+
+    const latestChangeCells = document.querySelectorAll('#chage_result_tbody tr td');
+    if (latestChangeCells.length >= 5) {
+        const latestShareAmount = parseFloat(latestChangeCells[4]?.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(latestShareAmount) && latestShareAmount > 0) {
+            console.log('[ReceiptBalance] base from chage_result_tbody', {
+                shareAmount: Math.round(latestShareAmount),
+            });
+            return Math.round(latestShareAmount);
+        }
+    }
+
+    const contributionCostCell = document.getElementById('ContributionCost');
+    if (contributionCostCell) {
+        const contributionCost = parseFloat(contributionCostCell.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(contributionCost) && contributionCost > 0) {
+            console.log('[ReceiptBalance] base from ContributionCost', {
+                shareAmount: Math.round(contributionCost),
+            });
+            return Math.round(contributionCost);
+        }
+    }
+
+    const projectCostNoVat = parseFloat(
+        document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^0-9.-]/g, '') || 0
+    );
+    const contributionRate = parseFloat(
+        document.getElementById('ContributionRate')?.textContent.replace(/[^0-9.-]/g, '') || 0
+    ) / 100;
+
+    let updatedProjectCost = Math.round(projectCostNoVat * contributionRate);
+    if (updatedProjectCost === 1) updatedProjectCost = 0;
+    console.log('[ReceiptBalance] base from fallback ProjectCost_NoVAT * ContributionRate', {
+        projectCostNoVat,
+        contributionRate,
+        baseBalanceB: Math.max(updatedProjectCost || 0, 0),
+    });
+    return Math.max(updatedProjectCost || 0, 0);
+}
+
+function normalizeReceiptBalances(receipts) {
+    let remainingBalance = getReceiptBaseProjectCost();
+    console.log('[ReceiptBalance] normalize start', {
+        baseBalanceB: remainingBalance,
+        rowCount: Array.isArray(receipts) ? receipts.length : 0,
+    });
+
+    return (Array.isArray(receipts) ? receipts : []).map((receipt, index) => {
+        const amount = parseFloat(receipt?.amount || 0) || 0;
+        let amountNoVAT = Math.round(amount / 1.1);
+        if (amountNoVAT === 1) amountNoVAT = 0;
+
+        const previousBalance = remainingBalance;
+        remainingBalance -= amountNoVAT;
+        if (remainingBalance === 1) remainingBalance = 0;
+        remainingBalance = Math.max(remainingBalance, 0);
+
+        console.log('[ReceiptBalance] normalize row', {
+            rowIndex: index + 1,
+            baseOrPreviousBalanceB: previousBalance,
+            grossAmount: amount,
+            vatExcludedAmountA: amountNoVAT,
+            nextBalance: remainingBalance,
+            formula: `${previousBalance} - ${amountNoVAT} = ${remainingBalance}`,
+        });
+
+        return {
+            ...receipt,
+            amount,
+            Amount_NoVAT: amountNoVAT,
+            balance: remainingBalance,
+        };
+    });
 }
 
 function attachFixedCellEditor(td, editor, options = {}) {
@@ -8072,6 +8103,7 @@ async function loadLatestChange() {
             <td>${desc}</td>
         `;
         tbody.appendChild(tr);
+        recalculateReceiptBalances();
     } catch (e) {
         console.warn('loadLatestChange error', e);
     }
@@ -11402,19 +11434,16 @@ function saveEditTable() {
 function saveProjectStatus() {
     const selectedStatus = document.querySelector('input[name="project_status"]:checked').value;
     const contractCode = document.getElementById('project-contractCode').value;
-    let statusToSend = selectedStatus;
+    const yearSelect = document.getElementById('year_select');
+    const selectedYear = yearSelect ? Number(yearSelect.value || 0) : 0;
 
-    // 준공이면 연도 select 값 붙이기
-    if (selectedStatus === '준공') {
-        const yearSelect = document.getElementById('year_select');
-        const selectedYear = yearSelect.value;
-        if (selectedYear) {
-            statusToSend = `준공(${selectedYear.slice(-2)})`; // '준공(25)' 형태
-        }
+    if (!contractCode || !selectedStatus) {
+        alert("프로젝트 코드 또는 상태가 유효하지 않습니다.");
+        return;
     }
 
-    if (!contractCode || !statusToSend) {
-        alert("프로젝트 코드 또는 상태가 유효하지 않습니다.");
+    if (!selectedYear) {
+        alert("상태 적용 연도를 선택해주세요.");
         return;
     }
 
@@ -11425,7 +11454,8 @@ function saveProjectStatus() {
         },
         body: JSON.stringify({
             contractCode: contractCode,
-            project_status: statusToSend
+            project_status: selectedStatus,
+            status_effective_year: selectedYear
         })
     })
         .then(response => response.json())
@@ -11441,6 +11471,45 @@ function saveProjectStatus() {
             console.error('에러 발생:', error);
             alert("서버 통신 중 문제가 발생했습니다.");
         });
+}
+
+function normalizeProjectStatusLabel(status) {
+    const rawStatus = String(status || '').trim();
+    if (!rawStatus) return '진행중';
+    if (rawStatus.includes('준공')) return '준공';
+    if (rawStatus.includes('용역중지')) return '용역중지';
+    return '진행중';
+}
+
+function extractProjectStatusYear(status) {
+    const rawStatus = String(status || '').trim();
+    const match = rawStatus.match(/\((\d{2}|\d{4})\)/);
+    if (!match) return null;
+
+    const yearText = match[1];
+    if (yearText.length === 2) {
+        return Number(`20${yearText}`);
+    }
+    return Number(yearText);
+}
+
+function syncProjectStatusControls() {
+    const currentStatusRaw = document.getElementById('currentProjectStatusRaw')?.value || '';
+    const normalizedStatus = normalizeProjectStatusLabel(currentStatusRaw);
+    const selectedYear = extractProjectStatusYear(currentStatusRaw) || new Date().getFullYear();
+    const yearSelect = document.getElementById('year_select');
+    const statusRadios = Array.from(document.getElementsByName('project_status'));
+
+    statusRadios.forEach((radio) => {
+        radio.checked = radio.value === normalizedStatus;
+    });
+
+    if (yearSelect) {
+        yearSelect.style.display = 'block';
+        if (selectedYear) {
+            yearSelect.value = String(selectedYear);
+        }
+    }
 }
 
 function removeCheckedRows(tbodyId) {
