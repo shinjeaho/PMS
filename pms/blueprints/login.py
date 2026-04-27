@@ -34,10 +34,21 @@ def login():
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
 
+        # 스키마 호환: adminAUTH 컬럼이 없으면 생성
+        try:
+            cursor.execute("SHOW COLUMNS FROM users LIKE 'adminAUTH'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE users ADD COLUMN adminAUTH TINYINT(1) NOT NULL DEFAULT 0 AFTER Auth")
+                conn.commit()
+        except Exception:
+            pass
+
         sql = """
             SELECT *,
+                 COALESCE(adminAUTH, 0)  AS adminAUTH,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
+                   COALESCE(meetingAuth, 0) AS meetingAuth,
                    COALESCE(projectAUTH, 0) AS projectAUTH
             FROM users
             WHERE userID = %s AND Password = %s
@@ -52,9 +63,12 @@ def login():
                 'userID': user['userID'],
                 'name': user['Name'],
                 'department': user['Department'],
+                'position': (user.get('Position') or '').strip(),
                 'auth': user['Auth'],
+                'adminAUTH': int(user.get('adminAUTH', 0) or 0),
                 'dataauth': int(user.get('dataauth', 0) or 0),
                 'reportAUTH': int(user.get('reportAUTH', 0) or 0),
+                'meetingAuth': int(user.get('meetingAuth', 0) or 0),
                 'projectAUTH': int(user.get('projectAUTH', 0) or 0)
             }
 

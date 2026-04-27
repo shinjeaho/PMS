@@ -15,7 +15,6 @@ bp = Blueprint('doc_editor_api', __name__, url_prefix='/doc_editor_api')
 BASE_DIR = Path(__file__).resolve().parents[2]
 MEETING_UPLOAD_FOLDER = str(BASE_DIR / 'static' / 'uploads' / 'meeting_minutes')
 MEETING_STATIC_ROOT = (BASE_DIR / 'static' / 'uploads' / 'meeting_minutes').resolve()
-MEETING_ATTACHMENT_ALLOWED_EXTENSIONS = {'.hwp', '.hwpx', '.xls', '.xlsx', '.pdf'}
 
 
 def _table_exists(cursor, table_name: str) -> bool:
@@ -48,14 +47,73 @@ def _column_exists(cursor, table_name: str, column_name: str) -> bool:
     return bool(row and row[0])
 
 
+def _column_collation(cursor, table_name: str, column_name: str) -> str | None:
+    cursor.execute(
+        """
+        SELECT collation_name
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = %s AND column_name = %s
+        LIMIT 1
+        """,
+        (table_name, column_name),
+    )
+    row = cursor.fetchone()
+    if isinstance(row, dict):
+        return row.get('collation_name') or row.get('COLLATION_NAME')
+    if row and len(row) > 0:
+        return row[0]
+    return None
+
+
+def _meeting_viewers_fk_column(cursor) -> str:
+    if _column_exists(cursor, 'meeting_viewers', 'meeting_id'):
+        return 'meeting_id'
+    return 'record_id'
+
+
+def _meeting_viewers_user_column(cursor) -> str:
+    if _column_exists(cursor, 'meeting_viewers', 'user_name'):
+        return 'user_name'
+    if _column_exists(cursor, 'meeting_viewers', 'viewer_name'):
+        return 'viewer_name'
+    return 'user_name'
+
+
+def _meeting_viewers_has_department(cursor) -> bool:
+    return _column_exists(cursor, 'meeting_viewers', 'department')
+
+
+def _meeting_viewers_has_position(cursor) -> bool:
+    return _column_exists(cursor, 'meeting_viewers', 'position')
+
+
+def _meeting_viewers_time_column(cursor) -> str | None:
+    if _column_exists(cursor, 'meeting_viewers', 'viewed_at'):
+        return 'viewed_at'
+    if _column_exists(cursor, 'meeting_viewers', 'create_at'):
+        return 'create_at'
+    if _column_exists(cursor, 'meeting_viewers', 'created_at'):
+        return 'created_at'
+    return None
+
+
+def _meeting_viewers_join_collation(cursor) -> str:
+    user_col = _meeting_viewers_user_column(cursor)
+    return (
+        _column_collation(cursor, 'users', 'Name')
+        or _column_collation(cursor, 'meeting_viewers', user_col)
+        or 'utf8mb4_unicode_ci'
+    )
+
+
 def _sanitize_filename(filename: str) -> str:
     filename = re.sub(r"[^\w가-힣._-]", "", filename)
     return filename.replace(" ", "_")
 
 
 def _is_allowed_meeting_attachment(filename: str) -> bool:
-    suffix = Path(filename or '').suffix.lower()
-    return suffix in MEETING_ATTACHMENT_ALLOWED_EXTENSIONS
+    ext = Path(filename or '').suffix.lower()
+    return ext in {'.pdf', '.hwp', '.hwpx', '.xls', '.xlsx'}
 
 
 def _get_viewer_info():
@@ -63,6 +121,50 @@ def _get_viewer_info():
     name = (user.get('name') or user.get('Name') or '').strip()
     department = (user.get('department') or user.get('Department') or '').strip()
     position = (user.get('position') or user.get('Position') or '').strip()
+
+    if not department or not position:
+        conn = create_connection()
+        if conn is not None:
+            cursor = conn.cursor(dictionary=True)
+            try:
+                user_id = (user.get('userID') or '').strip()
+                row = None
+                if user_id:
+                    cursor.execute(
+                        """
+                        SELECT COALESCE(Department, '') AS department,
+                               COALESCE(Position, '') AS position
+                        FROM users
+                        WHERE userID = %s
+                        LIMIT 1
+                        """,
+                        (user_id,),
+                    )
+                    row = cursor.fetchone()
+
+                if row is None and name and name != '알수없음':
+                    cursor.execute(
+                        """
+                        SELECT COALESCE(Department, '') AS department,
+                               COALESCE(Position, '') AS position
+                        FROM users
+                        WHERE Name = %s
+                        LIMIT 1
+                        """,
+                        (name,),
+                    )
+                    row = cursor.fetchone()
+
+                if row:
+                    if not department:
+                        department = (row.get('department') or '').strip()
+                    if not position:
+                        position = (row.get('position') or '').strip()
+            except Exception:
+                pass
+            finally:
+                cursor.close()
+                conn.close()
 
     if not name:
         name = '알수없음'
@@ -81,6 +183,43 @@ def _get_viewer_info():
 def _get_session_user_name() -> str:
     user = session.get('user') or {}
     return (user.get('name') or user.get('Name') or '').strip()
+
+
+def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
+    has_department = _meeting_viewers_has_department(cursor)
+    has_position = _meeting_viewers_has_position(cursor)
+    if not has_department and not has_position:
+        return
+
+    fk_col = _meeting_viewers_fk_column(cursor)
+    user_col = _meeting_viewers_user_column(cursor)
+    join_collation = _meeting_viewers_join_collation(cursor)
+    params = []
+    where_clause = ""
+    if meeting_id:
+        where_clause = f" AND mv.{fk_col} = %s"
+        params.append(meeting_id)
+
+    set_clauses = []
+    if has_department:
+        set_clauses.append("mv.department = COALESCE(NULLIF(TRIM(u.Department), ''), mv.department)")
+
+    if has_position:
+        set_clauses.append("mv.position = COALESCE(NULLIF(TRIM(u.Position), ''), mv.position)")
+
+    cursor.execute(
+        f"""
+        UPDATE meeting_viewers mv
+        JOIN users u ON (
+            CONVERT(mv.{user_col} USING utf8mb4) COLLATE {join_collation}
+            = CONVERT(u.Name USING utf8mb4) COLLATE {join_collation}
+        )
+        SET {', '.join(set_clauses)}
+        WHERE 1=1
+          {where_clause}
+        """,
+        tuple(params),
+    )
 
 
 @bp.route('/projects/suggest', methods=['GET'])
@@ -189,36 +328,58 @@ def upload_meeting_pdf():
 
     safe_name = _sanitize_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    current_year = datetime.now().strftime('%Y')
     name_parts = [p for p in (doc_number, contractcode, timestamp, safe_name) if p]
     final_name = "_".join(name_parts)
     file_path = os.path.join(year_folder, final_name)
     attachment_folder = os.path.join(year_folder, 'attachments')
     os.makedirs(attachment_folder, exist_ok=True)
-
     saved_attachments = []
-    attachment_saved_paths: list[str] = []
-    for attachment in attachment_files:
-        safe_attachment_name = _sanitize_filename(attachment.filename)
-        attachment_name_parts = [
-            p for p in (doc_number, contractcode, timestamp, 'att', safe_attachment_name) if p
-        ]
-        final_attachment_name = "_".join(attachment_name_parts)
-        attachment_path = os.path.join(attachment_folder, final_attachment_name)
-        attachment.save(attachment_path)
-        attachment_saved_paths.append(attachment_path)
-        attachment_url = f"/static/uploads/meeting_minutes/{current_year}/attachments/{final_attachment_name}"
-        attachment_size = os.path.getsize(attachment_path)
-        saved_attachments.append({
-            'fileUrl': attachment_url,
-            'originalName': attachment.filename,
-            'fileSize': attachment_size,
-        })
 
     try:
+        if contractcode:
+            conn = create_connection()
+            if conn is None:
+                return jsonify({'success': False, 'message': 'DB connection failed'}), 500
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM projects
+                    WHERE ContractCode = %s
+                    LIMIT 1
+                    """,
+                    (contractcode,),
+                )
+                project_exists = cursor.fetchone() is not None
+            finally:
+                cursor.close()
+                conn.close()
+
+            if not project_exists:
+                return jsonify({'success': False, 'message': '일치하는 사업번호가 없습니다.'}), 400
+
         file.save(file_path)
-        file_url = f"/static/uploads/meeting_minutes/{current_year}/{final_name}"
+        file_url = f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/{final_name}"
         file_size = os.path.getsize(file_path)
+
+        for attachment in attachment_files:
+            safe_attachment_name = _sanitize_filename(attachment.filename)
+            attachment_name_parts = [
+                p for p in (doc_number, contractcode, timestamp, 'att', safe_attachment_name) if p
+            ]
+            final_attachment_name = "_".join(attachment_name_parts)
+            attachment_path = os.path.join(attachment_folder, final_attachment_name)
+            attachment.save(attachment_path)
+            attachment_url = (
+                f"/static/uploads/meeting_minutes/{datetime.now().strftime('%Y')}/attachments/{final_attachment_name}"
+            )
+            attachment_size = os.path.getsize(attachment_path)
+            saved_attachments.append({
+                'fileUrl': attachment_url,
+                'originalName': attachment.filename,
+                'fileSize': attachment_size,
+            })
 
         conn = create_connection()
         if conn is None:
@@ -274,7 +435,7 @@ def upload_meeting_pdf():
             cursor.execute(sql, tuple(insert_vals))
             record_id = cursor.lastrowid
 
-            if has_attachment_table and saved_attachments:
+            if saved_attachments:
                 for attachment in saved_attachments:
                     cursor.execute(
                         """
@@ -305,20 +466,8 @@ def upload_meeting_pdf():
             'recordId': record_id,
             'title': agenda_title,
             'projectName': project_name,
-            'attachments': saved_attachments,
         })
     except Exception as e:
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except Exception:
-            pass
-        for p in attachment_saved_paths:
-            try:
-                if os.path.exists(p):
-                    os.remove(p)
-            except Exception:
-                pass
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -598,7 +747,6 @@ def list_meeting_files():
 
 
 @bp.route('/meeting/attachments', methods=['GET'])
-@bp.route('/meeting/attachments/', methods=['GET'])
 def list_meeting_attachments():
     meeting_id = request.args.get('meeting_id')
     if not meeting_id:
@@ -610,9 +758,6 @@ def list_meeting_attachments():
 
     cursor = conn.cursor(dictionary=True)
     try:
-        if not _table_exists(cursor, 'meeting_file_attachments'):
-            return jsonify({'success': True, 'items': []})
-
         cursor.execute(
             """
             SELECT id, meeting_id, file_path,
@@ -709,27 +854,54 @@ def increment_meeting_view():
     cursor = conn.cursor(dictionary=True)
     try:
         try:
+            fk_col = _meeting_viewers_fk_column(cursor)
+            user_col = _meeting_viewers_user_column(cursor)
+            has_department = _meeting_viewers_has_department(cursor)
+            has_position = _meeting_viewers_has_position(cursor)
+            time_col = _meeting_viewers_time_column(cursor)
+
+            department_select = "COALESCE(NULLIF(TRIM(department), ''), '-') AS department" if has_department else "'-' AS department"
+            position_select = "COALESCE(NULLIF(TRIM(position), ''), '-') AS position" if has_position else "'-' AS position"
             cursor.execute(
                 """
-                SELECT id
+                                SELECT id,
+                                             """ + department_select + """,
+                                             """ + position_select + """
                 FROM meeting_viewers
-                WHERE meeting_id = %s
-                  AND user_name = %s
-                  AND department = %s
+                WHERE """ + fk_col + """ = %s
+                                    AND """ + user_col + """ = %s
                 LIMIT 1
                 """,
-                (record_id, viewer['name'], viewer['department']),
+                                (record_id, viewer['name']),
             )
             existing = cursor.fetchone()
 
             if not existing:
+                insert_cols = [fk_col, user_col]
+                insert_values = ["%s", "%s"]
+                insert_params = [record_id, viewer['name']]
+
+                if has_department:
+                    insert_cols.append('department')
+                    insert_values.append('%s')
+                    insert_params.append(viewer['department'])
+
+                if has_position:
+                    insert_cols.append('position')
+                    insert_values.append('%s')
+                    insert_params.append(viewer['position'])
+
+                if time_col == 'viewed_at':
+                    insert_cols.append('viewed_at')
+                    insert_values.append('NOW()')
+
                 cursor.execute(
                     """
                     INSERT INTO meeting_viewers
-                    (meeting_id, user_name, department, position, viewed_at)
-                    VALUES (%s, %s, %s, %s, NOW())
+                    (""" + ', '.join(insert_cols) + """)
+                    VALUES (""" + ', '.join(insert_values) + """)
                     """,
-                    (record_id, viewer['name'], viewer['department'], viewer['position']),
+                    tuple(insert_params),
                 )
                 cursor.execute(
                     """
@@ -740,17 +912,56 @@ def increment_meeting_view():
                     (record_id,),
                 )
                 conn.commit()
-        except Exception:
+            else:
+                if time_col == 'viewed_at':
+                    cursor.execute(
+                        """
+                        UPDATE meeting_viewers
+                        SET viewed_at = NOW()
+                        WHERE id = %s
+                        """,
+                        (existing['id'],),
+                    )
+
+                if (
+                    has_department and ((existing.get('department') or '-').strip() in ('', '-')) and viewer['department'] != '-'
+                ) or (
+                    has_position and ((existing.get('position') or '-').strip() in ('', '-')) and viewer['position'] != '-'
+                ):
+                    update_set = []
+                    update_params = []
+                    if has_department:
+                        update_set.append(
+                            """
+                            department = CASE
+                                WHEN department IS NULL OR TRIM(department) = '' OR department = '-'
+                                    THEN %s ELSE department END
+                            """
+                        )
+                        update_params.append(viewer['department'])
+
+                    if has_position:
+                        update_set.append(
+                            """
+                            position = CASE
+                                WHEN position IS NULL OR TRIM(position) = '' OR position = '-'
+                                    THEN %s ELSE position END
+                            """
+                        )
+                        update_params.append(viewer['position'])
+
+                    cursor.execute(
+                        """
+                        UPDATE meeting_viewers
+                        SET """ + ', '.join(update_set) + """
+                        WHERE id = %s
+                        """,
+                        tuple(update_params + [existing['id']]),
+                    )
+                conn.commit()
+        except Exception as e:
             conn.rollback()
-            cursor.execute(
-                """
-                UPDATE meeting_files
-                SET view_count = COALESCE(view_count, 0) + 1
-                WHERE id = %s
-                """,
-                (record_id,),
-            )
-            conn.commit()
+            return jsonify({'success': False, 'message': str(e)}), 500
 
         cursor.execute(
             """
@@ -783,20 +994,41 @@ def list_meeting_viewers():
     cursor = conn.cursor(dictionary=True)
     try:
         try:
+            fk_col = _meeting_viewers_fk_column(cursor)
+            user_col = _meeting_viewers_user_column(cursor)
+            has_department = _meeting_viewers_has_department(cursor)
+            has_position = _meeting_viewers_has_position(cursor)
+            time_col = _meeting_viewers_time_column(cursor)
+
+            user_select = f"{user_col} AS user_name"
+            department_select = "COALESCE(NULLIF(TRIM(department), ''), '-') AS department" if has_department else "'-' AS department"
+            position_select = "COALESCE(NULLIF(TRIM(position), ''), '-') AS position" if has_position else "'-' AS position"
+            if time_col:
+                time_select = f"DATE_FORMAT({time_col}, '%Y-%m-%d %H:%i') AS viewed_at"
+                order_clause = f"ORDER BY {time_col} DESC, id DESC"
+            else:
+                time_select = "'-' AS viewed_at"
+                order_clause = "ORDER BY id DESC"
+
+            _backfill_meeting_viewers_profile(cursor, str(meeting_id))
+            conn.commit()
+
             cursor.execute(
                 """
-                SELECT user_name, department, position,
-                       DATE_FORMAT(viewed_at, '%Y-%m-%d %H:%i') AS viewed_at
+                SELECT """ + user_select + """,
+                       """ + department_select + """,
+                       """ + position_select + """,
+                       """ + time_select + """
                 FROM meeting_viewers
-                WHERE meeting_id = %s
-                ORDER BY viewed_at DESC, id DESC
+                WHERE """ + fk_col + """ = %s
+                """ + order_clause + """
                 """,
                 (meeting_id,),
             )
             items = cursor.fetchall() or []
             return jsonify({'success': True, 'items': items})
-        except Exception:
-            return jsonify({'success': True, 'items': []})
+        except Exception as e:
+            return jsonify({'success': False, 'items': [], 'message': str(e)}), 500
     finally:
         cursor.close()
         conn.close()
@@ -819,13 +1051,6 @@ def delete_meeting_file():
         if not row:
             return jsonify({'success': False, 'message': '파일을 찾을 수 없습니다.'}), 404
 
-        current_user_name = _get_session_user_name()
-        existing_author = (row.get('author') or '').strip()
-        if not current_user_name:
-            return jsonify({'success': False, 'message': '로그인 사용자 정보가 없어 삭제할 수 없습니다.'}), 403
-        if existing_author and existing_author != current_user_name:
-            return jsonify({'success': False, 'message': '작성자만 삭제할 수 있습니다.'}), 403
-
         attachment_rows = []
         cursor.execute(
             "SELECT file_path FROM meeting_file_attachments WHERE meeting_id = %s",
@@ -842,17 +1067,6 @@ def delete_meeting_file():
             try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
-            except Exception:
-                pass
-
-        for attachment in attachment_rows:
-            attachment_url = (attachment or {}).get('file_path')
-            if not attachment_url:
-                continue
-            attachment_path = os.path.normpath(os.path.join(BASE_DIR, attachment_url.lstrip('/')))
-            try:
-                if os.path.exists(attachment_path):
-                    os.remove(attachment_path)
             except Exception:
                 pass
 

@@ -24,6 +24,225 @@
     flex-wrap: wrap;
 }
 
+.annual-money-stats-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #bfc7d2;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    color: #374151;
+    font-size: 13px;
+}
+
+.annual-money-stats-toggle input {
+    margin: 0;
+}
+
+.annual-vat-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+}
+
+.annual-vat-sticky-row {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 0 8px;
+    padding: 6px 8px;
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+}
+
+.annual-vat-unit {
+    white-space: nowrap;
+    font-size: 14px;
+    color: #666;
+    font-weight: 600;
+}
+
+.annual-vat-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #bfc7d2;
+    background: #ffffff;
+    color: #374151;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.annual-vat-check input {
+    margin: 0;
+}
+
+.annual-vat-check.active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #ffffff;
+}
+
+.annual-money-stats-panel {
+    margin: 8px 0 12px;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.annual-money-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.annual-money-stats-table td {
+    border: 1px solid #d0d7de;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 15px;
+    background: #fff;
+}
+
+.annual-money-stats-table td.label {
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
+.annual-money-stats-table td.value {
+    font-weight: 700;
+    background: #ffffff;
+    color: #111827;
+}
+
+.annual-money-stats-spacer {
+    background: #f8fafc;
+    vertical-align: top;
+}
+
+.annual-money-bar-graph {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 96px;
+    justify-content: center;
+}
+
+.annual-money-bar-row {
+    display: grid;
+    grid-template-columns: 52px 1fr 64px;
+    align-items: center;
+    gap: 6px;
+}
+
+.annual-money-bar-label {
+    font-size: 12px;
+    text-align: left;
+    color: #444;
+}
+
+.annual-money-bar-track {
+    background: #e5e7eb;
+    border-radius: 4px;
+    height: 10px;
+    overflow: hidden;
+}
+
+.annual-money-bar-fill {
+    height: 100%;
+}
+
+.annual-money-bar-value {
+    font-size: 11px;
+    text-align: right;
+    color: #666;
+}
+
+.annual-money-pie-wrap {
+    min-height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.annual-money-pie-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.annual-money-pie {
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    position: relative;
+}
+
+.annual-money-pie::after {
+    content: '';
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+}
+
+.annual-money-pie-text {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    font-weight: 700;
+    color: #333;
+}
+
+.annual-money-pie-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 130px;
+}
+
+.annual-money-pie-legend-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto;
+    gap: 6px;
+    align-items: center;
+}
+
+.annual-money-pie-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.annual-money-pie-legend-label {
+    font-size: 12px;
+    color: #374151;
+    text-align: left;
+}
+
+.annual-money-pie-legend-value {
+    font-size: 11px;
+    color: #6b7280;
+    text-align: right;
+}
+
 .engineers-toolbar select,
 .engineers-toolbar input[type="text"],
 .engineers-toolbar .search-button,
@@ -76,6 +295,31 @@
     background-color: #F9E3E3;
 }
 
+.annual-money-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #374151;
+}
+
+.annual-money-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.annual-money-dot-complete {
+    background-color: #77b6fa;
+}
+
+.annual-money-dot-stop {
+    background-color: #d96b6b;
+}
+
+.annual-money-dot-issue {
+    background-color: #f56565;
+}
+
 /* 기존 스타일 유지 */
 body {
     font-family: 'Arial', sans-serif;
@@ -106,6 +350,51 @@ h1#projectName {
     font-weight: bold;
     margin: 0;
     letter-spacing: 1px;
+}
+
+header.annual-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    font-family: 'Outfit', 'Noto Sans KR', 'Segoe UI', sans-serif;
+    background: #ffffff;
+    color: #334155;
+    border: 0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0;
+    box-shadow: none;
+    height: 60px;
+    margin: -20px -20px 0 -20px;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+}
+
+header.annual-topbar #projectName {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: #334155;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+header.annual-topbar .annual-home-btn {
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+header.annual-topbar .annual-home-logo {
+    width: 110px;
+    height: 56px;
+    object-fit: contain;
 }
 
 main {
@@ -253,9 +542,18 @@ h1#projectName {
     background-color: #E8F3FF !important;
 }
 
+.stop-row td {
+    background-color: #F9E3E3 !important;
+}
+
 /* 프로젝트 리스크 존재 시 강조 (연한 빨간색) */
 .risk-row td {
     background-color: #fc6868 !important;
+    color: #fff !important;
+}
+
+.risk-row td a {
+    color: #fff !important;
 }
 
 /* 테이블 헤더 색상 및 글꼴 굵기 */
@@ -505,6 +803,17 @@ input[name="marginFilter"] {
     background: #999;
     z-index: 9;
     pointer-events: none;
+}
+
+/* 사업비 수령내역 모아보기 모드: 예상/실제 진행비 컬럼 숨김 */
+body[data-mode="money"] .custom-table thead tr:first-child th:nth-child(2),
+body[data-mode="money"] .custom-table thead tr:first-child th:nth-child(3) {
+    display: none;
+}
+
+body[data-mode="money"] .custom-table thead tr:nth-child(2) th:nth-child(n+12):nth-child(-n+29),
+body[data-mode="money"] .custom-table tbody td:nth-child(n+12):nth-child(-n+29) {
+    display: none;
 }
 
 /* 참여기술자 모아보기 전용 sticky 컬럼 */

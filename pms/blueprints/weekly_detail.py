@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
@@ -10,24 +11,107 @@ from ..db import create_connection
 bp = Blueprint('weekly_detail', __name__)
 
 
+_BLOCKED_STYLE_KEYS = {
+    'overflow',
+    'overflow-x',
+    'overflow-y',
+    'height',
+    'max-height',
+    'min-height',
+    'position',
+}
+
+
+def _sanitize_weekly_html(value: str | None) -> str:
+    """주간보고 HTML에서 인쇄 레이아웃을 깨뜨리는 속성만 제거한다."""
+    s = str(value or '')
+    if not s:
+        return ''
+
+    # script/style 태그 제거
+    s = re.sub(r'(?is)<\s*(script|style)\b[^>]*>.*?<\s*/\s*\1\s*>', '', s)
+
+    # 이벤트 핸들러 제거(onclick 등)
+    s = re.sub(r'(?is)\s+on[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)', '', s)
+
+    def _style_filter(match: re.Match) -> str:
+        raw = (match.group(1) or '').strip()
+        kept: list[str] = []
+        for part in raw.split(';'):
+            if ':' not in part:
+                continue
+            key, val = part.split(':', 1)
+            key_clean = key.strip().lower()
+            val_clean = val.strip()
+            if not key_clean:
+                continue
+            if key_clean in _BLOCKED_STYLE_KEYS:
+                continue
+            # 값에 overflow/scroll 키워드가 섞여 있으면 제거
+            if re.search(r'(?i)overflow|scroll', val_clean):
+                continue
+            kept.append(f"{key_clean}: {val_clean}")
+        if not kept:
+            return ''
+        return ' style="' + '; '.join(kept) + '"'
+
+    s = re.sub(r'(?is)\s+style\s*=\s*"([^"]*)"', _style_filter, s)
+    s = re.sub(r"(?is)\s+style\s*=\s*'([^']*)'", _style_filter, s)
+
+    return s.strip()
+
+
+def _sanitize_weekly_segments(schedule: dict | None, issues: dict | None) -> tuple[dict, dict]:
+    src_schedule = schedule or {}
+    src_issues = issues or {}
+    cleaned_schedule = {
+        'mon': _sanitize_weekly_html(src_schedule.get('mon')),
+        'tue': _sanitize_weekly_html(src_schedule.get('tue')),
+        'wed': _sanitize_weekly_html(src_schedule.get('wed')),
+        'thu': _sanitize_weekly_html(src_schedule.get('thu')),
+        'fri': _sanitize_weekly_html(src_schedule.get('fri')),
+        'sat': _sanitize_weekly_html(src_schedule.get('sat')),
+    }
+    cleaned_issues = {
+        'prev': _sanitize_weekly_html(src_issues.get('prev')),
+        'curr': _sanitize_weekly_html(src_issues.get('curr')),
+    }
+    return cleaned_schedule, cleaned_issues
+
+
+def _build_weekly_segments(department: str, week_start: date, schedule: dict | None, issues: dict | None) -> dict:
+    cleaned_schedule, cleaned_issues = _sanitize_weekly_segments(schedule, issues)
+    return {
+        'department': department,
+        'week_start': week_start.isoformat(),
+        'schedule': cleaned_schedule,
+        'issues': cleaned_issues,
+    }
+
+
+def _compute_iso_week_fields(week_start: date) -> dict:
+    iso = week_start.isocalendar()
+    thursday = week_start + timedelta(days=3)
+
+    first_day = date(thursday.year, thursday.month, 1)
+    # 해당 달의 첫 번째 목요일을 구하고, 그 주의 월요일을 1주차 시작으로 사용
+    days_to_first_thursday = (3 - first_day.weekday()) % 7
+    first_thursday = first_day + timedelta(days=days_to_first_thursday)
+    first_week_monday = first_thursday - timedelta(days=3)
+    week_index = ((week_start - first_week_monday).days // 7) + 1
+
+    return {
+        'iso_year': int(iso.year),
+        'iso_week': int(iso.week),
+        'display_month': int(thursday.month),
+        'month_week_index': int(week_index),
+    }
+
+
 def _compute_week_title(week_start: date) -> str:
-    """제목: YY년 M월 N주차
-    규칙: 주차는 '해당 월 내부의 첫 월요일'을 1주차의 시작으로 간주.
-    즉, 그 달의 1일이 월요일이면 그 날이 1주차 시작이고, 그렇지 않으면 그 달의 첫 월요일이 1주차 시작이다.
-    """
-    yy = str(week_start.year)[-2:]
-    month = week_start.month
-
-    first_day = date(week_start.year, month, 1)
-    # 첫 월요일(같은 달 내부)을 찾음
-    dow = first_day.weekday()  # 0=Mon .. 6=Sun
-    days_to_first_monday = (0 - dow) % 7
-    first_month_monday = first_day + timedelta(days=days_to_first_monday)
-    # 만약 week_start가 first_month_monday 이전이라면 0으로 처리(현실적으로 드물음)
-    delta_days = (week_start - first_month_monday).days
-    week_index = (delta_days // 7) + 1 if delta_days >= 0 else 0
-
-    return f"{yy}년{month}월{week_index}주차"
+    """제목: 목요일 기준 월 주차 표기(YYYY년M월N주차)."""
+    fields = _compute_iso_week_fields(week_start)
+    return f"{fields['iso_year']}년{fields['display_month']}월{fields['month_week_index']}주차"
 
 
 def _list_weekly_reports(year: int | None):
@@ -38,28 +122,15 @@ def _list_weekly_reports(year: int | None):
 
     cur = conn.cursor(dictionary=True)
     try:
-        if year is not None:
-            cur.execute(
-                """
-                SELECT r.week_start, MAX(r.title) AS title
-                  FROM weekly_report r
-                 WHERE r.year = %s
-                   AND EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
-                 GROUP BY r.week_start
-                 ORDER BY r.week_start DESC
-                """,
-                (year,),
-            )
-        else:
-            cur.execute(
-                """
-                SELECT r.week_start, MAX(r.title) AS title
-                  FROM weekly_report r
-                 WHERE EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
-                 GROUP BY r.week_start
-                 ORDER BY r.week_start DESC
-                """
-            )
+        cur.execute(
+            """
+            SELECT r.week_start, MAX(r.title) AS title
+              FROM weekly_report r
+             WHERE EXISTS (SELECT 1 FROM weekly_entry e WHERE e.report_id = r.id)
+             GROUP BY r.week_start
+             ORDER BY r.week_start DESC
+            """
+        )
 
         rows = cur.fetchall() or []
         for row in rows:
@@ -73,7 +144,10 @@ def _list_weekly_reports(year: int | None):
             # Always compute title from week_start using current rules to avoid
             # showing stale DB values that were computed with old logic.
             if isinstance(ws_date, date):
-                title = _compute_week_title(ws_date)
+                meta = _compute_week_meta(ws_date)
+                if year is not None and int(meta['year']) != int(year):
+                    continue
+                title = meta['title']
 
             items.append(
                 {
@@ -146,26 +220,21 @@ def _compute_week_range(week_start: date) -> str:
 
 
 def _compute_week_meta(week_start: date):
-    y = week_start.year
-    m = week_start.month
-    first_day = date(y, m, 1)
-    dow = first_day.weekday()  # 0=Mon .. 6=Sun
-    days_to_first_monday = (0 - dow) % 7
-    first_month_monday = first_day + timedelta(days=days_to_first_monday)
-    delta_days = (week_start - first_month_monday).days
-    week_index = (delta_days // 7) + 1 if delta_days >= 0 else 0
+    fields = _compute_iso_week_fields(week_start)
+    y = fields['iso_year']
+    m = fields['display_month']
+    week_index = fields['month_week_index']
 
-    if m == 12:
-        days_in_month = 31
-    else:
-        days_in_month = (date(y, m + 1, 1) - timedelta(days=1)).day
-    crosses_next_month = (week_start.day + 6) > days_in_month
+    thursday = week_start + timedelta(days=3)
+    week_end = week_start + timedelta(days=6)
+    crosses_next_month = thursday.month != week_end.month
 
     title = _compute_week_title(week_start)
     return {
         'year': y,
         'month': m,
         'week_index': week_index,
+        'iso_year': y,
         'crosses_next_month': 1 if crosses_next_month else 0,
         'title': title,
     }
@@ -184,6 +253,7 @@ def _get_weekly_detail(week_start: date):
             'week_start': week_start.isoformat(),
             'title': meta['title'],
             'year': meta['year'],
+            'iso_year': meta['iso_year'],
             'month': meta['month'],
             'week_index': meta['week_index'],
             'range': _compute_week_range(week_start),
@@ -222,16 +292,16 @@ def _get_weekly_detail(week_start: date):
                     sch = j.get('schedule') or {}
                     iss = j.get('issues') or {}
                     schedule = {
-                        'mon': sch.get('mon') or '',
-                        'tue': sch.get('tue') or '',
-                        'wed': sch.get('wed') or '',
-                        'thu': sch.get('thu') or '',
-                        'fri': sch.get('fri') or '',
-                        'sat': sch.get('sat') or '',
+                        'mon': _sanitize_weekly_html(sch.get('mon') or ''),
+                        'tue': _sanitize_weekly_html(sch.get('tue') or ''),
+                        'wed': _sanitize_weekly_html(sch.get('wed') or ''),
+                        'thu': _sanitize_weekly_html(sch.get('thu') or ''),
+                        'fri': _sanitize_weekly_html(sch.get('fri') or ''),
+                        'sat': _sanitize_weekly_html(sch.get('sat') or ''),
                     }
                     issues = {
-                        'prev': iss.get('prev') or '',
-                        'curr': iss.get('curr') or '',
+                        'prev': _sanitize_weekly_html(iss.get('prev') or ''),
+                        'curr': _sanitize_weekly_html(iss.get('curr') or ''),
                     }
             except Exception:
                 pass
@@ -470,22 +540,7 @@ def api_weekly_save():
             return jsonify({'ok': False, 'message': 'DB 연결 실패'}), 500
 
         report_id = _ensure_weekly_report(conn, week_start, department, created_by)
-        segments = {
-            'department': department,
-            'week_start': week_start.isoformat(),
-            'schedule': {
-                'mon': schedule.get('mon') or '',
-                'tue': schedule.get('tue') or '',
-                'wed': schedule.get('wed') or '',
-                'thu': schedule.get('thu') or '',
-                'fri': schedule.get('fri') or '',
-                'sat': schedule.get('sat') or '',
-            },
-            'issues': {
-                'prev': issues.get('prev') or '',
-                'curr': issues.get('curr') or '',
-            },
-        }
+        segments = _build_weekly_segments(department, week_start, schedule, issues)
         _replace_weekly_entry(conn, report_id, segments, created_by)
         _log_weekly_api('WEEKLY_SAVE_OK', payload, user, department, created_by, report_id=report_id)
         try:
@@ -546,22 +601,7 @@ def api_weekly_save_split():
             dept_issues = item.get('issues') or {}
 
             report_id = _ensure_weekly_report(conn, week_start, dept_name, created_by)
-            segments = {
-                'department': dept_name,
-                'week_start': week_start.isoformat(),
-                'schedule': {
-                    'mon': dept_schedule.get('mon') or '',
-                    'tue': dept_schedule.get('tue') or '',
-                    'wed': dept_schedule.get('wed') or '',
-                    'thu': dept_schedule.get('thu') or '',
-                    'fri': dept_schedule.get('fri') or '',
-                    'sat': dept_schedule.get('sat') or '',
-                },
-                'issues': {
-                    'prev': dept_issues.get('prev') or '',
-                    'curr': dept_issues.get('curr') or '',
-                },
-            }
+            segments = _build_weekly_segments(dept_name, week_start, dept_schedule, dept_issues)
             _replace_weekly_entry(conn, report_id, segments, created_by)
             report_ids.append(report_id)
 
@@ -624,22 +664,7 @@ def api_weekly_submit():
                 dept_issues = item.get('issues') or {}
 
                 report_id = _ensure_weekly_report(conn, week_start, dept_name, created_by)
-                segments = {
-                    'department': dept_name,
-                    'week_start': week_start.isoformat(),
-                    'schedule': {
-                        'mon': dept_schedule.get('mon') or '',
-                        'tue': dept_schedule.get('tue') or '',
-                        'wed': dept_schedule.get('wed') or '',
-                        'thu': dept_schedule.get('thu') or '',
-                        'fri': dept_schedule.get('fri') or '',
-                        'sat': dept_schedule.get('sat') or '',
-                    },
-                    'issues': {
-                        'prev': dept_issues.get('prev') or '',
-                        'curr': dept_issues.get('curr') or '',
-                    },
-                }
+                segments = _build_weekly_segments(dept_name, week_start, dept_schedule, dept_issues)
                 _replace_weekly_entry(conn, report_id, segments, created_by)
                 report_ids.append(report_id)
 
@@ -665,22 +690,7 @@ def api_weekly_submit():
             return jsonify({'ok': True, 'report_ids': report_ids})
 
         report_id = _ensure_weekly_report(conn, week_start, department, created_by)
-        segments = {
-            'department': department,
-            'week_start': week_start.isoformat(),
-            'schedule': {
-                'mon': schedule.get('mon') or '',
-                'tue': schedule.get('tue') or '',
-                'wed': schedule.get('wed') or '',
-                'thu': schedule.get('thu') or '',
-                'fri': schedule.get('fri') or '',
-                'sat': schedule.get('sat') or '',
-            },
-            'issues': {
-                'prev': issues.get('prev') or '',
-                'curr': issues.get('curr') or '',
-            },
-        }
+        segments = _build_weekly_segments(department, week_start, schedule, issues)
         _replace_weekly_entry(conn, report_id, segments, created_by)
 
         cur = conn.cursor()

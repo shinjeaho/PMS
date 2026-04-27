@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monster Core: 5x5 Battle Sim (Player Control & Gimmicks)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap');
+        
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #121212;
+            color: #f0f0f0;
+            user-select: none;
+        }
+
+        .grid-cell {
+            width: 100%;
+            aspect-ratio: 1;
+            background-color: #2a2a32;
+            border: 1px solid #3f3f46;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        /* 타일 기믹 스타일 */
+        .terrain-fire { background-color: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; }
+        .terrain-lava { background-color: rgba(220, 38, 38, 0.5); border: 2px solid #f87171; box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.8); }
+        .terrain-life { background-color: rgba(34, 197, 94, 0.25); border: 1px solid #22c55e; }
+        .terrain-water { background-color: rgba(59, 130, 246, 0.25); border: 1px solid #3b82f6; }
+
+        .terrain-label {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            opacity: 0.7;
+        }
+        .terrain-fire .terrain-label { color: #fca5a5; }
+        .terrain-lava .terrain-label { color: #fecaca; }
+        .terrain-life .terrain-label { color: #bbf7d0; }
+        .terrain-water .terrain-label { color: #bfdbfe; }
+
+        .monster {
+            width: 75%;
+            height: 75%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.3s ease, left 0.3s ease;
+            z-index: 10;
+            position: relative;
+        }
+
+        /* 속성 배경색 */
+        .element-fire .monster { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; }
+        .element-water .monster { background: linear-gradient(135deg, #3b82f6, #1e3a8a); color: white; }
+        .element-grass .monster { background: linear-gradient(135deg, #22c55e, #14532d); color: white; }
+        
+        /* 팀별 테두리 색상 */
+        .team-player .monster { border: 3px solid #fbbf24; } 
+        .team-enemy .monster { border: 3px solid #fca5a5; }  
+        
+        .monster.dead {
+            opacity: 0.2;
+            filter: grayscale(100%);
+            transform: scale(0.5);
+        }
+
+        /* 현재 턴 마커 */
+        .turn-marker {
+            position: absolute;
+            top: -24px;
+            font-size: 1.2rem;
+            color: #fbbf24;
+            animation: bounce 1s infinite;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            z-index: 20;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* 플레이어 조작 하이라이트 */
+        .reachable { background-color: rgba(59, 130, 246, 0.4) !important; border: 2px dashed #60a5fa !important; cursor: pointer; }
+        .reachable:hover { background-color: rgba(59, 130, 246, 0.6) !important; }
+        .targetable { background-color: rgba(239, 68, 68, 0.5) !important; border: 2px dashed #f87171 !important; cursor: pointer; }
+        .targetable:hover { background-color: rgba(239, 68, 68, 0.7) !important; }
+        .targetable-heal { background-color: rgba(16, 185, 129, 0.5) !important; border: 2px dashed #34d399 !important; cursor: pointer; }
+        .targetable-heal:hover { background-color: rgba(16, 185, 129, 0.7) !important; }
+
+        /* 상태바 */
+        .hp-bar-container { width: 100%; height: 6px; background-color: #3f3f46; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+        .hp-bar { height: 100%; transition: width 0.2s ease; }
+        .gauge-bar-container { width: 100%; height: 4px; background-color: #3f3f46; border-radius: 2px; margin-top: 2px; overflow: hidden; }
+        .gauge-bar { height: 100%; background-color: #fbbf24; transition: width 0.1s linear; }
+
+        /* 로그 */
+        .log-container::-webkit-scrollbar { width: 6px; }
+        .log-container::-webkit-scrollbar-thumb { background: #52525b; border-radius: 3px; }
+
+        /* 액션 애니메이션 */
+        @keyframes attackShake {
+            0% { transform: translate(0, 0) scale(1.1); }
+            25% { transform: translate(-4px, 4px) scale(1.1); }
+            50% { transform: translate(4px, -4px) scale(1.1); }
+            75% { transform: translate(-4px, -4px) scale(1.1); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+        .attacking { animation: attackShake 0.3s ease; box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.6); }
+
+        @keyframes damageFlash {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(2) drop-shadow(0 0 20px red); transform: scale(0.85); }
+            100% { filter: brightness(1); transform: scale(1); }
+        }
+        .taking-damage { animation: damageFlash 0.4s ease; }
+
+        @keyframes healFlash {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(2) drop-shadow(0 0 15px #4ade80); transform: scale(1.1); }
+            100% { filter: brightness(1); transform: scale(1); }
+        }
+        .taking-heal { animation: healFlash 0.4s ease; }
+        
+        @keyframes knockback {
+            0% { transform: translate(0, 0); }
+            50% { transform: scale(1.1); filter: brightness(1.5); }
+            100% { transform: translate(0, 0); }
+        }
+        .knocked-back { animation: knockback 0.3s ease; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-zinc-900 border-b border-zinc-800 p-4 text-center shadow-md z-20 flex justify-between items-center px-8">
+        <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-500">
+            Monster Core : Gimmick Battle
+        </h1>
+        <div class="text-sm text-zinc-400">일반/희귀 밸런스 조정 및 타일 기믹 적용 완료</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Panel (Player Team) -->
+        <aside class="w-64 bg-zinc-900 border-r border-zinc-800 p-4 overflow-y-auto flex flex-col gap-4" id="panel-player">
+            <h2 class="text-xl font-bold text-yellow-400 border-b border-yellow-900 pb-2 text-center">⚔️ 플레이어 팀</h2>
+            <!-- Cards -->
+        </aside>
+
+        <!-- Center Battle Area -->
+        <section class="flex-1 flex flex-col items-center justify-center bg-zinc-950 p-6 relative">
+            
+            <!-- Controls -->
+            <div class="flex gap-4 mb-6 items-center">
+                <button id="btn-start" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg transition-colors">전투 시작</button>
+                <button id="btn-reset" class="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 text-white font-bold rounded-lg shadow-lg transition-colors">초기화</button>
+                <button id="btn-skip" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg shadow-lg transition-colors hidden">턴 넘기기</button>
+            </div>
+
+            <!-- 5x5 Grid -->
+            <div id="battle-grid" class="grid grid-cols-5 gap-2 w-full max-w-lg mb-6 relative">
+                <!-- Cells -->
+            </div>
+
+            <!-- Combat Log -->
+            <div class="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-lg flex flex-col h-40 shadow-inner">
+                <div class="bg-zinc-800 px-4 py-2 flex justify-between items-center rounded-t-lg">
+                    <span class="font-bold text-sm text-zinc-300">전투 로그</span>
+                    <button id="btn-copy-log" class="text-xs bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1 rounded transition-colors shadow">로그 복사</button>
+                </div>
+                <div id="combat-log" class="log-container p-4 overflow-y-auto flex-1 font-mono text-sm space-y-1">
+                    <p class="text-zinc-500">대기 중...</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Panel (Enemy Team) -->
+        <aside class="w-64 bg-zinc-900 border-l border-zinc-800 p-4 overflow-y-auto flex flex-col gap-4" id="panel-enemy">
+            <h2 class="text-xl font-bold text-red-400 border-b border-red-900 pb-2 text-center">👿 적군 팀</h2>
+            <!-- Cards -->
+        </aside>
+
+    </main>
+
+<script>
+/**
+ * 몬스터 데이터 (밸런스 패치 적용)
+ * 일반(Normal): 체력 낮음, 공격력 계수 하향
+ * 희귀(Rare - 라바골렘): 방어력 대폭 상향, 계수 상향, 타일 기믹
+ */
+const initialMonsters = [
+    // ⚔️ Player Team
+    { id: 'p1', name: '플레임팍스', icon: '🦊', team: 'player', grade: '일반', element: 'fire', role: 'dealer', hp: 350, maxHp: 350, atk: 100, def: 40, spd: 110, mov: 3, range: 2, x: 0, y: 0, gauge: 0, skillName: '여우불 연타', skillMultiplier: 100 },
+    { id: 'p2', name: '미스틱코이', icon: '🐟', team: 'player', grade: '일반', element: 'water', role: 'healer', hp: 380, maxHp: 380, atk: 60, def: 60, spd: 115, mov: 3, range: 2, x: 0, y: 2, gauge: 0, skillName: '생명의 웅덩이', skillMultiplier: 150 },
+    { id: 'p3', name: '라바골렘', icon: '🪨', team: 'player', grade: '희귀', element: 'fire', role: 'tank', hp: 850, maxHp: 850, atk: 110, def: 180, spd: 45, mov: 1, range: 1, x: 0, y: 4, gauge: 0, skillName: '마그마 펀치', skillMultiplier: 140 },
+    
+    // 👿 Enemy Team
+    { id: 'e1', name: '타이드크랩', icon: '🦀', team: 'enemy', grade: '일반', element: 'water', role: 'tank', hp: 450, maxHp: 450, atk: 85, def: 110, spd: 65, mov: 2, range: 1, x: 4, y: 2, gauge: 0, skillName: '파도 밀치기', skillMultiplier: 110 },
+    { id: 'e2', name: '신더토드', icon: '🐸', team: 'enemy', grade: '일반', element: 'fire', role: 'sniper', hp: 420, maxHp: 420, atk: 85, def: 60, spd: 60, mov: 2, range: 4, x: 4, y: 0, gauge: 0, skillName: '화염구 투척', skillMultiplier: 100 },
+    { id: 'e3', name: '씨호스슈터', icon: '🐴', team: 'enemy', grade: '일반', element: 'water', role: 'sniper', hp: 280, maxHp: 280, atk: 95, def: 45, spd: 95, mov: 2, range: 4, x: 4, y: 4, gauge: 0, skillName: '수압 저격', skillMultiplier: 100 }
+];
+
+let monsters = [];
+let terrainMap = []; // 5x5 타일 기믹 맵 ('normal', 'fire', 'lava', 'life', 'water')
+let isPlaying = false;
+let battleInterval = null;
+let tickRate = 20; 
+let aiDelay = 800;
+
+let gameState = 'WAITING_TICK'; 
+let activeMonster = null;
+
+const gridEl = document.getElementById('battle-grid');
+const logEl = document.getElementById('combat-log');
+const btnStart = document.getElementById('btn-start');
+const btnReset = document.getElementById('btn-reset');
+const btnSkip = document.getElementById('btn-skip');
+
+function init() {
+    monsters = JSON.parse(JSON.stringify(initialMonsters));
+    
+    // 타일 맵 초기화
+    terrainMap = Array(5).fill().map(() => Array(5).fill('normal'));
+    
+    isPlaying = false;
+    gameState = 'WAITING_TICK';
+    activeMonster = null;
+    clearTimeout(battleInterval);
+    
+    btnStart.textContent = '전투 시작';
+    btnStart.classList.replace('bg-orange-600', 'bg-emerald-600');
+    btnStart.classList.replace('hover:bg-orange-500', 'hover:bg-emerald-500');
+    btnSkip.classList.add('hidden');
+
+    logEl.innerHTML = '<p class="text-zinc-500">전술 보드 초기화 완료. 전투를 시작하세요.</p>';
+    
+    renderGrid();
+    renderPanels();
+}
+
+function log(msg, type = 'normal') {
+    const p = document.createElement('p');
+    p.innerHTML = msg;
+    if(type === 'player') p.className = 'text-yellow-400';
+    else if(type === 'enemy') p.className = 'text-red-400';
+    else if(type === 'system') p.className = 'text-purple-400 font-bold';
+    else if(type === 'heal') p.className = 'text-emerald-400';
+    else if(type === 'gimmick') p.className = 'text-orange-400 font-bold';
+    
+    logEl.appendChild(p);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function renderGrid() {
+    gridEl.innerHTML = '';
+    for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+            const cell = document.createElement('div');
+            const tType = terrainMap[y][x];
+            
+            // 타일 배경 클래스 적용
+            cell.className = `grid-cell terrain-${tType}`;
+            cell.dataset.x = x;
+            cell.dataset.y = y;
+            
+            // 기믹 텍스트 표시
+            if(tType !== 'normal') {
+                const tLabel = document.createElement('div');
+                tLabel.className = 'terrain-label';
+                if(tType === 'fire') tLabel.textContent = '연소';
+                if(tType === 'lava') tLabel.textContent = '용암';
+                if(tType === 'life') tLabel.textContent = '생명';
+                if(tType === 'water') tLabel.textContent = '물웅덩이';
+                cell.appendChild(tLabel);
+            }
+            
+            const m = monsters.find(m => m.x === x && m.y === y && m.hp > 0);
+            if (m) {
+                const mEl = document.createElement('div');
+                mEl.className = `monster element-${m.element} team-${m.team}`;
+                mEl.id = `grid-m-${m.id}`;
+                mEl.textContent = m.icon;
+                
+                if (activeMonster && activeMonster.id === m.id) {
+                    const marker = document.createElement('div');
+                    marker.className = 'turn-marker';
+                    marker.textContent = '▼';
+                    mEl.appendChild(marker);
+                    mEl.classList.add('z-20'); 
+                }
+                
+                cell.appendChild(mEl);
+            }
+            gridEl.appendChild(cell);
+        }
+    }
+}
+
+function renderPanels() {
+    const pPanel = document.getElementById('panel-player');
+    const ePanel = document.getElementById('panel-enemy');
+    
+    pPanel.innerHTML = '<h2 class="text-xl font-bold text-yellow-400 border-b border-yellow-900 pb-2 text-center mb-2">⚔️ 플레이어 팀</h2>';
+    ePanel.innerHTML = '<h2 class="text-xl font-bold text-red-400 border-b border-red-900 pb-2 text-center mb-2">👿 적군 팀</h2>';
+
+    monsters.forEach(m => {
+        const hpPercent = Math.max(0, (m.hp / m.maxHp) * 100);
+        const gaugePercent = Math.min(100, (m.gauge / 1000) * 100);
+        const isDead = m.hp <= 0;
+        
+        const elemIcons = { fire: '🔥', water: '💧', grass: '🍃', electric: '⚡', earth: '⛰️' };
+        const elemIcon = elemIcons[m.element] || '❓';
+        const gradeColor = m.grade === '희귀' ? 'text-blue-400' : 'text-zinc-400';
+
+        const card = document.createElement('div');
+        card.className = `bg-zinc-800 p-3 rounded-lg border ${m.team === 'player' ? 'border-yellow-600/50' : 'border-red-900/50'} ${isDead ? 'opacity-40 grayscale' : ''}`;
+        card.id = `card-${m.id}`;
+        
+        card.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <span class="font-bold text-sm ${m.team === 'player' ? 'text-yellow-300' : 'text-red-300'}">${m.icon} ${m.name}</span>
+                <span class="text-xs ${gradeColor} font-bold">[${m.grade}]</span>
+            </div>
+            <div class="text-xs text-zinc-400 mb-1 flex justify-between">
+                <span>${elemIcon} SPD ${m.spd}</span>
+                <span>DEF ${m.def}</span>
+            </div>
+            <div class="text-xs text-emerald-400 font-bold mb-1">[${m.skillName}] (ATK ${m.skillMultiplier}%)</div>
+            <div class="text-xs text-zinc-300 mb-1">HP: ${Math.ceil(m.hp)} / ${m.maxHp}</div>
+            <div class="hp-bar-container">
+                <div class="hp-bar ${m.element === 'fire' ? 'bg-red-500' : m.element === 'water' ? 'bg-blue-500' : 'bg-green-500'}" style="width: ${hpPercent}%"></div>
+            </div>
+            <div class="gauge-bar-container">
+                <div class="gauge-bar" style="width: ${gaugePercent}%"></div>
+            </div>
+        `;
+
+        if(m.team === 'player') pPanel.appendChild(card);
+        else ePanel.appendChild(card);
+    });
+}
+
+function updateStatsUI() {
+    monsters.forEach(m => {
+        const card = document.getElementById(`card-${m.id}`);
+        if(!card) return;
+
+        const hpPercent = Math.max(0, (m.hp / m.maxHp) * 100);
+        const gaugePercent = Math.min(100, (m.gauge / 1000) * 100);
+        const isDead = m.hp <= 0;
+
+        if(isDead) card.classList.add('opacity-40', 'grayscale');
+
+        const hpText = card.querySelector('.text-xs.text-zinc-300');
+        if(hpText) hpText.textContent = `HP: ${Math.ceil(m.hp)} / ${m.maxHp}`;
+
+        const hpBar = card.querySelector('.hp-bar');
+        if(hpBar) hpBar.style.width = `${hpPercent}%`;
+
+        const gaugeBar = card.querySelector('.gauge-bar');
+        if(gaugeBar) gaugeBar.style.width = `${gaugePercent}%`;
+    });
+}
+
+// ----------------- 전투 유틸 -----------------
+function getDist(m1, m2) { return Math.abs(m1.x - m2.x) + Math.abs(m1.y - m2.y); }
+function isCellEmpty(x, y) { return !monsters.some(m => m.hp > 0 && m.x === x && m.y === y); }
+
+function checkWinCondition() {
+    const pAlive = monsters.some(m => m.hp > 0 && m.team === 'player');
+    const eAlive = monsters.some(m => m.hp > 0 && m.team === 'enemy');
+    
+    if(!pAlive) {
+        log('패배... 적군 팀이 승리했습니다.', 'enemy');
+        isPlaying = false; btnSkip.classList.add('hidden');
+        return true;
+    }
+    if(!eAlive) {
+        log('승리! 플레이어 팀이 전투에서 이겼습니다!', 'player');
+        isPlaying = false; btnSkip.classList.add('hidden');
+        return true;
+    }
+    return false;
+}
+
+// 타일 기믹 데미지/회복 로직
+function applyTerrainEffect(monster) {
+    const tType = terrainMap[monster.y][monster.x];
+    if(tType === 'normal') return;
+
+    if(tType === 'fire') {
+        const dmg = Math.floor(monster.maxHp * 0.05); // 5% 화상
+        monster.hp -= dmg;
+        log(`🔥 [${monster.name}]이(가) [연소] 타일 위에서 ${dmg} 화상 피해를 입었습니다!`, 'gimmick');
+    } 
+    else if(tType === 'lava') {
+        const dmg = Math.floor(monster.maxHp * 0.1); // 10% 융해
+        monster.hp -= dmg;
+        log(`🌋 [${monster.name}]이(가) [용암] 타일 위에서 ${dmg} 융해 피해를 입었습니다!`, 'gimmick');
+    }
+    else if(tType === 'life') {
+        const heal = Math.floor(monster.maxHp * 0.1); // 10% 회복
+        monster.hp = Math.min(monster.maxHp, monster.hp + heal);
+        log(`🌿 [${monster.name}]이(가) [생명] 타일 위에서 ${heal} 회복했습니다.`, 'heal');
+    }
+    
+    if (monster.hp <= 0) {
+        monster.hp = 0;
+        log(`☠️ [${monster.name}]이(가) 타일 기믹에 의해 쓰러짐!`, monster.team);
+    }
+}
+
+
+// ----------------- 전투 메인 루프 -----------------
+function battleLoop() {
+    if (!isPlaying) return;
+
+    activeMonster = null;
+    for (let m of monsters) {
+        if (m.hp > 0 && m.gauge >= 1000) {
+            if (!activeMonster || m.gauge > activeMonster.gauge) activeMonster = m;
+        }
+    }
+
+    if (!activeMonster) {
+        monsters.forEach(m => { if (m.hp > 0) m.gauge += m.spd; });
+        updateStatsUI();
+        battleInterval = setTimeout(battleLoop, tickRate);
+        return;
+    }
+
+    // 행동 시작 전 타일 효과 적용
+    applyTerrainEffect(activeMonster);
+    updateStatsUI();
+    if(activeMonster.hp <= 0) {
+        activeMonster.gauge = 0;
+        battleLoop();
+        return;
+    }
+
+    renderGrid();
+
+    if (activeMonster.team === 'player') startPlayerTurn();
+    else executeAITurn();
+}
+
+// ----------------- 플레이어 턴 로직 -----------------
+function startPlayerTurn() {
+    gameState = 'PLAYER_MOVE';
+    btnSkip.classList.remove('hidden');
+    log(`[${activeMonster.name}]의 턴! 이동할 위치를 클릭하세요.`, 'system');
+    
+    const cells = document.querySelectorAll('.grid-cell');
+    cells.forEach(cell => {
+        const cx = parseInt(cell.dataset.x);
+        const cy = parseInt(cell.dataset.y);
+        const dist = getDist({x:cx, y:cy}, activeMonster);
+        if (dist <= activeMonster.mov && (isCellEmpty(cx, cy) || (cx === activeMonster.x && cy === activeMonster.y))) {
+            cell.classList.add('reachable');
+        }
+    });
+}
+
+function startPlayerAction() {
+    gameState = 'PLAYER_ACTION';
+    log(`[${activeMonster.name}] 액션을 선택하세요 (타겟 클릭 또는 턴 넘기기).`, 'system');
+    renderGrid(); 
+    
+    const cells = document.querySelectorAll('.grid-cell');
+    let hasTargets = false;
+    
+    cells.forEach(cell => {
+        const cx = parseInt(cell.dataset.x);
+        const cy = parseInt(cell.dataset.y);
+        const dist = getDist({x:cx, y:cy}, activeMonster);
+        
+        if (dist <= activeMonster.range) {
+            const target = monsters.find(m => m.hp > 0 && m.x === cx && m.y === cy);
+            if (target) {
+                if (activeMonster.role === 'healer' && target.team === 'player' && target.hp < target.maxHp) {
+                    cell.classList.add('targetable-heal');
+                    hasTargets = true;
+                } else if (activeMonster.role !== 'healer' && target.team === 'enemy') {
+                    cell.classList.add('targetable');
+                    hasTargets = true;
+                }
+            }
+        }
+    });
+
+    if (!hasTargets) log(`사거리 내에 유효한 타겟이 없습니다. 턴을 넘기세요.`, 'system');
+}
+
+function endPlayerTurn() {
+    activeMonster.gauge -= 1000;
+    activeMonster = null;
+    gameState = 'WAITING_TICK';
+    btnSkip.classList.add('hidden');
+    
+    renderGrid();
+    updateStatsUI();
+    
+    if(!checkWinCondition()) battleInterval = setTimeout(battleLoop, 500); 
+}
+
+// ----------------- 이벤트 리스너 -----------------
+gridEl.addEventListener('click', (e) => {
+    if (!isPlaying) return;
+    const cell = e.target.closest('.grid-cell');
+    if (!cell) return;
+    
+    const tx = parseInt(cell.dataset.x);
+    const ty = parseInt(cell.dataset.y);
+
+    if (gameState === 'PLAYER_MOVE') {
+        if (cell.classList.contains('reachable')) {
+            activeMonster.x = tx;
+            activeMonster.y = ty;
+            document.querySelectorAll('.reachable').forEach(c => c.classList.remove('reachable'));
+            startPlayerAction();
+        }
+    } 
+    else if (gameState === 'PLAYER_ACTION') {
+        const targetMonster = monsters.find(m => m.hp > 0 && m.x === tx && m.y === ty);
+        if (cell.classList.contains('targetable')) {
+            performAttack(activeMonster, targetMonster);
+            endPlayerTurn();
+        } else if (cell.classList.contains('targetable-heal')) {
+            performHeal(activeMonster, targetMonster);
+            endPlayerTurn();
+        }
+    }
+});
+
+btnSkip.addEventListener('click', () => {
+    if (gameState === 'PLAYER_MOVE' || gameState === 'PLAYER_ACTION') {
+        log(`[${activeMonster.name}] 행동을 종료합니다.`, 'system');
+        document.querySelectorAll('.reachable, .targetable, .targetable-heal').forEach(c => {
+            c.classList.remove('reachable', 'targetable', 'targetable-heal');
+        });
+        endPlayerTurn();
+    }
+});
+
+btnStart.addEventListener('click', () => {
+    if(checkWinCondition()) return;
+    if (!isPlaying) {
+        isPlaying = true;
+        btnStart.textContent = '일시정지';
+        btnStart.classList.replace('bg-emerald-600', 'bg-orange-600');
+        btnStart.classList.replace('hover:bg-emerald-500', 'hover:bg-orange-500');
+        log('--- 전투 시작! ---', 'system');
+        battleLoop();
+    } else {
+        isPlaying = false;
+        clearTimeout(battleInterval);
+        btnStart.textContent = '재개';
+        btnStart.classList.replace('bg-orange-600', 'bg-emerald-600');
+        btnStart.classList.replace('hover:bg-orange-500', 'hover:bg-emerald-500');
+        btnSkip.classList.add('hidden');
+        document.querySelectorAll('.reachable, .targetable, .targetable-heal').forEach(c => c.classList.remove('reachable', 'targetable', 'targetable-heal'));
+        log('--- 전투 일시정지 ---', 'system');
+    }
+});
+
+btnReset.addEventListener('click', () => init());
+
+document.getElementById('btn-copy-log').addEventListener('click', function() {
+    const logText = Array.from(logEl.querySelectorAll('p')).map(p => p.textContent).join('\n');
+    const textarea = document.createElement('textarea');
+    textarea.value = logText;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    const originalText = this.textContent;
+    this.textContent = '복사 완료!';
+    this.classList.replace('bg-zinc-700', 'bg-emerald-600');
+    setTimeout(() => {
+        this.textContent = originalText;
+        this.classList.replace('bg-emerald-600', 'bg-zinc-700');
+    }, 1500);
+});
+
+// ----------------- AI 및 공격/기믹 로직 -----------------
+function executeAITurn() {
+    setTimeout(() => {
+        let acted = false;
+        const enemies = monsters.filter(m => m.hp > 0 && m.team === 'player');
+        
+        if (enemies.length > 0) {
+            let target = getClosestTarget(activeMonster, enemies);
+            let dist = getDist(activeMonster, target);
+
+            if (dist > activeMonster.range) {
+                moveTowards(activeMonster, target);
+                target = getClosestTarget(activeMonster, enemies);
+                dist = getDist(activeMonster, target);
+                renderGrid(); 
+            }
+
+            if (dist <= activeMonster.range) {
+                setTimeout(() => {
+                    performAttack(activeMonster, target);
+                    finishAITurn();
+                }, 500); 
+                acted = true;
+            }
+        }
+        
+        if(!acted) {
+             log(`👿 [${activeMonster.name}] 대기합니다.`, 'enemy');
+             finishAITurn();
+        }
+    }, aiDelay);
+}
+
+function finishAITurn() {
+    activeMonster.gauge -= 1000;
+    activeMonster = null;
+    updateStatsUI();
+    renderGrid();
+    if(!checkWinCondition()) battleInterval = setTimeout(battleLoop, 500);
+}
+
+function getClosestTarget(source, targets) {
+    return targets.reduce((closest, curr) => {
+        let distCurr = getDist(source, curr);
+        let distClosest = getDist(source, closest);
+        return distCurr < distClosest ? curr : closest;
+    }, targets[0]);
+}
+
+function moveTowards(monster, target) {
+    let moved = 0;
+    while (moved < monster.mov) {
+        let dx = target.x - monster.x;
+        let dy = target.y - monster.y;
+        
+        if (Math.abs(dx) + Math.abs(dy) <= monster.range) break;
+
+        let nextX = monster.x;
+        let nextY = monster.y;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            nextX += Math.sign(dx);
+            if (!isCellEmpty(nextX, monster.y)) { 
+                nextX = monster.x;
+                nextY += Math.sign(dy) || 1; 
+            }
+        } else {
+            nextY += Math.sign(dy);
+            if (!isCellEmpty(monster.x, nextY)) {
+                nextY = monster.y;
+                nextX += Math.sign(dx) || 1;
+            }
+        }
+
+        if (nextX >= 0 && nextX < 5 && nextY >= 0 && nextY < 5 && isCellEmpty(nextX, nextY)) {
+            monster.x = nextX;
+            monster.y = nextY;
+            moved++;
+        } else { break; }
+    }
+    log(`👿 [${monster.name}] 이동.`, 'enemy');
+}
+
+// 넉백 유틸리티
+function doKnockback(attacker, defender) {
+    let dx = Math.sign(defender.x - attacker.x);
+    let dy = Math.sign(defender.y - attacker.y);
+    
+    // 직선이 아닐 경우 강제로 축을 정함
+    if(dx !== 0 && dy !== 0) dy = 0; 
+    if(dx === 0 && dy === 0) dx = 1; // 겹칠일은 없지만 안전장치
+
+    const pushX = defender.x + dx;
+    const pushY = defender.y + dy;
+
+    if(pushX >= 0 && pushX < 5 && pushY >= 0 && pushY < 5 && isCellEmpty(pushX, pushY)) {
+        defender.x = pushX;
+        defender.y = pushY;
+        log(`💨 [${defender.name}]이(가) 넉백으로 밀려났습니다!`, 'system');
+        const defEl = document.getElementById(`grid-m-${defender.id}`);
+        if(defEl) defEl.classList.add('knocked-back');
+        setTimeout(() => { if(defEl) defEl.classList.remove('knocked-back'); }, 300);
+    }
+}
+
+function performAttack(attacker, defender) {
+    const atkEl = document.getElementById(`grid-m-${attacker.id}`);
+    const defEl = document.getElementById(`grid-m-${defender.id}`);
+    
+    if(atkEl) {
+        atkEl.classList.add('attacking');
+        setTimeout(() => atkEl.classList.remove('attacking'), 300);
+    }
+
+    // [밸런스 패치 적용] 방어력(DEF)의 영향력을 높여 희귀(탱커)의 가치 상승
+    // 공격력 * 계수 - 방어력 * 0.8
+    let skillPower = attacker.atk * (attacker.skillMultiplier / 100);
+    let baseDmg = skillPower - (defender.def * 0.8);
+    let rand = (Math.random() * 0.2) + 0.9; 
+    let finalDmg = Math.max(5, Math.floor(baseDmg * rand));
+
+    // 상성 적용
+    if(attacker.element === 'water' && defender.element === 'fire') finalDmg = Math.floor(finalDmg * 1.5);
+    if(attacker.element === 'fire' && defender.element === 'water') finalDmg = Math.floor(finalDmg * 0.7);
+
+    defender.hp -= finalDmg;
+    log(`💥 [${attacker.name}]의 ${attacker.skillName}! [${defender.name}]에게 <b>${finalDmg}</b> 피해.`, attacker.team);
+
+    // 타일 기믹 적용 및 특수 효과
+    if(attacker.name === '플레임팍스') {
+        terrainMap[defender.y][defender.x] = 'fire';
+        log(`🔥 바닥이 [연소] 타일로 변했습니다!`, 'gimmick');
+    }
+    else if(attacker.name === '라바골렘') {
+        terrainMap[defender.y][defender.x] = 'lava';
+        log(`🌋 라바골렘이 바닥을 [용암] 타일로 부숴버렸습니다!`, 'gimmick');
+    }
+    else if(attacker.name === '신더토드') {
+        terrainMap[defender.y][defender.x] = 'fire';
+        log(`🔥 바닥이 [연소] 타일로 변했습니다!`, 'gimmick');
+    }
+    else if(attacker.name === '씨호스슈터') {
+        terrainMap[defender.y][defender.x] = 'water';
+    }
+    else if(attacker.name === '타이드크랩') {
+        doKnockback(attacker, defender);
+    }
+
+    if(defEl) {
+        defEl.classList.add('taking-damage');
+        setTimeout(() => defEl.classList.remove('taking-damage'), 400);
+    }
+
+    if (defender.hp <= 0) {
+        defender.hp = 0;
+        log(`☠️ [${defender.name}] 쓰러짐!`, defender.team);
+    }
+}
+
+function performHeal(healer, targetAlly) {
+    const healEl = document.getElementById(`grid-m-${healer.id}`);
+    const targetEl = document.getElementById(`grid-m-${targetAlly.id}`);
+    
+    if(healEl) {
+        healEl.classList.add('attacking');
+        setTimeout(() => healEl.classList.remove('attacking'), 300);
+    }
+
+    let healAmount = Math.floor(healer.atk * (healer.skillMultiplier / 100));
+    targetAlly.hp = Math.min(targetAlly.maxHp, targetAlly.hp + healAmount);
+    
+    log(`✨ [${healer.name}]의 ${healer.skillName}! [${targetAlly.name}] 체력 ${healAmount} 회복.`, 'heal');
+
+    // 힐러 타일 기믹
+    if(healer.name === '미스틱코이') {
+        terrainMap[targetAlly.y][targetAlly.x] = 'life';
+        log(`🌿 바닥이 치유의 [생명] 타일로 변했습니다!`, 'gimmick');
+    }
+
+    if(targetEl) {
+        targetEl.classList.add('taking-heal');
+        setTimeout(() => targetEl.classList.remove('taking-heal'), 400);
+    }
+}
+
+// 시스템 시작
+init();
+</script>
+</body>
+</html>

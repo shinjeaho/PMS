@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Detail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Detail.css') }}">
 
     <!-- 1. 외부 라이브러리들 먼저 로드 -->
@@ -15,28 +18,82 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
 
     <!-- 2. 마지막으로 커스텀 JS 로드 -->
-    <script src="{{ url_for('static', filename='PMS_Business_Detail.js', v='20260423_receipt_balance_fix') }}" defer></script>
+    <script src="{{ url_for('static', filename='PMS_Business_Detail.js') }}" defer></script>
 </head>
 
-<body>
+<body class="detail-dashboard">
 
+    <div class="app-layout">
 
-
-    <header style="display: flex; align-items: center; gap: 12px;">
-        <button onclick="window.location.href='/'" class="back-button" style="margin-left: 20px;">
-            <!-- 삼인 -->
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
-            <!-- BIT -->
-            <!-- <img src="{{ url_for('static', filename='img/BIT_home.png') }}" alt="뒤로" style="width: 150px; height: 80px;"> -->
-        </button>
-        <h1 style="position: absolute; left: 50%; transform: translateX(-50%); text-align: center; margin: 0;" id="projectName"></h1>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
-            <div class="standard-hover-wrap">
-                <button type="button" class="info-button standard-info-btn header-standard-btn"
-                    onclick="openStandardInfoModal()">기준정보</button>
+    <aside class="sidebar detail-sidebar" aria-label="상세 페이지 메뉴">
+        <div class="sidebar-brand">
+            <div class="brand-icon brand-icon-image">
+                <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="로고">
             </div>
-            <button class="edit-button" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
+            <div class="brand-text">
+                <div class="brand-name">HeatGIS</div>
+                <div class="brand-sub">Project Dashboard</div>
+            </div>
+        </div>
 
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" onclick="openTab(event, 'Details'); return false;"><span class="nav-icon">⊞</span><span class="nav-label">상세 정보</span></a>
+            <a href="#" class="nav-item" onclick="openTab(event, 'project_change'); return false;"><span class="nav-icon">◈</span><span class="nav-label">사업 관리</span></a>
+            <a href="#" class="nav-item" onclick="openTab(event, 'Budget'); return false;"><span class="nav-icon">◎</span><span class="nav-label">예상 진행비</span></a>
+            <a href="#" class="nav-item" onclick="openTab(event, 'Dep_fir_Money'); return false;"><span class="nav-icon">◉</span><span class="nav-label">실제 진행비</span></a>
+            <a href="#" class="nav-item" onclick="openTab(event, 'comparison'); return false;"><span class="nav-icon">≋</span><span class="nav-label">통 계</span></a>
+            <a href="#" class="nav-item" onclick="openTab(event, 'MeetingMinutes'); return false;"><span class="nav-icon">✎</span><span class="nav-label">회의록</span></a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="#" class="sidebar-link" onclick="openStandardInfoModal(); return false;">
+                <span class="nav-icon">⚙</span>
+                <span class="nav-label">기준정보</span>
+            </a>
+            <a href="#" class="sidebar-link" onclick="openModal(document.getElementById('statusModalBTN')); return false;">
+                <span class="nav-icon">✐</span>
+                <span class="nav-label">현황수정</span>
+            </a>
+        </div>
+    </aside>
+
+    <div class="page-wrapper">
+
+
+
+    <header class="topbar detail-topbar">
+        <div class="topbar-left">
+            <div class="topbar-title-wrap">
+                <button onclick="window.location.href='/'" class="back-button" aria-label="홈으로 이동">
+                    <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로">
+                </button>
+                <div class="topbar-title" id="projectName"></div>
+            </div>
+            <div class="topbar-meta">
+                <span>{{ project['ContractCode'] }}</span>
+                <span class="topbar-sep">·</span>
+                <span>발주처: {{ project['orderPlace'] }}</span>
+                <span class="topbar-sep">·</span>
+                <span>담당: {{ project['Manager'] }}</span>
+                <span class="topbar-sep">·</span>
+                <span>지분율: {{ project['ContributionRate'] }}%</span>
+            </div>
+        </div>
+        <div class="topbar-right header-actions">
+            <div class="detail-user-label" title="로그인 정보">
+                <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-pos">{{ session['user'].get('position', session['user'].get('Position', '-')) or '-' }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-name">{{ session['user']['name'] }}</span>
+            </div>
+            <div class="detail-header-action-row">
+                <div class="standard-hover-wrap">
+                    <button type="button" class="btn-ghost standard-info-btn header-standard-btn"
+                        onclick="openStandardInfoModal()">기준정보</button>
+                </div>
+                <button class="btn-ghost" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
+            </div>
         </div>
 
         <input type="hidden" id="headerName" value="{{ project['ProjectName'] }}">
@@ -48,7 +105,7 @@
         <li onclick="insertRowAtContextTarget('below')">아래에 행 삽입</li>
     </ul>
 
-    <div class="tabs" style="margin-bottom: 0;">
+    <div class="tabs detail-tabs">
         <button class="tablinks" onclick="openTab(event, 'Details')">상세 정보</button>
         <button class="tablinks" onclick="openTab(event, 'project_change')">사업 관리</button>
         <button class="tablinks" onclick="openTab(event, 'Budget')">예상 진행비</button>
@@ -64,22 +121,25 @@
 
     {% set project_status_raw = (project['project_status'] if project['project_status'] else '진행중') | string | trim %}
     {% set project_status_label = '준공' if '준공' in project_status_raw else ('용역중지' if '용역중지' in project_status_raw else '진행중') %}
+    {% set project_status_class = 'status-done' if project_status_label == '준공' else ('status-stop' if project_status_label == '용역중지' else 'status-progress') %}
+    {% set total_progress_value = (total_progress | float) %}
+    {% set total_progress_display = '100%' if (total_progress_value | round(2)) == 100 else ('%.2f' | format(total_progress_value) ~ '%') %}
 
     <div id="modal_statusModal" class="modal">
-        <div class="modal-content" style="top: 50px; width: 450px; height: 390px;">
+        <div class="modal-content" style="top: 50px; width: 450px; height: 350px;">
             <span class="modal_close" onclick="closeQuantityModal()">&times;</span>
             <h2>현황수정</h2>
             <hr class="modal_hr">
 
             <div class="modal-body">
                 <div class="modal_section">
-                    <input type="hidden" id="currentProjectStatusRaw" value="{{ project_status_raw }}">
                     <label style="font-weight: bold; display: block; margin-bottom: 10px;">프로젝트 현황</label>
                     <div style="display: flex; gap: 20px; align-items: center;">
                         <label><input type="radio" name="project_status" value="진행중" {% if project_status_label == '진행중' %}checked{% endif %}> 진행중</label>
                         <label><input type="radio" name="project_status" value="용역중지" {% if project_status_label == '용역중지' %}checked{% endif %}> 용역중지</label>
                         <label><input type="radio" name="project_status" value="준공" {% if project_status_label == '준공' %}checked{% endif %}> 준공</label>
                     </div>
+                    <input type="hidden" id="currentProjectStatusRaw" value="{{ project_status_raw }}">
                     <label for="year_select" style="font-weight: bold; display: block; margin-top: 20px; margin-bottom: 10px;">상태 적용 연도</label>
                     <select id="year_select" class="modal_custom-select"
                         style="margin-top: 0; margin-bottom: 0; display: block;">
@@ -99,6 +159,137 @@
             <div class="modal-body standard-info-modal-body">
                 <iframe id="standardInfoFrame" src="/PMS_Expenses/{{ project['StartDate'].strftime('%Y') }}"
                     title="기준정보"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal_expectedInputStatus" class="modal" onclick="if(event.target===this) closeInputStatusModal('expected')">
+        <div class="modal-content input-status-modal-content expected-input-status-modal-content">
+            <span class="modal_close" onclick="closeInputStatusModal('expected')">&times;</span>
+            <h2 style="margin-bottom: 0;">예상 진행비 투입현황</h2>
+            <hr class="input-status-title-hr">
+            <div class="modal-body">
+                <div class="input-status-dual-grid">
+                    <section class="input-status-panel">
+                        <div class="input-status-panel-title">예상진행비</div>
+                        <div class="input-status-stack">
+                            <div class="input-status-label">인건비</div>
+                            <table class="custom-table no_wrap">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 150px;">직급</th>
+                                        <th style="width: 100px;">인원</th>
+                                        <th style="width: 120px;">투입일자</th>
+                                        <th style="width: 120px;">투입인력</th>
+                                        <th style="width: 200px;">합계</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expected_input_status_budget_tbody"></tbody>
+                            </table>
+
+                            <hr class="input-status-divider">
+                            <div class="input-status-label">경비</div>
+                            <table class="custom-table input-status-expense-table">
+                                <colgroup>
+                                    <col style="width: 150px;">
+                                    <col>
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 150px;">경비</th>
+                                        <th style="width: 150px;">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expected_input_status_record_tbody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="input-status-panel">
+                        <div class="input-status-panel-title">실제진행비 (테스트용 표시)</div>
+                        <div class="input-status-stack">
+                            <div class="input-status-label">인건비</div>
+                            <table class="custom-table no_wrap">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 150px;">직급</th>
+                                        <th style="width: 120px;">투입현황(일)</th>
+                                        <th style="width: 200px;">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expected_modal_actual_input_status_budget_tbody"></tbody>
+                            </table>
+
+                            <hr class="input-status-divider">
+                            <div class="input-status-label">경비</div>
+                            <table class="custom-table input-status-expense-table">
+                                <colgroup>
+                                    <col style="width: 150px;">
+                                    <col>
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th style="width: 150px;">경비항목</th>
+                                        <th style="width: 150px;">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expected_modal_actual_input_status_record_tbody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal_actualInputStatus" class="modal" onclick="if(event.target===this) closeInputStatusModal('actual')">
+        <div class="modal-content input-status-modal-content">
+            <span class="modal_close" onclick="closeInputStatusModal('actual')">&times;</span>
+            <h2 style="margin-bottom: 0;">실제 진행비 투입현황</h2>
+            <hr class="input-status-title-hr">
+            <div class="modal-body">
+                <div class="input-status-stack">
+                    <div class="input-status-label">투입시간</div>
+                    <table class="custom-table no_wrap">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">직급</th>
+                                <th style="width: 120px;">투입현황(일)</th>
+                                <th style="width: 200px;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="actual_input_status_budget_tbody"></tbody>
+                    </table>
+
+                    <hr class="input-status-divider">
+                    <div class="input-status-label">부서 인건비</div>
+                    <table class="custom-table no_wrap">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">직급</th>
+                                <th style="width: 120px;">투입현황(일)</th>
+                                <th style="width: 200px;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="actual_input_status_department_budget_tbody"></tbody>
+                    </table>
+
+                    <hr class="input-status-divider">
+                    <div class="input-status-label">경비</div>
+                    <table class="custom-table input-status-expense-table">
+                        <colgroup>
+                            <col style="width: 150px;">
+                            <col>
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">경비항목</th>
+                                <th style="width: 150px;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="actual_input_status_record_tbody"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -604,15 +795,41 @@
     </div>
 
     <!-- ===================================상세정보 탭=================================== -->
+    <main class="dashboard-content">
     <div class="content">
         <div id="Details" class="tabcontent">
-            <div class="button_group"
-                style="display: flex; justify-content: flex-end;margin-top: 0; margin-bottom: 5px;">
-                <button class="info-button" style="height: 37px;" id="outsourceModal" onclick="openModal(this)">외주
+            <div class="details-kpi-row kpi-strip">
+                <div class="details-kpi-card kpi-card blue kpi-blue">
+                    <div class="kpi-label">사업비 (VAT 포함)</div>
+                    <div class="kpi-amount">{{ project['ProjectCost'] | format_currency }}<span>원</span></div>
+                    <div class="kpi-sub">VAT 제외: {{ project['ChangeProjectCost'] | format_currency }}원</div>
+                </div>
+                <div class="details-kpi-card kpi-card teal kpi-teal">
+                    <div class="kpi-label">당사 지분 ({{ project['ContributionRate'] }}%)</div>
+                    <div class="kpi-amount" id="kpiContributionValue">-<span>원</span></div>
+                    <div class="kpi-sub" id="kpiReceiptValue">수령금액(VAT제외): -원</div>
+                </div>
+                <div class="details-kpi-card kpi-card amber kpi-amber">
+                    <div class="kpi-label">전체 진행률</div>
+                    <div class="kpi-progress-row">
+                        <div class="kpi-amount">{{ total_progress_display }}</div>
+                        <div class="kpi-status-pills">
+                            <span class="kpi-pill {{ project_status_class }} is-active">{{ project_status_label }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="details-kpi-card kpi-card red kpi-red">
+                    <div class="kpi-label">영업이익 (실제)</div>
+                    <div class="kpi-amount" id="kpiProfitValue">-<span>원</span></div>
+                    <div class="kpi-sub" id="kpiProfitRate">이익율 : -</div>
+                </div>
+            </div>
+
+            <div class="button_group action-bar">
+                <button class="btn-blue" id="outsourceModal" onclick="openModal(this)">외주
                     관리</button>
-                <button class="info-button" style="width: 60px; height: 37px;" onclick="toggleEdit()">수정</button>
-                <button id="project_delete-button" style="width: 60px; height: 37px;" onclick="deleteProject()"
-                    style="display: none;">삭제</button>
+                <button class="btn-teal" onclick="toggleEdit()">수정</button>
+                <button class="btn-red" id="project_delete-button" onclick="deleteProject()">삭제</button>
             </div>
             <div style="display: flex; justify-content: center; margin-bottom: 5px;">
                 <!-- <div id="progress_bar">
@@ -620,9 +837,10 @@
                     <input type="hidden" id="project_processing" value="{{ total_progress }}">
                 </div> -->
             </div>
-            <div class="view-mode">
-                <div class="flex-container">
-                    <div class="main-info" id="main-info">
+            <div class="view-mode details-structure-v2">
+                <div class="grid-main details-grid-main">
+                    <div class="main-info details-grid-content" id="main-info">
+                        <section class="detail-section-card detail-overview-block card-overview col-2">
                         <div style="display: flex; gap: 10px;">
                             <h2>사업 개요</h2>
                             <!-- <h3 style="margin-left: 10px; padding-top: 5.5px;">사업 진행률 : {{ '%.2f' |
@@ -744,19 +962,17 @@
                                     <td>지분율</td>
                                     <td id="ContributionRate">{{ project['ContributionRate'] }}%</td>
                                 </tr>
-                                <tr>
-                                <tr>
+                                <tr class="project-details-raw-row">
                                     <td>프로젝트 개요</td>
-                                    <td style="text-align: left; overflow-y: auto; display: block; ">
+                                    <td id="projectDetailsRaw" style="text-align: left; overflow-y: auto;">
                                         {{ project['ProjectDetails'].replace('\n','<br>')|safe }}</td>
                                 </tr>
 
-                                </tr>
-                                <tr>
-                                    <td>관련 파일</td>
+                                <tr class="project-file-raw-row">
+                                    <td>첨부파일</td>
                                     <td id="file_list" style="text-align: left;">
                                         <div class="file-upload-container"
-                                            style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; position: relative;"
+                                            style="border: 2px dashed #ccc; padding: 16px; border-radius: 8px; position: relative; margin-bottom: 0px; "
                                             id="drop-zone">
                                             <!-- 설명 텍스트 -->
                                             <div id="drop-text"
@@ -780,9 +996,9 @@
                                     </td>
                                 </tr>
 
-                                <tr>
+                                <tr class="project-reference-raw-row">
                                     <td>참조사업</td>
-                                    <td style="text-align: left;">
+                                    <td id="projectReferenceRaw" style="text-align: left;">
                                         {% if project.referenceProject1 and
                                         reference_projects.get(project.referenceProject1) %}
                                         <a href="/project_detail/{{ reference_projects[project.referenceProject1]['project_id'] }}"
@@ -833,9 +1049,18 @@
                         <input type="hidden" id="sessionName" value="{{ session['user']['name'] }}">
                         <input type="hidden" id="sessionAuth" value="{{ session['user'].get('auth', session['user'].get('Auth', '')) }}">
                         <input type="hidden" id="project_num" value="{{ project['ProjectID'] }}">
+                        </section>
 
+                        <section class="detail-section-card detail-overview-summary card-project-overview col-3">
+                            <h2>사업 개요</h2>
+                            <hr style="margin-bottom: 14px;">
+                            <div id="projectOverviewCards" class="project-overview-cards"></div>
+                        </section>
 
+                        <div class="grid-label section-contract-label">변경 및 수령내역</div>
 
+                        <div class="detail-subgrid-2 details-grid-flat">
+                            <section class="detail-section-card card-change">
                         <h2>사업 변경내역</h2>
                         <hr style="margin-bottom: 20px;">
                         <table class="custom-table no_wrap" style="margin-bottom: 50px;">
@@ -853,6 +1078,8 @@
 
                             </tbody>
                         </table>
+                            </section>
+                            <section class="detail-section-card card-performance">
                         <h2>성과심사</h2>
                         <hr style="margin-bottom: 20px;">
                         <table class="custom-table no_wrap" style="margin-bottom: 50px;">
@@ -868,7 +1095,13 @@
                             <tbody id="performance_result_tbody">
                             </tbody>
                         </table>
+                            </section>
+                        </div>
 
+                        <div class="grid-label section-outsourcing-label">외주 및 지급 내역</div>
+
+                        <div class="detail-subgrid-2 details-grid-flat">
+                            <section class="detail-section-card card-receipt">
                         <h2>사업비 수령내역</h2>
                         <hr style="margin-bottom: 20px;">
                         <table class="custom-table no_wrap" style="margin-bottom: 50px;">
@@ -885,7 +1118,9 @@
                             <tbody id="projectCost_result_tbody">
                             </tbody>
                         </table>
+                            </section>
 
+                            <section class="detail-section-card card-outsource col-2">
                         <h2>외주 현황</h2>
                         <hr style="margin-bottom: 20px;">
                         <table class="custom-table">
@@ -902,9 +1137,10 @@
 
                             </tbody>
                         </table>
+                            </section>
+                        </div>
 
-
-
+                        <section class="detail-section-card card-proposal">
                         <h2>추가제안</h2>
                         <hr style="margin-bottom: 20px;">
                         <table class="custom-table">
@@ -921,12 +1157,13 @@
 
                             </tbody>
                         </table>
+                        </section>
                     </div>
 
 
 
-                    <div class="right-column" id="right-column">
-                        <div class="right-top">
+                    <div class="right-column details-grid-content" id="right-column">
+                        <section class="right-top detail-section-card card-progress">
                             <h2>사업 진행률</h2>
                             <hr>
                             <!-- 서버 계산 전체 진행률 전달 (JS에서 사용) -->
@@ -936,11 +1173,31 @@
                                 <thead id="progress_overview_thead"></thead>
                                 <tbody id="progress_overview_tbody"><!-- JS 동적 렌더링 --></tbody>
                             </table>
+                        </section>
+
+                        <section class="detail-section-card card-reference">
+                            <h2>참조사업</h2>
+                            <hr style="margin-bottom: 14px;">
+                            <div id="separatedReferenceArea"></div>
+                        </section>
+
+                        <section class="detail-section-card card-files">
+                            <div class="section-title-row">
+                                <h2>첨부파일</h2>
+                                <div id="fileUploadActionSlot" class="file-upload-action-slot"></div>
+                            </div>
+                            <hr style="margin-bottom: 14px;">
+                            <div id="separatedFileArea"></div>
+                        </section>
+
+                        <div class="grid-label section-finance-label">재무 관리</div>
+
+                        <section class="detail-section-card card-expected">
                             <div class="section-title-row">
                                 <h2>예상 사업수행비 현황</h2>
-                                <div class="standard-hover-wrap">
-                                    <button type="button" class="info-button standard-info-btn section-standard-btn"
-                                        onclick="openStandardInfoModal()">기준정보</button>
+                                <div class="section-title-actions">
+                                <button type="button" class="info-button section-standard-btn section-input-status-btn"
+                                    onclick="openInputStatusModal('expected')">투입현황</button>
                                 </div>
                             </div>
                             <!-- 사전비용 -->
@@ -962,8 +1219,8 @@
                             </table>
 
                             <!-- 예상진행비 요약 합산 테이블 -->
-                            <div class="get_flex-container">
-                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                            <div class="get_flex-container input-status-source">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px; display: none;">
                                     <thead>
                                         <tr>
                                             <th style="width: 150px;">직급</th>
@@ -976,10 +1233,10 @@
                                     <tbody id="budget_result_tbody">
                                     </tbody>
                                 </table>
-                                <table class="custom-table" style="margin-bottom: 50px;">
+                                <table class="custom-table" style="margin-bottom: 50px; display: none;">
                                     <thead>
                                         <tr>
-                                            <th style="width: 100px;">경비</th>
+                                            <th style="width: 150px;">경비</th>
                                             <th style="width: 150px;">금액</th>
                                         </tr>
                                     </thead>
@@ -987,16 +1244,16 @@
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+                        </section>
 
 
 
-                        <div class="right-bottom">
+                        <section class="right-bottom detail-section-card card-actual">
                             <div class="section-title-row">
                                 <h2>실제 사업수행비 현황</h2>
-                                <div class="standard-hover-wrap">
-                                    <button type="button" class="info-button standard-info-btn section-standard-btn"
-                                        onclick="openStandardInfoModal()">기준정보</button>
+                                <div class="section-title-actions">
+                                <button type="button" class="info-button section-standard-btn section-input-status-btn"
+                                    onclick="openInputStatusModal('actual')">투입현황</button>
                                 </div>
                             </div>
 
@@ -1009,8 +1266,8 @@
 
                                 </tbody>
                             </table>
-                            <div class="get_flex-container">
-                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
+                            <div class="get_flex-container input-status-source">
+                                <table class="custom-table no_wrap" style="margin-bottom: 50px; display: none;">
                                     <thead>
                                         <tr>
                                             <th style="width: 150px;">직급</th>
@@ -1021,10 +1278,10 @@
                                     <tbody id="Real_budget_result_tbody">
                                     </tbody>
                                 </table>
-                                <table class="custom-table" style="margin-bottom: 50px;">
+                                <table class="custom-table" style="margin-bottom: 50px; display: none;">
                                     <thead>
                                         <tr>
-                                            <th style="width: 100px;">경비항목</th>
+                                            <th style="width: 150px;">경비항목</th>
                                             <th style="width: 150px;">금액</th>
                                         </tr>
                                     </thead>
@@ -1032,8 +1289,9 @@
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+                        </section>
 
+                        <section class="detail-section-card card-outsource-payment col-3">
                         <h2>외주비 지급현황</h2>
                         <hr style="margin-bottom: 20px;">
                         <!-- 카드 형식 대신 테이블 형식으로 표시 (사업비 수령내역과 동일한 스타일/형식) -->
@@ -1052,6 +1310,7 @@
                             <tbody id="outsourcing_moneyPayment_view_tbody">
                             </tbody>
                         </table>
+                        </section>
 
 
                         <!-- <h2>비교 그래프</h2>
@@ -1648,7 +1907,7 @@
                                             <td colspan="4">
                                                 <span>&#8203;{{ item['amount'] | int |
                                                     format_currency }}원</span>
-                                                <button class="no-style-button" style="float: right;"
+                                                <button class="no-style-button expense-toggle-btn"
                                                     onclick="recordsDetail(this, 'fir')">▼</button>
                                             </td>
                                         </tr>
@@ -1805,7 +2064,7 @@
                                             <td>{{ item['account'] }}</td>
                                             <td colspan="4">
                                                 <span>&#8203;{{ item['amount'] | int | format_currency }}원</span>
-                                                <button class="no-style-button" style="float: right;"
+                                                <button class="no-style-button expense-toggle-btn"
                                                     onclick="recordsDetail(this, 'sec')">▼</button>
                                             </td>
                                         </tr>
@@ -1834,8 +2093,6 @@
             </div>
 
         </div>
-    </div>
-
     <div class="edit-mode" id="edit-buttons" style="display:none;">
 
         <input type="hidden" id="Project_year" value="{{ project['StartDate'] }}">
@@ -1866,7 +2123,7 @@
                     <!-- 헤더 영역 -->
                     <div class="header-container" id="Dep_fir_header"
                         style="display: flex; justify-content: space-between; align-items: center;">
-                        <h2 class="header-text Dep_fir_header_text" id="Dep_fir_Bud_header_text">인건비</h2>
+                        <h2 class="header-text Dep_fir_header_text" id="Dep_fir_Bud_header_text">투입시간</h2>
                         <button class="view-log-btn" id="view_quantity_log" onclick="toggleQuantityLog()">물량 로그
                             보기</button>
                     </div>
@@ -1915,6 +2172,26 @@
                         style="margin-top: 10px; text-align: center; display:none">
                         <!-- 페이지 버튼이 동적으로 추가됨 -->
                     </div>
+                </div>
+
+                <div class="Department_first Sub_content" id="Dep_fir_department_budget_Tab">
+                    <div class="header-container"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 class="header-text Dep_fir_header_text" id="Dep_fir_department_budget_header_text">부서 인건비</h2>
+                    </div>
+                    <hr style="margin-bottom: 20px;">
+
+                    <table class="custom-table no_wrap" id="Dep_fir_department_budget_table" style="border: 1px solid black;">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">직급</th>
+                                <th style="width: 120px;">투입현황(일)</th>
+                                <th style="width: 200px;">금액</th>
+                            </tr>
+                        </thead>
+                        <tbody id="Dep_fir_department_budget_tbody">
+                        </tbody>
+                    </table>
                 </div>
 
                 <!-- 경비 -->
@@ -2130,6 +2407,11 @@
         </div>
     </div>
 
+    </div>
+    </main>
+    </div>
+    </div>
+
     <script id="first-records-json" type="application/json">{{ first_records | tojson | safe }}</script>
     <script id="second-records-json" type="application/json">{{ second_records | tojson | safe }}</script>
     <script id="performance-result-json" type="application/json">{{ performance_result | tojson | safe }}</script>
@@ -2137,16 +2419,265 @@
     <script id="department-bohal-json" type="application/json">{{ department_bohal | tojson | safe }}</script>
 
     <script>
+        function toNumber(raw) {
+            if (raw === null || raw === undefined) return 0;
+            return Number(String(raw).replace(/[^\d.-]/g, '')) || 0;
+        }
+
+        function formatNumberKR(num) {
+            return Number(num || 0).toLocaleString('ko-KR');
+        }
+
+        function getDetailProfitSnapshot() {
+            const fromActualTable = {
+                moneyText: document.getElementById('Real_profitSum')?.textContent?.trim() || '',
+                perText: document.getElementById('Real_profitPer')?.textContent?.trim() || ''
+            };
+
+            if (fromActualTable.moneyText && fromActualTable.perText) {
+                return fromActualTable;
+            }
+
+            const fromComparison = {
+                moneyText: document.getElementById('REAL_profitMoney')?.textContent?.trim() || '',
+                perText: document.getElementById('REAL_profitPer')?.textContent?.trim() || ''
+            };
+
+            if (fromComparison.moneyText && fromComparison.perText) {
+                return fromComparison;
+            }
+
+            const profitRow = Array.from(document.querySelectorAll('#actual_fee_table tbody tr')).find((tr) => {
+                return (tr.textContent || '').includes('영업이익');
+            });
+
+            if (profitRow) {
+                const cells = profitRow.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    return {
+                        perText: (cells[2].textContent || '').trim(),
+                        moneyText: (cells[3].textContent || '').trim()
+                    };
+                }
+            }
+
+            return { moneyText: '', perText: '' };
+        }
+
+        function buildProjectOverviewCards() {
+            const source = document.getElementById('projectDetailsRaw');
+            const target = document.getElementById('projectOverviewCards');
+            if (!source || !target) return;
+
+            const htmlText = (source.innerHTML || '')
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/&nbsp;/gi, ' ');
+
+            const parser = document.createElement('div');
+            parser.innerHTML = htmlText;
+
+            // 숨김 행/HTML 병합으로 한 줄이 되는 케이스를 대비해 번호 섹션 앞에 줄바꿈을 강제한다.
+            const normalized = (parser.textContent || '')
+                .replace(/\r/g, '\n')
+                .replace(/(^|[^\d])(\d{1,2}\.)\s*(?=[가-힣A-Za-z(])/g, (_, prefix, num) => `${prefix}\n${num} `)
+                .replace(/^\s*\n/, '');
+
+            const lines = normalized
+                .split('\n')
+                .map(v => v.trim())
+                .filter(Boolean);
+
+            const sections = [];
+            let current = null;
+
+            lines.forEach(line => {
+                const titleMatch = line.match(/^(\d+\.)\s*(.+)$/);
+                if (titleMatch) {
+                    current = { title: `${titleMatch[1]} ${titleMatch[2]}`, body: [] };
+                    sections.push(current);
+                } else if (current) {
+                    const bulletMatch = line.match(/^[-•]\s*(.+)$/);
+                    if (bulletMatch) {
+                        current.body.push(bulletMatch[1].trim());
+                        return;
+                    }
+
+                    // 줄바꿈으로 잘린 문장은 직전 항목에 이어 붙인다.
+                    if (current.body.length > 0) {
+                        current.body[current.body.length - 1] += ` ${line}`;
+                    } else {
+                        current.body.push(line);
+                    }
+                }
+            });
+
+            if (!sections.length) {
+                target.innerHTML = `<div class="overview-card"><h3>개요</h3><p>${lines.join('<br>') || '-'}</p></div>`;
+                return;
+            }
+
+            target.innerHTML = sections.map(section => {
+                const content = section.body.length ? section.body.map(v => `<li>${v}</li>`).join('') : '<li>-</li>';
+                return `
+                    <article class="overview-card">
+                        <h3>${section.title}</h3>
+                        <ul>${content}</ul>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function updateDetailTopKpi() {
+            const contributionEl = document.getElementById('kpiContributionValue');
+            const receiptEl = document.getElementById('kpiReceiptValue');
+            const profitEl = document.getElementById('kpiProfitValue');
+            const profitRateEl = document.getElementById('kpiProfitRate');
+            const rateEl = document.getElementById('ContributionRate');
+            const noVatEl = document.getElementById('ProjectCost_NoVAT');
+
+            if (contributionEl && rateEl && noVatEl) {
+                const rate = toNumber(rateEl.textContent) / 100;
+                const noVat = toNumber(noVatEl.textContent);
+                const contribution = Math.round(noVat * rate);
+                contributionEl.innerHTML = `${formatNumberKR(contribution)}<span>원</span>`;
+            }
+
+            if (receiptEl) {
+                const receiptRows = document.querySelectorAll('#project_receipt_table tbody tr');
+                let totalReceipt = 0;
+                receiptRows.forEach((row) => {
+                    const amountNoVatCell = row.querySelector('td:nth-child(4)');
+                    if (!amountNoVatCell) return;
+                    totalReceipt += toNumber(amountNoVatCell.textContent);
+                });
+                receiptEl.textContent = `수령금액(VAT제외): ${formatNumberKR(totalReceipt)}원`;
+            }
+
+            const profitSnapshot = getDetailProfitSnapshot();
+            if (profitEl && profitRateEl && profitSnapshot.moneyText) {
+                const profit = toNumber(profitSnapshot.moneyText);
+                const rawRate = (profitSnapshot.perText || '').trim();
+                const normalizedRate = rawRate.replace(/^이익율\s*:\s*/i, '').replace(/%/g, '').trim();
+                const rateDisplay = normalizedRate && normalizedRate !== '-' ? `${normalizedRate}%` : '-';
+                profitRateEl.textContent = `이익율 : ${rateDisplay}`;
+                profitEl.innerHTML = `${formatNumberKR(profit)}<span>원</span>`;
+            }
+        }
+
+        function separateOverviewExtraRows() {
+            const fileCell = document.getElementById('file_list');
+            const fileTarget = document.getElementById('separatedFileArea');
+            const fileActionSlot = document.getElementById('fileUploadActionSlot');
+            if (fileCell && fileTarget && !fileTarget.hasChildNodes()) {
+                while (fileCell.firstChild) {
+                    fileTarget.appendChild(fileCell.firstChild);
+                }
+            }
+
+            if (fileTarget && fileActionSlot) {
+                const uploadWrap = fileTarget.querySelector('.file-upload-button');
+                const uploadBtn = uploadWrap ? uploadWrap.querySelector('button') : null;
+                if (uploadBtn && !fileActionSlot.hasChildNodes()) {
+                    uploadBtn.classList.add('btn-file-inline');
+                    fileActionSlot.appendChild(uploadBtn);
+                }
+                if (uploadWrap) {
+                    uploadWrap.style.display = 'none';
+                }
+            }
+
+            const refCell = document.getElementById('projectReferenceRaw');
+            const refTarget = document.getElementById('separatedReferenceArea');
+            if (refCell && refTarget && !refTarget.hasChildNodes()) {
+                refTarget.innerHTML = refCell.innerHTML.trim() || '<span class="empty-ref">참조사업 없음</span>';
+            }
+        }
+
+        function cloneRowsToModal(sourceTbodyId, targetTbodyId) {
+            const source = document.getElementById(sourceTbodyId);
+            const target = document.getElementById(targetTbodyId);
+            if (!target) return;
+
+            target.innerHTML = '';
+            if (!source || !source.children.length) {
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.colSpan = 8;
+                emptyCell.textContent = '데이터가 없습니다.';
+                emptyCell.style.textAlign = 'center';
+                emptyCell.style.color = '#64748b';
+                emptyRow.appendChild(emptyCell);
+                target.appendChild(emptyRow);
+                return;
+            }
+
+            Array.from(source.children).forEach((row) => {
+                target.appendChild(row.cloneNode(true));
+            });
+        }
+
+        function openInputStatusModal(type) {
+            if (type === 'expected') {
+                cloneRowsToModal('budget_result_tbody', 'expected_input_status_budget_tbody');
+                cloneRowsToModal('record_result_tbody', 'expected_input_status_record_tbody');
+                cloneRowsToModal('Real_budget_result_tbody', 'expected_modal_actual_input_status_budget_tbody');
+                cloneRowsToModal('Real_record_result_tbody', 'expected_modal_actual_input_status_record_tbody');
+                const modal = document.getElementById('modal_expectedInputStatus');
+                if (modal) {
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                }
+                return;
+            }
+
+            cloneRowsToModal('Real_budget_result_tbody', 'actual_input_status_budget_tbody');
+            cloneRowsToModal('Real_budget_result_tbody', 'actual_input_status_department_budget_tbody');
+            cloneRowsToModal('Real_record_result_tbody', 'actual_input_status_record_tbody');
+            const modal = document.getElementById('modal_actualInputStatus');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.classList.add('modal-open');
+            }
+        }
+
+        function closeInputStatusModal(type) {
+            const modalId = type === 'expected' ? 'modal_expectedInputStatus' : 'modal_actualInputStatus';
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+            }
+            const openedModals = document.querySelectorAll('.modal.show');
+            if (!openedModals.length) {
+                document.body.classList.remove('modal-open');
+            }
+        }
+
         document.addEventListener("DOMContentLoaded", function () {
             document.getElementsByClassName("tablinks")[0].click();
             document.getElementsByClassName("ex_tablinks")[0].click();
+            separateOverviewExtraRows();
             initFileUpload({
                 dropZoneId: "drop-zone",
                 inputId: "file-input",
                 outputId: "uploaded-files"
             });
             setupFileUploadListener();
+            buildProjectOverviewCards();
+            setTimeout(updateDetailTopKpi, 400);
+            setTimeout(updateDetailTopKpi, 1200);
+            setTimeout(updateDetailTopKpi, 2500);
+            setTimeout(updateDetailTopKpi, 4000);
+
+            const actualFeeTable = document.getElementById('actual_fee_table');
+            if (actualFeeTable && window.MutationObserver) {
+                const observer = new MutationObserver(() => {
+                    updateDetailTopKpi();
+                });
+                observer.observe(actualFeeTable, { childList: true, subtree: true, characterData: true });
+            }
         });
+
+        window.updateDetailTopKpi = updateDetailTopKpi;
 
         // firstRecords 데이터를 Jinja2에서 JSON으로 변환하여 JavaScript에서 사용
         const firstRecords = JSON.parse(document.getElementById('first-records-json')?.textContent || '[]');

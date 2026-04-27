@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import hashlib
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 
 from ..db import create_connection
 from ..services.dday import calculate_d_day_value, auto_insert_risk_for_contract
+from ..services.project_status import (
+    build_effective_date,
+    ensure_initial_project_status_history,
+    normalize_project_status,
+    record_project_status_history,
+)
 
 bp = Blueprint('admin_api', __name__)
 
@@ -124,16 +130,59 @@ def update_project_status():
         cursor = db.cursor(dictionary=True)
 
         contractCode = data.get('contractCode')
-        status = data.get('project_status')
+        status = normalize_project_status(data.get('project_status'))
+        effective_year_raw = data.get('status_effective_year')
+        effective_year = None
+        if effective_year_raw not in (None, ''):
+            try:
+                effective_year = int(effective_year_raw)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'message': '적용 연도가 올바르지 않습니다.'}), 400
 
         if not contractCode or not status:
             return jsonify({'success': False, 'message': '필수 항목 누락'}), 400
 
-        cursor.execute('SELECT endDate FROM projects WHERE contractCode = %s', (contractCode,))
+        cursor.execute(
+            'SELECT ProjectID, ContractCode, StartDate, endDate, project_status FROM projects WHERE contractCode = %s',
+            (contractCode,),
+        )
         row = cursor.fetchone()
-        end_date = None
-        if row:
-            end_date = row.get('endDate') if isinstance(row, dict) else row[0]
+        if not row:
+            return jsonify({'success': False, 'message': '프로젝트를 찾을 수 없습니다.'}), 404
+
+        project_id = row.get('ProjectID') if isinstance(row, dict) else row[0]
+        start_date = row.get('StartDate') if isinstance(row, dict) else row[2]
+        end_date = row.get('endDate') if isinstance(row, dict) else row[3]
+        current_status = row.get('project_status') if isinstance(row, dict) else row[4]
+
+        ensure_initial_project_status_history(
+            cursor,
+            project_id,
+            contractCode,
+            start_date,
+            current_status=current_status,
+            project_end_date=end_date,
+        )
+
+        effective_date = build_effective_date(
+            status,
+            effective_year=effective_year,
+            project_start_date=start_date,
+            project_end_date=end_date,
+        )
+        changed_by = None
+        user_info = session.get('user') if isinstance(session.get('user'), dict) else None
+        if user_info:
+            changed_by = str(user_info.get('name') or user_info.get('Name') or '').strip() or None
+        record_project_status_history(
+            cursor,
+            project_id,
+            contractCode,
+            status,
+            effective_date,
+            changed_by=changed_by,
+            note='detail modal status update',
+        )
 
         cursor.execute(
             """

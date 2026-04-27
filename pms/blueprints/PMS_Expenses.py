@@ -66,7 +66,29 @@ def pms_expenses(year: int):
             ]
             return jsonify(data)
 
-        return render_template('PMS_Expenses.html', year=year, expenses=rows, company_expenses=None)
+        cursor.execute(
+            """
+            SELECT AcademicResearchRate, OperationalRate, EquipmentRate
+            FROM companyexpenses
+            WHERE `year` = %s
+            LIMIT 1
+            """,
+            (year,),
+        )
+        company_row = cursor.fetchone()
+        company_expenses = {
+            'AcademicResearchRate': None,
+            'OperationalRate': None,
+            'EquipmentRate': None,
+        }
+        if company_row:
+            company_expenses = {
+                'AcademicResearchRate': float(company_row[0]) if company_row[0] is not None else None,
+                'OperationalRate': float(company_row[1]) if company_row[1] is not None else None,
+                'EquipmentRate': float(company_row[2]) if company_row[2] is not None else None,
+            }
+
+        return render_template('PMS_Expenses.html', year=year, expenses=rows, company_expenses=company_expenses)
     finally:
         cursor.close()
         db.close()

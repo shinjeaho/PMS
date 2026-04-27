@@ -11,18 +11,24 @@
 <body>
     <header class="pageheader" style="position: relative;">
         <h1 id="yearTitle" style="font-size: 50px; text-align: center; margin-bottom: 30px;">
-            {{ selected_year }}년도 사업
+            {{ selected_year }}년 사업
             {% if view_type %}
             - {{ view_type }}
             {% endif %}
         </h1>
         <div class="user-logout-box">
             <div class="user-label" title="로그인 정보">
-                <span class="user-name">{{ session['user']['name'] }}</span>
-                <span class="user-sep">/</span>
                 <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-pos">{{ session['user'].get('position', session['user'].get('Position', '-')) or '-' }}</span>
+                <span class="user-sep">/</span>
+                <span class="user-name">{{ session['user']['name'] }}</span>
             </div>
-            <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button class="search-button" type="button" onclick="pageLogout()">로그아웃</button>
+                <button id="year-standard-info-btn" class="search-button" type="button" onclick="checkLaborCosts()"
+                    style="display: none;">기준정보 확인</button>
+            </div>
         </div>
 
         <input type="hidden" id="sessionName" value="{{ session['user']['name'] }}">
@@ -30,6 +36,8 @@
         <input type="hidden" id="sessionDataAuth" value="{{ session['user'].get('dataauth', 0) }}">
         <input type="hidden" id="sessionProjectAuth" value="{{ session['user'].get('projectAUTH', 0) }}">
         <input type="hidden" id="sessionReportAuth" value="{{ session['user'].get('reportAUTH', 0) }}">
+        <input type="hidden" id="sessionMeetingAuth" value="{{ session['user'].get('meetingAuth', session['user'].get('meetingauth', 0)) }}">
+        <input type="hidden" id="sessionAdminAuth" value="{{ session['user'].get('adminAUTH', 0) }}">
         <input type="hidden" id="sessionDept" value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
         <input type="hidden" id="projectYEAR" value="{{ selected_year }}">
     </header>
@@ -49,20 +57,31 @@
                 <div class="dropdown-content">
                     <a href="#" onclick="viewYearlyProjects()">연차사업</a>
                     <a href="#" onclick="viewExamineProjects()">검토사업</a>
+                </div>
+            </li>
+            <li class="dropdown" id="integration-li" style="display: none;">
+                <button class="year-button dropbtn">통합자료 ▼</button>
+                <div class="dropdown-content">
                     <a style="display: none;" id="processProjectEngineers" href="/PMS_annualProject/status/engineers">참여기술자 모아보기</a>
                     <a style="display: none;" id="processProjectProgress" href="/PMS_annualProject/status/progress">진행중 사업 통합자료</a>
                     <a style="display: none;" id="completeProject" href="#" data-status = 'complete' onclick="viewCompleteProjects(this)">준공 사업 통합자료</a>
                     <a style="display: none;" id="stopProject" href="/PMS_annualProject/status/stop">용역중지 사업 통합자료</a>
                     <a id="annualBTN" href="#" onclick="viewAnnualProjects()" style="display: none;">연도별 통합자료</a>
+                    <a id="annualMoneyBTN" href="/PMS_annualMoney?year={{ selected_year }}" style="display: none;">사업비 수령내역 모아보기</a>
                 </div>
             </li>
-            <li><button class="year-button" onclick="addProject('{{ selected_year }}')">프로젝트 추가</button></li>
-            <li><button class="year-button" onclick="checkLaborCosts()">기준정보 확인</button></li>
-            <li><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
+            <li class="dropdown">
+                <button class="year-button dropbtn">사업 관리 ▼</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="addProject('{{ selected_year }}')">사업 추가</a>
+                    <a href="#" onclick="openTransfer()">엑셀 데이터 이관</a>
+                </div>
+            </li>
+            <li id="meeting-li" style="display: none;"><button class="year-button" type="button" onclick="viewMeetingMinutes()">회의록</button></li>
             {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
-            <li><button class="year-button" onclick="viewWeeklyReports()">주간 보고서</button></li>
+            <li><button class="year-button" type="button" onclick="viewWeeklyReports()">주간보고서</button></li>
+            <li style="display:none;"><button class="year-button" type="button" onclick="viewDailyReports()">일일보고서</button></li>
             {% endif %}
-            <li><button class="year-button" onclick="openTransfer()">엑셀 데이터 이관</button></li>
             <li id="setting-li" style="display: none;">
                 <button id="setting" class="year-button" onclick="openSettings()">설정관리</button>
             </li>
@@ -90,108 +109,111 @@
             <div class="tab-content">
                 <!-- 계정관리 탭 -->
                 <div id="account" class="tab-pane active">
-                    <div class="account-form">
-                        <!-- 3행: 선택된 메뉴명 + 검색 -->
-                        <div class="admin-toolbar"
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0PX; margin-top: 10px; margin-bottom: 10px;">
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <input type="text" id="searchBox" placeholder="검색"
-                                    style="width: 200px; height: 30px;" />
-                                <button class="search-button">검색</button>
+                    <div class="ua-body">
+                        <div class="ua-top">
+                            <div class="ua-left" aria-label="부서">
+                                <div class="ua-box-title">부서</div>
+                                <div class="ua-dept" id="uaDeptTree"></div>
                             </div>
 
-                            <div style="display: flex; gap: 5px;">
-                                <button class="search-button" onclick="onEditStaff()">수정</button>
-                                <button class="search-button" id="addRowBTN" style="display: none;"
-                                    onclick="addStaffRow()">행 추가</button>
-                                <button class="search-button" id="resetBTN" style="display: none;"
-                                    onclick="resetpassword()">비밀번호 초기화</button>
-                                <button class="delete-button" id="deleteBTN" onclick="deleteCheckedRows()"
-                                    style="display: none;">삭제</button>
-                                <button class="search-button" id="saveBTN" onclick="saveStaff()"
-                                    style="display: none;">저장</button>
-                            </div>
+                            <div class="ua-right" aria-label="직원 목록">
+                                <div class="ua-toolbar" aria-label="직원 관리 버튼">
+                                    <div class="ua-toolbar-right" style="justify-content:flex-start;">
+                                        <button class="ua-btn" type="button" onclick="onEditStaff()">수정</button>
+                                        <button class="ua-btn" type="button" id="addRowBTN" style="display: none;" onclick="addStaffRow()">행 추가</button>
+                                        <button class="ua-btn" type="button" id="resetBTN" style="display: none;" onclick="resetpassword()">비밀번호 초기화</button>
+                                        <button class="ua-btn ua-btn-danger" type="button" id="deleteBTN" onclick="deleteCheckedRows()" style="display: none;">삭제</button>
+                                        <button class="ua-btn ua-btn-primary" type="button" id="saveBTN" onclick="saveStaff()" style="display: none;">저장</button>
+                                    </div>
+                                    <div class="ua-toolbar-search" style="display:flex; align-items:center; gap:6px;">
+                                        <input type="text" id="searchBox" placeholder="검색" style="width: 200px; height: 34px;" />
+                                        <button class="ua-btn" type="button">검색</button>
+                                    </div>
+                                </div>
 
-                        </div>
-
-                        <!-- 4행: 그리드 -->
-                        <div class="admin-grid-area">
-                            <div id="staff" class="grid">
-                                <table class="custom-grid" id="staffGrid">
-                                    <colgroup>
-                                        <col style="width:40px;" />
-                                        <col style="width:100px;" />
-                                        <col style="width:100px;" />
-                                        <col style="width:150px;" />
-                                        <col style="width:100px;" />
-                                        <col style="width:70px;" />
-                                        <col style="width:70px;" />
-                                        <col style="width:70px;" />
-                                    </colgroup>
-                                    <thead>
-                                        <tr>
-                                            <th class="staff-select-col" rowspan="2" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="check-all" aria-label="전체 선택"></th>
-                                            <th colspan="4" style="text-align:center;">구분</th>
-                                            <th colspan="3" style="text-align:center;">보기권한</th>
-                                        </tr>
-                                        <tr>
-                                            <th id="staffSortName" class="staff-sortable" title="이름 정렬">이름</th>
-                                            <th>아이디</th>
-                                            <th id="staffSortDept" class="staff-sortable" title="부서 정렬">부서</th>
-                                            <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">등급</th>
-                                            <th>사업목록</th>
-                                            <th>통합자료</th>
-                                            <th>주간보고</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for user in users %}
-                                        <tr>
-                                            <td class="staff-select-col" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="row-check" aria-label="행 선택"></td>
-                                            <td>{{ user.Name }}</td>
-                                            <td>{{ user.userID }}</td>
-
-                                            <!-- 부서 select -->
-                                            <td>
-                                                <select style="width: 100%;">
-                                                    {% set departments = [
-                                                    '공간정보사업부', 'GIS사업부', 'GIS사업지원부',
-                                                    '기업부설연구소', '공공사업부', '공정관리부',
-                                                    '경영지원부', '총무부', '임원실',
-                                                    'BIT', 'BIT 공정관리부'
-                                                    ] %}
-                                                    {% for dept in departments %}
-                                                    <option value="{{ dept }}" {% if user.Department==dept %}selected{%
-                                                        endif %}>{{ dept }}</option>
-                                                    {% endfor %}
-                                                </select>
-                                            </td>
-
-                                            <!-- 등급 select -->
-                                            <td>
-                                                <select>
-                                                    {% set auths = ['읽기', '읽기/쓰기', '관리자'] %}
-                                                    {% for auth in auths %}
-                                                    <option value="{{ auth }}" {% if user.Auth==auth %}selected{% endif
-                                                        %}>{{ auth }}</option>
-                                                    {% endfor %}
-                                                </select>
-                                            </td>
-
-                                            <!-- 권한 그룹: 사업목록 / 통합자료 / 주간보고 -->
-                                            <td style="text-align:center;">
-                                                <input type="checkbox" class="projectauth-check" {% if (user.projectAUTH|int) == 1 %}checked{% endif %} />
-                                            </td>
-                                            <td style="text-align:center;">
-                                                <input type="checkbox" class="dataauth-check" {% if (user.dataauth|int) == 1 %}checked{% endif %} />
-                                            </td>
-                                            <td style="text-align:center;">
-                                                <input type="checkbox" class="reportauth-check" {% if (user.reportAUTH|int) == 1 %}checked{% endif %} />
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                                <div class="ua-grid-wrap" id="staff">
+                                    <table class="ua-grid custom-grid" id="staffGrid">
+                                        <colgroup>
+                                            <col style="width:40px;" />     <!-- 체크박스 열 -->
+                                            <col style="width:80px;" />     <!-- 사번 -->
+                                            <col style="width:130px;" />    <!-- 아이디 -->
+                                            <col style="width:170px;" />    <!-- 부서 -->
+                                            <col style="width:110px;" />    <!-- 이름 -->
+                                            <col style="width:110px;" />    <!-- 직위 -->
+                                            <col style="width:140px;" />    <!-- 입사일 -->
+                                            <col style="width:120px;" />    <!-- 번호 -->
+                                            <col style="width:140px;" />    <!-- PMS 접근등급 -->
+                                            <col style="width:90px;" />     <!-- 관리자 -->
+                                            <col style="width:60px;" />     <!-- PMS (권한열 동일폭) -->
+                                            <col style="width:60px;" />     <!-- 통합자료 (권한열 동일폭) -->
+                                            <col style="width:60px;" />     <!-- 업무보고 (권한열 동일폭) -->
+                                            <col style="width:60px;" />     <!-- 회의록 (권한열 동일폭) -->
+                                        </colgroup>
+                                        <thead>
+                                            <tr>
+                                                <th class="staff-select-col" rowspan="2" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="check-all" aria-label="전체 선택"></th>
+                                                <th colspan="7" style="text-align:center;">구분</th>
+                                                <th colspan="6" style="text-align:center;">권한</th>
+                                            </tr>
+                                            <tr>
+                                                <th>사번</th>
+                                                <th>아이디</th>
+                                                <th id="staffSortDept" class="staff-sortable" title="부서 정렬">부서</th>
+                                                <th id="staffSortName" class="staff-sortable" title="이름 정렬">이름</th>
+                                                <th id="staffSortPosition" class="staff-sortable" title="직위 정렬">직위</th>
+                                                <th>입사일</th>
+                                                <th>휴대폰 번호</th>
+                                                <th id="staffSortAuth" class="staff-sortable" title="등급 정렬">PMS 접근 등급</th>
+                                                <th>관리자</th>
+                                                <th>PMS</th>
+                                                <th>통합자료</th>
+                                                <th>업무보고</th>
+                                                <th>회의록</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for user in users %}
+                                            <tr>
+                                                <td class="staff-select-col" style="text-align:center; vertical-align: middle;"><input type="checkbox" class="row-check" aria-label="행 선택"></td>
+                                                <td data-field="emp_no">{{ user.get('emp_no', user.get('EmpNo', '')) }}</td>
+                                                <td data-field="user_id">{{ user.userID }}</td>
+                                                <td data-field="department">
+                                                    <select style="width: 100%;">
+                                                        {% set departments = [
+                                                        '경영본부', '사업본부', '영업본부',
+                                                        '공간정보사업부', 'GIS사업부', 'GIS사업지원부',
+                                                        '기업부설연구소', '공공사업부', '공정관리부',
+                                                        '경영지원부', '총무부', '임원실',
+                                                        'BIT', 'BIT 공정관리부'
+                                                        ] %}
+                                                        {% for dept in departments %}
+                                                        <option value="{{ dept }}" {% if user.Department==dept %}selected{% endif %}>{{ dept }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </td>
+                                                <td data-field="name">{{ user.Name }}</td>
+                                                <td data-field="position">{{ user.get('position', user.get('Position', '')) }}</td>
+                                                {% set join_date_value = (user.get('join_date', user.get('JoinDate', '')) ~ '')[:10] %}
+                                                <td data-field="join_date"><input type="date" class="join-date-input" value="{{ join_date_value }}"></td>
+                                                <td data-field="phone">{{ user.get('phone', user.get('Phone', '')) }}</td>
+                                                <td data-field="auth">
+                                                    <select>
+                                                        {% set auths = ['읽기', '읽기/쓰기'] %}
+                                                        {% for auth in auths %}
+                                                        <option value="{{ auth }}" {% if user.Auth==auth or (auth == '읽기/쓰기' and user.Auth == '관리자') %}selected{% endif %}>{{ auth }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </td>
+                                                <td style="text-align:center;"><input type="checkbox" class="adminauth-check" {% if (user.get('adminAUTH', user.get('adminauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="projectauth-check" {% if (user.get('projectAUTH', user.get('projectauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="dataauth-check" {% if (user.get('dataauth', 0)|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="reportauth-check" {% if (user.get('reportAUTH', user.get('reportauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                                <td style="text-align:center;"><input type="checkbox" class="meetingauth-check" {% if (user.get('meetingAuth', user.get('meetingauth', 0))|int) == 1 %}checked{% endif %} /></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -234,7 +256,7 @@
                         <select class="settingSelect" id="priceYear" onchange="loadPriceData(this.value)" style="width: 600px; height: 50px;">
                             <!-- JavaScript로 동적 생성 -->
                         </select>
-                        <button class="search-button" onclick="addNewCompanyYear()">연도추가</button>
+                        <button class="search-button" onclick="addNewPriceYear()">연도추가</button>
                     </div>
                     <div class="price-form">
                         <table class="custom-table">
@@ -280,6 +302,44 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 초기화 확인 모달 -->
+    <div id="resetPasswordConfirmModal" class="modal">
+        <div class="modal-content reset-password-confirm-modal">
+            <div class="modal-header">
+                <h2>비밀번호 초기화 확인</h2>
+                <span class="close" id="resetPasswordConfirmClose">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <p id="resetPasswordConfirmMessage"></p>
+                <p id="resetPasswordConfirmWarning" class="reset-password-confirm-warning">되돌릴 수 없습니다.</p>
+            </div>
+            <div class="modal-footer" style="position: static; border-top: none; padding-top: 0; display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="ua-btn" id="resetPasswordConfirmCancel">취소</button>
+                <button type="button" class="ua-btn ua-btn-primary" id="resetPasswordConfirmOk">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 직원 삭제 확인 모달 -->
+    <div id="deleteStaffConfirmModal" class="modal">
+        <div class="modal-content staff-delete-confirm-modal">
+            <div class="modal-header">
+                <h2>직원 삭제 확인</h2>
+                <span class="close" id="deleteStaffConfirmClose">&times;</span>
+            </div>
+            <hr class="modal-divider">
+            <div class="modal-body">
+                <p id="deleteStaffConfirmMessage"></p>
+                <p class="reset-password-confirm-warning">저장 시 삭제가 반영됩니다.</p>
+            </div>
+            <div class="modal-footer" style="position: static; border-top: none; padding-top: 0; display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="ua-btn" id="deleteStaffConfirmCancel">취소</button>
+                <button type="button" class="ua-btn ua-btn-primary" id="deleteStaffConfirmOk">확인</button>
             </div>
         </div>
     </div>
@@ -633,6 +693,10 @@
 
     <!-- 검색 부분 HTML -->
     <div id="searchDIV">
+        <select id="searchScope" aria-label="검색 범위 선택">
+            <option value="year" selected>연도별</option>
+            <option value="all">전체</option>
+        </select>
         <input type="text" id="search" placeholder="검색어를 입력하세요">
         <button class="search-button" id="search_BTN" onclick="handleSearch(1)">검색</button>
     </div>
@@ -649,15 +713,139 @@
             <table class="projectList">
                 <thead>
                     <tr>
-                        <th style="width: 15%;">사업번호</th>
-                        <th style="width: 55%;">사업명</th>
-                        <th style="width: 10%;">준공여부</th>
-                        <th style="width: 10%;">진행률</th>
-                        <th style="width: 10%;">외주구분</th>
+                        <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 15%;">사업번호</th>
+                        <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 55%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                        <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
+                        <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
+                        <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
                     </tr>
                 </thead>
                 <tbody id="projectList_tbody"></tbody>
             </table>
+
+            <section id="dailyReportSection" class="daily-report-page" style="display:none;">
+                <div class="daily-report-shell">
+                    <div class="daily-report-header" id="dailyReportDeptLabel">세션에 따른 부서명</div>
+
+                    <div class="daily-report-period-row">
+                        <div class="daily-report-period-box">
+                            <div class="daily-period-group daily-period-group-year">
+                                <button type="button" class="daily-period-nav" id="dailyYearPrevBtn" aria-label="이전 연도">◀</button>
+                                <button type="button" class="daily-period-display" id="dailyYearDisplay">연도</button>
+                                <button type="button" class="daily-period-nav" id="dailyYearNextBtn" aria-label="다음 연도">▶</button>
+                                <div id="dailyYearPicker" class="daily-picker-panel"></div>
+                            </div>
+
+                            <div class="daily-period-group daily-period-group-month">
+                                <button type="button" class="daily-period-nav" id="dailyMonthPrevBtn" aria-label="이전 월">◀</button>
+                                <button type="button" class="daily-period-display" id="dailyMonthDisplay">월</button>
+                                <button type="button" class="daily-period-nav" id="dailyMonthNextBtn" aria-label="다음 월">▶</button>
+                                <div id="dailyMonthPicker" class="daily-picker-panel"></div>
+                            </div>
+
+                            <button type="button" id="dailyWriteBtn" class="search-button daily-report-write-btn" onclick="openDailyWriteModal()">일일보고 작성</button>
+                        </div>
+                    </div>
+
+                    <div class="daily-report-calendar-wrap">
+                        <div id="dailyReportCalendar" class="daily-report-calendar"></div>
+                    </div>
+                </div>
+            </section>
+
+            <div id="dailyWriteModal" class="modal">
+                <div class="modal-content daily-write-modal">
+                    <div class="modal-header">
+                        <h2>일일보고 작성</h2>
+                        <span class="close" onclick="closeDailyWriteModal()">&times;</span>
+                    </div>
+                    <hr class="modal-divider">
+                    <div class="modal-body">
+                        <table class="daily-write-form-table daily-write-head-table">
+                            <colgroup>
+                                <col style="width: 12%;">
+                                <col style="width: 88%;">
+                            </colgroup>
+                            <tbody>
+                                <tr>
+                                    <th>부서</th>
+                                    <td><input type="text" id="dailyWriteDept" class="meeting-form-input" readonly></td>
+                                </tr>
+                                <tr>
+                                    <th>일자</th>
+                                    <td class="daily-write-date-author-cell">
+                                        <div class="daily-write-date-group">
+                                            <input type="date" id="dailyWriteDate" class="meeting-form-input daily-write-date-input" min="1900-01-01" max="9999-12-31">
+                                        </div>
+                                        <div class="daily-write-author-group">
+                                            <span class="daily-write-author-label">작성자</span>
+                                            <input type="text" id="dailyWriteAuthor" class="meeting-form-input daily-write-author-input" readonly>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>구분</th>
+                                    <td class="daily-write-type-cell">
+                                        <label><input type="checkbox" id="dailyTypeInner" checked> 내근</label>
+                                        <label><input type="checkbox" id="dailyTypeOuter"> 외근</label>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div id="dailyInnerSection" class="daily-write-section">
+                            <div class="daily-write-section-title">내근</div>
+                            <table class="daily-write-form-table">
+                                <colgroup>
+                                    <col style="width: 65%;">
+                                    <col style="width: 35%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>업무내용</th>
+                                        <th>비고</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><textarea id="dailyInnerWork" class="daily-write-textarea" placeholder="업무내용 입력"></textarea></td>
+                                        <td><textarea id="dailyInnerNote" class="daily-write-textarea" placeholder="비고 입력"></textarea></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div id="dailyOuterSection" class="daily-write-section">
+                            <div class="daily-write-section-title">외근</div>
+                            <table class="daily-write-form-table">
+                                <colgroup>
+                                    <col style="width: 30%;">
+                                    <col style="width: 40%;">
+                                    <col style="width: 30%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>구분</th>
+                                        <th>업무내용</th>
+                                        <th>특이사항</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <textarea id="dailyOuterMeta" class="daily-write-textarea">방문일시 : 
+업체명/담당자 : 
+방문자 : </textarea>
+                                        </td>
+                                        <td><textarea id="dailyOuterWork" class="daily-write-textarea" placeholder="업무내용 입력"></textarea></td>
+                                        <td><textarea id="dailyOuterSpecial" class="daily-write-textarea" placeholder="특이사항 입력"></textarea></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 페이지네이션 버튼 -->
@@ -665,7 +853,7 @@
     </div>
 
     <footer>
-        <a href="/doc_editor" style="display: inline-block;">
+        <a style="display: inline-block;">
             <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
                 style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px; cursor: pointer;">
         </a>

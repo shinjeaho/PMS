@@ -3,10 +3,231 @@ let activeLayouts;
 let first;
 let second;
 let contextTargetRow = null;
+let detailReadOnlyMode = false;
+const detailWriteMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const detailReadPostAllowlist = [
+    '/doc_editor_api/meeting/view',
+];
+let detailReadOnlyNoticeShown = false;
+
+function isDetailReadOnly() {
+    return detailReadOnlyMode === true;
+}
+
+function showDetailReadOnlyNotice() {
+    if (!detailReadOnlyNoticeShown) {
+        alert('읽기 권한에서는 쓰기 기능을 사용할 수 없습니다.');
+        detailReadOnlyNoticeShown = true;
+        setTimeout(() => {
+            detailReadOnlyNoticeShown = false;
+        }, 1200);
+    }
+}
+
+function blockDetailWriteIfReadOnly(event = null) {
+    if (!isDetailReadOnly()) return false;
+    if (event) {
+        try {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        } catch (_) { }
+    }
+    // 초기 로딩/내부 호출(비사용자 이벤트)에서는 팝업을 띄우지 않는다.
+    if (event && event.isTrusted) {
+        showDetailReadOnlyNotice();
+    }
+    return true;
+}
+
+function bindDetailWriteEvent(element, eventName, handler, options) {
+    if (!element || typeof handler !== 'function') return;
+    element.addEventListener(eventName, function (e) {
+        if (blockDetailWriteIfReadOnly(e)) return;
+        return handler.call(this, e);
+    }, options);
+}
+
+function isDetailAllowedReadPost(url) {
+    const normalized = String(url || '');
+    return detailReadPostAllowlist.some((allowed) => normalized.includes(allowed));
+}
+
+function isLikelyDetailWriteActionElement(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    const onclickText = (el.getAttribute('onclick') || '').toLowerCase();
+    const idText = String(el.id || '').toLowerCase();
+    const clsText = String(el.className || '').toLowerCase();
+    const nameText = String(el.getAttribute('name') || '').toLowerCase();
+    const labelText = String(el.textContent || '').trim();
+    const loweredLabel = labelText.toLowerCase();
+
+    const writeKeywordRegex = /(save|delete|remove|add|insert|update|submit|create|register|edit|modify)/i;
+    const writeKoreanRegex = /(저장|삭제|추가|수정|등록|제출)/;
+
+    if (writeKeywordRegex.test(onclickText) || writeKoreanRegex.test(onclickText)) return true;
+    if (writeKeywordRegex.test(idText) || writeKeywordRegex.test(clsText) || writeKeywordRegex.test(nameText)) return true;
+    if (writeKoreanRegex.test(labelText)) return true;
+    if (labelText === '+' || labelText === '-' || loweredLabel === 'x') return true;
+    return false;
+}
+
+function applyDetailReadOnlyControls(root = document) {
+    if (!isDetailReadOnly()) return;
+    const scope = root && root.querySelectorAll ? root : document;
+
+    scope.querySelectorAll('input, textarea, select').forEach((el) => {
+        if (el.closest('[data-readonly-allow="1"]')) return;
+        if (!(el instanceof HTMLElement)) return;
+        if (el.dataset.detailLocked === '1') return;
+
+        if (el instanceof HTMLInputElement) {
+            const type = String(el.type || 'text').toLowerCase();
+            if (type === 'hidden' || type === 'button' || type === 'submit' || type === 'reset' || type === 'image') {
+                return;
+            }
+
+            el.readOnly = true;
+            el.disabled = true;
+            el.dataset.detailLocked = '1';
+            return;
+        }
+
+        if (el instanceof HTMLTextAreaElement) {
+            el.readOnly = true;
+            el.disabled = true;
+            el.dataset.detailLocked = '1';
+            return;
+        }
+
+        if (el instanceof HTMLSelectElement) {
+            el.disabled = true;
+            el.dataset.detailLocked = '1';
+        }
+    });
+
+    scope.querySelectorAll('[contenteditable="true"], [contenteditable=true]').forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        if (el.closest('[data-readonly-allow="1"]')) return;
+        el.setAttribute('contenteditable', 'false');
+        el.dataset.detailLocked = '1';
+    });
+
+    scope.querySelectorAll('button, [role="button"], a, .btn').forEach((el) => {
+        if (!(el instanceof HTMLElement)) return;
+        if (!isLikelyDetailWriteActionElement(el)) return;
+        if (el.dataset.detailLocked === '1') return;
+
+        if (el instanceof HTMLButtonElement) {
+            el.disabled = true;
+        }
+        el.style.pointerEvents = 'none';
+        el.style.opacity = '0.45';
+        el.dataset.detailLocked = '1';
+    });
+}
+
+function installDetailReadOnlyGuards() {
+    if (!isDetailReadOnly() || window.__detailReadOnlyGuardsInstalled) return;
+    window.__detailReadOnlyGuardsInstalled = true;
+
+    const writeHandlerRegex = /save|delete|remove|addrows|removerow|addtextbox|removetextbox|submit|insert|update|create|register|edit|modify/i;
+
+    // onclick 기반 저장/삭제 계열 버튼 클릭을 사전에 차단
+    document.addEventListener('click', function (e) {
+        const target = e.target && e.target.closest
+            ? e.target.closest('[onclick], button, input[type="button"], input[type="submit"], a')
+            : null;
+        if (!target) return;
+        const onclickText = target.getAttribute ? (target.getAttribute('onclick') || '') : '';
+        const isWriteByOnclick = !!onclickText && writeHandlerRegex.test(onclickText);
+        const isWriteByElement = isLikelyDetailWriteActionElement(target);
+        if (!isWriteByOnclick && !isWriteByElement) return;
+
+        blockDetailWriteIfReadOnly(e);
+    }, true);
+
+    // 폼 전송 차단 (GET 제외)
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        const method = String(form.getAttribute('method') || 'GET').toUpperCase();
+        if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        showDetailReadOnlyNotice();
+    }, true);
+
+    // fetch 기반 쓰기 API 차단 (읽기용 POST는 allowlist)
+    const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+    if (nativeFetch) {
+        window.fetch = function (input, init) {
+            const requestMethod = (() => {
+                const fromInit = init && init.method ? String(init.method).toUpperCase() : '';
+                if (fromInit) return fromInit;
+                if (input && typeof input === 'object' && 'method' in input && input.method) {
+                    return String(input.method).toUpperCase();
+                }
+                return 'GET';
+            })();
+
+            const requestUrl = (() => {
+                if (typeof input === 'string') return input;
+                if (input && typeof input === 'object' && 'url' in input) return String(input.url || '');
+                return '';
+            })();
+
+            const isWriteRequest = detailWriteMethods.has(requestMethod);
+            if (isDetailReadOnly() && isWriteRequest && !isDetailAllowedReadPost(requestUrl)) {
+                showDetailReadOnlyNotice();
+                return Promise.resolve(new Response(
+                    JSON.stringify({ ok: false, message: '읽기 권한에서는 쓰기 기능을 사용할 수 없습니다.' }),
+                    {
+                        status: 403,
+                        headers: { 'Content-Type': 'application/json' },
+                    },
+                ));
+            }
+
+            return nativeFetch(input, init);
+        };
+    }
+
+    // 동적으로 생성되는 입력 UI까지 즉시 잠금 처리
+    applyDetailReadOnlyControls(document);
+    if (document.body && !window.__detailReadOnlyObserver) {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node && node.nodeType === 1) {
+                        applyDetailReadOnlyControls(node);
+                    }
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.__detailReadOnlyObserver = observer;
+    }
+}
 // clone 기능 제거됨
 
 //페이지 로드시 작동 함수
 document.addEventListener('DOMContentLoaded', async function () {
+    const sessionAuth = (document.getElementById('sessionAuth')?.value || '').trim();
+    detailReadOnlyMode = (sessionAuth === '읽기');
+
+    if (detailReadOnlyMode) {
+        installDetailReadOnlyGuards();
+
+        // 읽기 권한 사용자는 td onclick 기반 편집 진입 차단
+        document.addEventListener('click', function (e) {
+            const td = e.target && e.target.closest ? e.target.closest('td[onclick]') : null;
+            if (!td) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }, true);
+    }
+
     try {
         // 저장 버튼에 의한 새로고침인지 확인
         const isButtonReload = sessionStorage.getItem('isButtonReload');
@@ -70,10 +291,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         statusRadios.forEach(radio => {
             radio.addEventListener('change', function () {
-                if (this.value === '준공' && this.checked) {
+                if (this.checked && yearSelect) {
                     yearSelect.style.display = 'block';
-                } else if (this.checked) {
-                    yearSelect.style.display = 'none';
                 }
             });
         });
@@ -107,10 +326,10 @@ function setupEventListeners() {
 
     //==========검토
     // 첫 번째 부서 버튼들
-    document.getElementById('addBudgetRow').addEventListener('click', () => addRows('Dep_fir_Budget_tbody', 1, true));
-    document.getElementById('addRecordRow').addEventListener('click', () => addRows('Dep_fir_Record_tbody', 1, true));
-    document.getElementById('removeBudgetRow').addEventListener('click', () => removeRow('Dep_fir_Budget_tbody'));
-    document.getElementById('removeRecordRow').addEventListener('click', () => removeRow('Dep_fir_Record_tbody'));
+    bindDetailWriteEvent(document.getElementById('addBudgetRow'), 'click', () => addRows('Dep_fir_Budget_tbody', 1, true));
+    bindDetailWriteEvent(document.getElementById('addRecordRow'), 'click', () => addRows('Dep_fir_Record_tbody', 1, true));
+    bindDetailWriteEvent(document.getElementById('removeBudgetRow'), 'click', () => removeRow('Dep_fir_Budget_tbody'));
+    bindDetailWriteEvent(document.getElementById('removeRecordRow'), 'click', () => removeRow('Dep_fir_Record_tbody'));
     // 경비 +, - 수정
     if (firstRecords.length === 0) {
         document.getElementById('EXrecordsModal_fir').style.display = 'none';
@@ -123,10 +342,10 @@ function setupEventListeners() {
     }
 
     // 두 번째 부서 버튼들
-    document.getElementById('sec_addBudgetRow').addEventListener('click', () => addRows('Dep_sec_Budget_tbody', 1, true));
-    document.getElementById('sec_addRecordRow').addEventListener('click', () => addRows('Dep_sec_Record_tbody', 1, true));
-    document.getElementById('sec_removeBudgetRow').addEventListener('click', () => removeRow('Dep_sec_Budget_tbody'));
-    document.getElementById('sec_removeRecordRow').addEventListener('click', () => removeRow('Dep_sec_Record_tbody'));
+    bindDetailWriteEvent(document.getElementById('sec_addBudgetRow'), 'click', () => addRows('Dep_sec_Budget_tbody', 1, true));
+    bindDetailWriteEvent(document.getElementById('sec_addRecordRow'), 'click', () => addRows('Dep_sec_Record_tbody', 1, true));
+    bindDetailWriteEvent(document.getElementById('sec_removeBudgetRow'), 'click', () => removeRow('Dep_sec_Budget_tbody'));
+    bindDetailWriteEvent(document.getElementById('sec_removeRecordRow'), 'click', () => removeRow('Dep_sec_Record_tbody'));
     // 경비 +, - 수정
     if (secondRecords.length === 0) {
         document.getElementById('EXrecordsModal_sec').style.display = 'none';
@@ -141,8 +360,8 @@ function setupEventListeners() {
 
 
     //경비 수정 모달창
-    document.getElementById('modify_addRecordRow').addEventListener('click', () => addRows('Dep_Modify_Record_tbody', 1, true));
-    document.getElementById('modify_removeRecordRow').addEventListener('click', () => removeRow('Dep_Modify_Record_tbody'));
+    bindDetailWriteEvent(document.getElementById('modify_addRecordRow'), 'click', () => addRows('Dep_Modify_Record_tbody', 1, true));
+    bindDetailWriteEvent(document.getElementById('modify_removeRecordRow'), 'click', () => removeRow('Dep_Modify_Record_tbody'));
 
     const qtyTbody = document.getElementById('quantityModal_A_tbody');
     if (qtyTbody) {
@@ -151,12 +370,12 @@ function setupEventListeners() {
             if (tr) window.__lastPasteRow = tr;
         });
 
-        qtyTbody.addEventListener('paste', (e) => handlePasteAndAddRows(e, 'quantityModal_A_tbody'));
+        bindDetailWriteEvent(qtyTbody, 'paste', (e) => handlePasteAndAddRows(e, 'quantityModal_A_tbody'));
     }
 
 
     // 금액 포맷팅
-    document.getElementById('outsource_amount').addEventListener('input', function () {
+    bindDetailWriteEvent(document.getElementById('outsource_amount'), 'input', function () {
         formatCurrency(this);
     });
 
@@ -194,7 +413,7 @@ function setupEventListeners() {
 
     const minutesWriteBtn = document.getElementById('minutesWriteBtn');
     if (minutesWriteBtn) {
-        minutesWriteBtn.addEventListener('click', () => {
+        bindDetailWriteEvent(minutesWriteBtn, 'click', () => {
             openMeetingUploadModal();
         });
     }
@@ -1457,6 +1676,7 @@ async function updateUIComponents() {
     processTableCells(document.querySelectorAll('.Budget_table td'));
     processTableCells(document.querySelectorAll('.specific-table td'));
     makeYear();
+    syncProjectStatusControls();
 }
 
 // 4. 차트 및 테이블 초기화 함수
@@ -1466,8 +1686,7 @@ async function initializeChartsAndTables() {
 
     await Promise.all([
         createMonthButtons(),
-        createProjectChangeTable(),
-        fetchDepartmentData()
+        createProjectChangeTable()
     ]);
 }
 
@@ -1492,6 +1711,11 @@ function updateRatesForRow(row) {
 // 부서 버튼 초기화 함수
 function initializeDepartmentButtons() {
     const departmentButtons = document.querySelectorAll('.sub-tab button');
+    if (departmentButtons.length === 0) {
+        renderNoDepartmentState();
+        return;
+    }
+
     if (departmentButtons.length > 0) {
         departmentButtons[0].classList.add('active');
         departmentButtons[0].click();
@@ -1508,6 +1732,83 @@ function initializeDepartmentButtons() {
             createMonthButtons();
         });
     });
+}
+
+function renderNoDepartmentState() {
+    const budgetTbody = document.getElementById('Dep_fir_Budget_data');
+    const budgetThead = document.querySelector('#Dep_fir_RealBudget thead');
+    const expenseTbody = document.getElementById('Dep_fir_Specific_data');
+    const expenseThead = document.querySelector('#Dep_fir_Specific thead');
+    const noDataText = '등록된 사업물량이 없습니다.';
+
+    if (budgetThead) {
+        const positions = getPositions();
+        let headHTML = `
+            <tr>
+                <th colspan="3" style="width: 200px;">구분</th>
+                <th colspan="5" style="width: 300px; border-left: 2px solid #cccccc;">합     계</th>
+        `;
+
+        positions.forEach(position => {
+            headHTML += `<th colspan="3" style="width: 180px; border-left: 2px solid #cccccc;">${position}</th>`;
+        });
+        headHTML += '</tr>';
+
+        headHTML += `
+             <tr>
+                <th style="width: 100px;">구분</th>
+                <th style="width: 50px;">물량</th>
+                <th style="width: 50px;">단위</th>
+                <th style="width: 60px; border-left: 2px solid #cccccc;">누계물량</th>
+                <th style="width: 60px;">보할(%)</th>
+                <th style="width: 60px;">진행률(%)</th>
+                <th style="width: 60px;">M/D</th>
+                <th style="width: 60px;">M/T</th>
+        `;
+        positions.forEach(() => {
+            headHTML += `
+                <th style="width: 60px; border-left: 2px solid #cccccc;">주</th>
+                <th style="width: 60px;">야</th>
+                <th style="width: 60px;">휴</th>
+            `;
+        });
+        headHTML += '</tr>';
+        budgetThead.innerHTML = headHTML;
+    }
+
+    if (budgetTbody) {
+        const positions = getPositions();
+        budgetTbody.innerHTML = `
+            <tr>
+                <td colspan="${8 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                    ${noDataText}
+                </td>
+            </tr>
+        `;
+    }
+
+    if (expenseThead) {
+        expenseThead.innerHTML = `
+            <tr>
+                <th>경비항목</th>
+                <th>내역</th>
+                <th>유형</th>
+                <th>세액</th>
+                <th>공급가액</th>
+                <th>금액</th>
+            </tr>
+        `;
+    }
+
+    if (expenseTbody) {
+        expenseTbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                    ${noDataText}
+                </td>
+            </tr>
+        `;
+    }
 }
 
 
@@ -1644,25 +1945,29 @@ function hideEditButtons() {
 
 // 테이블 내 td 클릭 시 textbox로 변경하는 함수
 function makeEditable(td, isText = false) {
-    if (td.querySelector('input')) return;  // 이미 input이 있는 경우 return
+    if (detailReadOnlyMode) return;
+    if (td.querySelector('input, textarea')) return;  // 이미 editor가 있는 경우 return
 
     const input = document.createElement('input');
     input.type = 'text';  // 항상 text로 설정 (숫자 포맷을 위해)
     input.value = td.innerText.replace(/,/g, '');  // 기존 값을 가져와 콤마 제거 후 input에 설정
     input.classList.add('editable-input');
 
-    // 셀 크기와 동일하게 input 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
+    // 셀 크기 고정: editor는 셀 내부 절대배치로 렌더링
     const savetd = td.innerText;  // 기존 값을 저장
+    td.style.position = td.style.position || 'relative';
+    td.style.overflow = 'hidden';
     td.innerHTML = '';  // td 내용을 비우고
     td.appendChild(input);  // input 추가
-    input.style.width = tdWidth + 'px';
-    input.style.height = tdHeight + 'px';
-    input.style.border = 'none';
-    input.style.padding = '0';
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
+    input.style.setProperty('position', 'absolute', 'important');
+    input.style.setProperty('top', '0', 'important');
+    input.style.setProperty('left', '0', 'important');
+    input.style.setProperty('width', '100%', 'important');
+    input.style.setProperty('height', '100%', 'important');
+    input.style.setProperty('border', 'none', 'important');
+    input.style.setProperty('padding', '0', 'important');
+    input.style.setProperty('margin', '0', 'important');
+    input.style.setProperty('box-sizing', 'border-box', 'important');
     input.focus();
 
     // 자리수(콤마) 추가를 위한 input 이벤트
@@ -1913,6 +2218,7 @@ function recordCal(targetRow = null) {
 let check = false; // 경비 저장 성공 여부 확인
 
 function savePersonnelBudget() {
+    if (blockDetailWriteIfReadOnly()) return;
     const contractCode = document.getElementById('project-contractCode').value;
     const projectID = document.getElementById('project-id').value;
     const departments = ['fir', 'sec'];
@@ -2035,6 +2341,7 @@ function savePersonnelBudget() {
 
 // 예상 경비 저장 함수
 function saveExpenseRecords(departmentName, ModeCheck = true) {
+    if (blockDetailWriteIfReadOnly()) return;
     const contractCode = document.getElementById('project-contractCode').value;
     const projectID = document.getElementById('project-id').value;
 
@@ -2163,6 +2470,7 @@ function getCurrentYear() {
 
 // 테이블 내 td 클릭 시 textbox로 변경하는 함수
 function TextChange(td, isText = false) {
+    if (detailReadOnlyMode) return;
     // 이미 input이 있는 경우 return
     if (td.querySelector('input, textarea')) return;
 
@@ -2185,25 +2493,28 @@ function TextChange(td, isText = false) {
     }
     input.classList.add('editable-input');
 
-    // td 크기와 동일하게 input 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
+    // 셀 크기 고정: editor는 셀 내부 절대배치로 렌더링
     const savetd = currentValue;  // 기존 값을 저장
+    td.style.position = td.style.position || 'relative';
+    td.style.overflow = 'hidden';
     td.innerHTML = '';  // td 내용을 비우고
     td.appendChild(input);  // input 추가
     // 스타일 설정
-    input.style.width = (tdWidth - 2) + 'px';  // 테두리 고려하여 2px 감소
-    input.style.height = (tdHeight - 2) + 'px';  // 테두리 고려하여 2px 감소
-    input.style.border = '1px solid #cbd5e0';
-    input.style.borderRadius = '4px';
-    input.style.padding = '2px 4px';  // 좌우 패딩 추가
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.style.fontSize = '14px';
-    input.style.backgroundColor = '#ffffff';
+    input.style.setProperty('position', 'absolute', 'important');
+    input.style.setProperty('top', '0', 'important');
+    input.style.setProperty('left', '0', 'important');
+    input.style.setProperty('width', '100%', 'important');
+    input.style.setProperty('height', '100%', 'important');
+    input.style.setProperty('border', '1px solid #cbd5e0', 'important');
+    input.style.setProperty('border-radius', '4px', 'important');
+    input.style.setProperty('padding', '2px 4px', 'important');
+    input.style.setProperty('margin', '0', 'important');
+    input.style.setProperty('box-sizing', 'border-box', 'important');
+    input.style.setProperty('font-size', '14px', 'important');
+    input.style.setProperty('background-color', '#ffffff', 'important');
     if (isText) {
-        input.style.resize = 'vertical';
-        input.style.overflow = 'auto';
+        input.style.setProperty('resize', 'none', 'important');
+        input.style.setProperty('overflow', 'auto', 'important');
     }
     input.focus();
 
@@ -2270,6 +2581,7 @@ function TextChange(td, isText = false) {
 
 // 외부 인력용
 function externalWithCalculation(td) {
+    if (blockDetailWriteIfReadOnly()) return;
     // 이미 input이 있는 경우 return
     if (td.querySelector('input')) return;
 
@@ -2280,23 +2592,26 @@ function externalWithCalculation(td) {
     input.value = currentValue;
     input.classList.add('editable-input');
 
-    // td 크기와 동일하게 input 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
+    // 셀 크기 고정: editor는 셀 내부 절대배치로 렌더링
     const savetd = currentValue; // 기존 값 저장
+    td.style.position = td.style.position || 'relative';
+    td.style.overflow = 'hidden';
     td.innerHTML = ''; // td 내용을 비우고
     td.appendChild(input); // input 추가
 
     // 스타일 설정
-    input.style.width = (tdWidth - 2) + 'px';
-    input.style.height = (tdHeight - 2) + 'px';
-    input.style.border = '1px solid #cbd5e0';
-    input.style.borderRadius = '4px';
-    input.style.padding = '2px 4px';
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.style.fontSize = '14px';
-    input.style.backgroundColor = '#ffffff';
+    input.style.setProperty('position', 'absolute', 'important');
+    input.style.setProperty('top', '0', 'important');
+    input.style.setProperty('left', '0', 'important');
+    input.style.setProperty('width', '100%', 'important');
+    input.style.setProperty('height', '100%', 'important');
+    input.style.setProperty('border', '1px solid #cbd5e0', 'important');
+    input.style.setProperty('border-radius', '4px', 'important');
+    input.style.setProperty('padding', '2px 4px', 'important');
+    input.style.setProperty('margin', '0', 'important');
+    input.style.setProperty('box-sizing', 'border-box', 'important');
+    input.style.setProperty('font-size', '14px', 'important');
+    input.style.setProperty('background-color', '#ffffff', 'important');
     input.focus();
 
     // input 이벤트로 자리수 포맷팅
@@ -2491,6 +2806,7 @@ function bindDesignReviewTableBehavior(tbody) {
 }
 
 function addRows(tableID, rowCount, BTN = false) {
+    if (blockDetailWriteIfReadOnly()) return;
     const tableBodies = document.getElementById(tableID);
     // 페이지 로드시 데이터 없는 경우 예상 인건비 행 추가
     if (tableID === 'Dep_fir_Budget_tbody' || tableID === 'Dep_sec_Budget_tbody') {
@@ -3282,6 +3598,7 @@ function addRows(tableID, rowCount, BTN = false) {
 }
 
 function removeRow(tableID) {
+    if (blockDetailWriteIfReadOnly()) return;
     const el = document.getElementById(tableID);
     if (!el) return;
     // table인지 tbody인지 구분하여 삭제 컨테이너 설정
@@ -3336,6 +3653,7 @@ function isNumeric(value) {
 
 // 경비 텍스트 박스 처리
 function inputMoney(td, isFlag = true) {
+    if (blockDetailWriteIfReadOnly()) return;
     const originalText = td.textContent.trim().replace(/,/g, ''); // 기존 콤마 제거
     td.style.position = "relative";
 
@@ -3475,6 +3793,18 @@ function getPrice(selectElement) {
         priceTd.classList.add('edit_cell');
     }
 }
+
+function openStandardInfoModal() {
+    document.body.classList.add('modal-open');
+    const modal = document.getElementById('modal_standardInfo');
+    if (modal) modal.style.display = 'block';
+}
+
+function closeStandardInfoModal() {
+    const modal = document.getElementById('modal_standardInfo');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
 // 모달 열기
 function openModal(button) {
     document.body.classList.add('modal-open');  // body 스크롤 막기
@@ -3483,6 +3813,7 @@ function openModal(button) {
 
     if (btnID == 'quantityModal') {
         document.getElementById('modal_quantityModal').style.display = 'block';
+        loadExistingTaskDepartments();
     }
     else if (btnID == 'itemModal') {
         document.getElementById('modal_itemModal').style.display = 'block';
@@ -3531,6 +3862,8 @@ function closeQuantityModal() {
     document.getElementById('modal_statusModal').style.display = 'none';
     document.getElementById('modal_EXrecordsModal').style.display = 'none';
     document.getElementById('modal_copyData').style.display = 'none';
+    const standardInfoModal = document.getElementById('modal_standardInfo');
+    if (standardInfoModal) standardInfoModal.style.display = 'none';
 }
 
 function updateRecordTable(data) {
@@ -3612,6 +3945,18 @@ function initializeModalSections() {
     document.getElementById('modal_item1').addEventListener('change', function () {
         handleSectionDisplay('modal_item1', 'modal_ALabel', 'modal_ASection', 'quantityModal_A_tbody', 3);
     });
+
+    const existingTbody = document.getElementById('existing_task_dept_tbody');
+    if (existingTbody && !existingTbody.dataset.bound) {
+        existingTbody.dataset.bound = '1';
+        existingTbody.addEventListener('click', function (e) {
+            const btn = e.target.closest('.existing-task-dept-delete');
+            if (!btn) return;
+            const department = btn.getAttribute('data-department') || '';
+            if (!department) return;
+            deleteTaskQuantityDepartment(department);
+        });
+    }
 }
 
 // 섹션을 표시하고 라벨을 업데이트하는 함수
@@ -3681,6 +4026,108 @@ function fetchQuantityData(department, contractCode, tableId) {
         });
 }
 
+function loadExistingTaskDepartments() {
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    const tbody = document.getElementById('existing_task_dept_tbody');
+    if (!tbody || !contractCode) return;
+
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#666;">조회 중...</td></tr>';
+
+    fetch(`/api/task_quantity_departments?contract_code=${encodeURIComponent(contractCode)}`)
+        .then(response => response.json())
+        .then(data => {
+            const list = Array.isArray(data?.departments) ? data.departments : [];
+            renderExistingTaskDepartments(list);
+        })
+        .catch(error => {
+            console.error('Error fetching task quantity departments:', error);
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#b00020;">부서 목록 조회 실패</td></tr>';
+        });
+}
+
+function canDeleteTaskQuantityDepartment(targetDepartment) {
+    const sessionDept = (document.getElementById('sessionDep')?.value || '').trim();
+    const targetDept = String(targetDepartment || '').trim();
+    if (!sessionDept || !targetDept) return false;
+    if (sessionDept === targetDept) return true;
+    if (sessionDept === 'GIS사업부' && targetDept === 'GIS사업지원부') return true;
+    return false;
+}
+
+function renderExistingTaskDepartments(departments) {
+    const tbody = document.getElementById('existing_task_dept_tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!Array.isArray(departments) || departments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#666;">입력된 부서가 없습니다.</td></tr>';
+        return;
+    }
+
+    departments.forEach((dept) => {
+        const tr = document.createElement('tr');
+        const department = String(dept.department || '').trim();
+        const itemCount = Number(dept.item_count || 0);
+        const canDelete = canDeleteTaskQuantityDepartment(department);
+        const bohal = dept.bohal === null || dept.bohal === undefined || dept.bohal === ''
+            ? ''
+            : formatSmartNumber(dept.bohal);
+
+        tr.innerHTML = `
+            <td style="text-align:left;">${escapeHtmlSafe(department)}</td>
+            <td style="text-align:center;">${itemCount.toLocaleString()}</td>
+            <td style="text-align:right;">${bohal}</td>
+            <td style="text-align:center;">
+                <button type="button" class="remove-row-btn existing-task-dept-delete" data-department="${escapeHtmlSafe(department)}" style="width: 22px; height: 22px; line-height: 18px; padding: 0; ${canDelete ? '' : 'opacity:0.35; cursor:not-allowed;'}" ${canDelete ? '' : 'disabled'}>x</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function deleteTaskQuantityDepartment(department) {
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    if (!contractCode || !department) return;
+
+    if (!canDeleteTaskQuantityDepartment(department)) {
+        alert('본인 부서만 삭제할 수 있습니다. (GIS사업부는 GIS사업지원부 삭제 가능)');
+        return;
+    }
+
+    if (!confirm(`[${department}] 부서의 사업물량 데이터를 삭제하시겠습니까?`)) return;
+
+    fetch('/api/delete_task_quantity_department', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contractCode: contractCode,
+            department: department
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message === 'Delete successful') {
+                const selectedDept = document.getElementById('modal_item1')?.value || '';
+                if (selectedDept === department) {
+                    const tbody = document.getElementById('quantityModal_A_tbody');
+                    if (tbody) tbody.innerHTML = '';
+                    addRows('quantityModal_A_tbody', 1);
+                }
+                loadExistingTaskDepartments();
+                alert('삭제되었습니다.');
+                setTimeout(() => reloadWithCurrentState(), 500);
+            } else {
+                alert('삭제에 실패했습니다. 다시 시도하세요.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('삭제에 실패했습니다. 다시 시도하세요.');
+        });
+}
+
 
 // form 데이터 처리
 document.getElementById('modal_quantityModal').addEventListener('submit', function (event) {
@@ -3727,8 +4174,10 @@ function removeTextbox(containerID, count) {
 }
 
 function saveTaskQuantity() {
+    if (blockDetailWriteIfReadOnly()) return;
     const contractCode = document.getElementById('project-contractCode').value;
-    const aLabel = document.getElementById('modal_ALabel').innerText.trim();
+    const selectedDepartment = (document.getElementById('modal_item1')?.value || '').trim();
+    const aLabel = selectedDepartment || document.getElementById('modal_ALabel').innerText.trim();
     // 부서 단위 사업보할(%) 기본값
     const deptBohalInput = document.getElementById('modal_projectBohal');
     let defaultBohal = deptBohalInput ? (parseFloat(deptBohalInput.value) || 0) : 0;
@@ -3767,8 +4216,8 @@ function saveTaskQuantity() {
     }
 
     // 데이터 검증 및 서버 전송
-    if (taskDataA.length === 0) {
-        alert('저장할 데이터가 없습니다. 부서 또는 항목을 입력해주세요.');
+    if (!selectedDepartment) {
+        alert('부서를 선택해주세요.');
         return;
     }
 
@@ -3780,6 +4229,7 @@ function saveTaskQuantity() {
         body: JSON.stringify({
             taskA: taskDataA,
             contractCode: contractCode,
+            selectedDepartment: selectedDepartment,
             departmentBohal: defaultBohal
         })
     })
@@ -3787,6 +4237,7 @@ function saveTaskQuantity() {
         .then(data => {
             if (data.message === 'Save successful') {
                 alert('저장이 완료되었습니다.');
+                loadExistingTaskDepartments();
                 reloadWithCurrentState();
             } else {
                 alert('저장에 실패했습니다. 다시 시도하세요.');
@@ -3816,6 +4267,7 @@ function saveQuantityLog(taskItemData, contractCode) {
 }
 
 function saveBudgetData() {
+    if (blockDetailWriteIfReadOnly()) return;
     const contractCode = document.getElementById('project-contractCode').value;
     const fullHeaderText = document.getElementById('Dep_fir_Bud_header_text').textContent;
     let department = fullHeaderText.replace(/\s*인건비\s*/, '').trim();
@@ -4099,8 +4551,8 @@ function updateTable(data, department) {
     if (!quantityData || quantityData.length === 0) {
         const noDataRow = document.createElement('tr');
         noDataRow.innerHTML = `
-            <td colspan="${3 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
-                데이터가 없습니다
+            <td colspan="${8 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                등록된 사업물량이 없습니다.
             </td>
         `;
         tableBody.appendChild(noDataRow);
@@ -4399,20 +4851,18 @@ function enableTdEditing(tableBodyId) {
                 if (td.querySelector("input") || (td.cellIndex < 8 && td.cellIndex !== 3)) return;
 
                 const originalText = td.textContent.trim();
-                td.textContent = "";
 
                 const input = document.createElement("input");
                 input.type = "text";
                 input.value = originalText;
-
-                // 스타일 설정
-                input.style.width = td.clientWidth + "px";
-                input.style.height = td.clientHeight + "px";
-                input.style.boxSizing = "border-box";
-                input.style.border = "none";
-                input.style.fontSize = "inherit";
-                input.style.background = "transparent";
-                input.style.textAlign = "center";
+                attachFixedCellEditor(td, input, {
+                    border: '1px solid #cbd5e0',
+                    borderRadius: '4px',
+                    padding: '0 4px',
+                    fontSize: 'inherit',
+                    backgroundColor: '#ffffff'
+                });
+                input.style.setProperty('text-align', 'center', 'important');
 
                 input.addEventListener("blur", () => {
                     const newValue = parseFloat(input.value) || '';
@@ -4499,9 +4949,6 @@ function enableTdEditing(tableBodyId) {
                 input.addEventListener("keydown", e => {
                     if (e.key === "Enter") input.blur();
                 });
-
-                td.appendChild(input);
-                input.focus();
             });
         });
     });
@@ -4564,6 +5011,17 @@ function updateSpecificTable(data, department) {
     let totalTax = 0;
     let totalSupplyPrice = 0;
     let totalAmount = 0;
+
+    if (!Array.isArray(data) || data.length === 0) {
+        const noDataRow = document.createElement('tr');
+        noDataRow.innerHTML = `
+            <td colspan="6" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
+                등록된 사업물량이 없습니다.
+            </td>
+        `;
+        tableBody.appendChild(noDataRow);
+        return;
+    }
 
     // tbody 구성
     data.forEach(row => {
@@ -6577,6 +7035,7 @@ function createProjectChangeTable() {
         `;
 
             tbody.innerHTML = changeRows + nextChangeRow;
+            recalculateReceiptBalances();
         })
         .catch(error => {
             console.error('Error fetching project changes:', error);
@@ -6691,7 +7150,8 @@ function createProjectChangeTable() {
             }
 
             //  정상 데이터가 있는 경우 테이블 구성
-            const receiptRows = receipts.map(receipt => {
+            const normalizedReceipts = normalizeReceiptBalances(receipts);
+            const receiptRows = normalizedReceipts.map(receipt => {
                 let balance = parseInt(receipt.balance || 0);
                 if (balance === 1) balance = 0; // 잔액이 1원이면 0으로 변경
 
@@ -6834,94 +7294,21 @@ function createProjectChangeTable() {
 
 // 잔액 자동 계산 함수 (모든 행을 순차적으로 업데이트)
 function updateReceiptBalances(targetRow) {
-    const projectCostElement = document.getElementById('ContributionCost');
-    // 사업비 가져오기
-    if (!projectCostElement) {
-        console.error('❌ Project cost element not found!');
-        return;
-    }
-
-    const projectCost = parseInt(projectCostElement.textContent.replace(/,/g, '').trim(), 10);
-
-    if (isNaN(projectCost)) {
-        console.error('❌ 유효하지 않은 사업비입니다.');
-        return;
-    }
-
     if (!targetRow) {
         console.error('❌ targetRow is missing!');
         return;
     }
 
-    // 현재 행의 인덱스 가져오기
-    const table = targetRow.closest('table'); // 해당 행이 속한 테이블 찾기
-    const rows = Array.from(table.querySelectorAll('tbody tr')); // 모든 행 가져오기
-    const rowIndex = rows.indexOf(targetRow); // 현재 행의 인덱스
-
-    //특정 행의 셀만 가져와서 업데이트
-    const divisionCell = targetRow.querySelector('td:nth-child(2)'); // 체크박스 추가로 +1
-    const amountCell = targetRow.querySelector('td:nth-child(3)'); // 금액 셀
-    const NoVATamountCell = targetRow.querySelector('td:nth-child(4)'); // 금액(VAT 제외) 셀
-    const balanceCell = targetRow.querySelector('td:nth-child(5)'); // 잔액 셀
-
-    if (!divisionCell || !amountCell || !NoVATamountCell || !balanceCell) {
-        console.error(`❌ Missing cells in row:`, targetRow);
-        return;
-    }
-
-    // 금액 값 가져오기
-    let amount = parseFloat(amountCell.textContent.replace(/,/g, '').trim());
-    if (isNaN(amount)) {
-        amount = 0; // 숫자가 아니면 0으로 처리
-    }
-
-    // VAT 제외 계산
-    const amountNoVAT = Math.round(amount / 1.1);
-
-    //첫 번째 행이면 사업비(A)에서 잔액 계산
-    let previousBalance = projectCost;
-    if (rowIndex > 0) {
-        // 이전 행에서 잔액 값 가져오기
-        const previousRow = rows[rowIndex - 1];
-        const prevBalanceCell = previousRow.querySelector('td:nth-child(4)');
-
-        if (prevBalanceCell) {
-            previousBalance = parseInt(prevBalanceCell.textContent.replace(/,/g, '').trim(), 10) || projectCost;
-        }
-    }
-
-    //모든 비용을 잔액에서 차감
-    let remainingBalance = previousBalance - amountNoVAT;
-    // 🔹 잔액이 1원이면 0원으로 설정
-    if (remainingBalance === 1) {
-        remainingBalance = 0;
-    }
-
-    // 🔹 잔액이 음수가 되지 않도록 방지
-    remainingBalance = Math.max(remainingBalance, 0);
-
-    // 셀 업데이트
-    NoVATamountCell.textContent = amountNoVAT.toLocaleString();
-    balanceCell.textContent = remainingBalance.toLocaleString();
+    recalculateReceiptBalances();
 }
 
 
 
 //사업비 변경에 맞춰 잔액을 재계산하는 함수
 function recalculateReceiptBalances() {
-    // 🔹 프로젝트 사업비 및 지분율 가져오기
-    const ProjectCost_NoVAT = parseFloat(
-        document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^0-9.-]/g, '') || 0
-    );
-    const ContributionRate = parseFloat(
-        document.getElementById('ContributionRate')?.textContent.replace(/[^0-9.-]/g, '') || 0
-    ) / 100;
+    const updatedProjectCost = getReceiptBaseProjectCost();
 
-    // 🔹 변경된 사업비 계산
-    let updatedProjectCost = Math.round(ProjectCost_NoVAT * ContributionRate);
-    if (updatedProjectCost === 1) updatedProjectCost = 0; // 잔액이 1원이면 0으로 변경
-
-    if (isNaN(updatedProjectCost) || updatedProjectCost <= 0) {
+    if (!Number.isFinite(updatedProjectCost) || updatedProjectCost <= 0) {
         console.error('❌ 유효하지 않은 사업비입니다.');
         return;
     }
@@ -6934,6 +7321,10 @@ function recalculateReceiptBalances() {
     }
 
     let remainingBalance = updatedProjectCost; // 초기 잔액 = 변경된 사업비
+    console.log('[ReceiptBalance] recalculate start', {
+        baseBalanceB: updatedProjectCost,
+        rowCount: rows.length,
+    });
 
     //모든 행을 순회하며 잔액 계산
     rows.forEach((row, index) => {
@@ -6953,19 +7344,156 @@ function recalculateReceiptBalances() {
         let amountNoVAT = Math.round(amount / 1.1);
         if (amountNoVAT === 1) amountNoVAT = 0; // 잔액이 1원이면 0으로 변경
 
-        //모든 비용이 잔액에서 차감
+        const previousBalance = remainingBalance;
+        // 잔액은 금액(VAT제외)=A 기준으로 차감
         remainingBalance -= amountNoVAT;
         if (remainingBalance === 1) remainingBalance = 0; // 잔액이 1원이면 0으로 변경
+        remainingBalance = Math.max(remainingBalance, 0);
 
         // 🔹 계산된 값을 테이블에 반영
         NoVATamountCell.textContent = amountNoVAT.toLocaleString();
-        balanceCell.textContent = Math.max(remainingBalance, 0).toLocaleString(); // 음수 방지
+        balanceCell.textContent = remainingBalance.toLocaleString();
+        console.log('[ReceiptBalance] recalculate row', {
+            rowIndex: index + 1,
+            baseOrPreviousBalanceB: previousBalance,
+            grossAmount: amount,
+            vatExcludedAmountA: amountNoVAT,
+            nextBalance: remainingBalance,
+            formula: `${previousBalance} - ${amountNoVAT} = ${remainingBalance}`,
+        });
     });
 
 }
 
+function getReceiptBaseProjectCost() {
+    const projectChangeRows = Array.from(document.querySelectorAll('#project_change_tbody tr'));
+    for (let index = projectChangeRows.length - 1; index >= 0; index -= 1) {
+        const cells = projectChangeRows[index]?.cells;
+        if (!cells || cells.length < 6) continue;
+        const shareAmount = parseFloat(cells[5]?.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(shareAmount) && shareAmount > 0) {
+            console.log('[ReceiptBalance] base from project_change_tbody', {
+                rowIndex: index + 1,
+                shareAmount: Math.round(shareAmount),
+            });
+            return Math.round(shareAmount);
+        }
+    }
+
+    const latestChangeCells = document.querySelectorAll('#chage_result_tbody tr td');
+    if (latestChangeCells.length >= 5) {
+        const latestShareAmount = parseFloat(latestChangeCells[4]?.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(latestShareAmount) && latestShareAmount > 0) {
+            console.log('[ReceiptBalance] base from chage_result_tbody', {
+                shareAmount: Math.round(latestShareAmount),
+            });
+            return Math.round(latestShareAmount);
+        }
+    }
+
+    const contributionCostCell = document.getElementById('ContributionCost');
+    if (contributionCostCell) {
+        const contributionCost = parseFloat(contributionCostCell.textContent.replace(/[^0-9.-]/g, '') || 0);
+        if (Number.isFinite(contributionCost) && contributionCost > 0) {
+            console.log('[ReceiptBalance] base from ContributionCost', {
+                shareAmount: Math.round(contributionCost),
+            });
+            return Math.round(contributionCost);
+        }
+    }
+
+    const projectCostNoVat = parseFloat(
+        document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^0-9.-]/g, '') || 0
+    );
+    const contributionRate = parseFloat(
+        document.getElementById('ContributionRate')?.textContent.replace(/[^0-9.-]/g, '') || 0
+    ) / 100;
+
+    let updatedProjectCost = Math.round(projectCostNoVat * contributionRate);
+    if (updatedProjectCost === 1) updatedProjectCost = 0;
+    console.log('[ReceiptBalance] base from fallback ProjectCost_NoVAT * ContributionRate', {
+        projectCostNoVat,
+        contributionRate,
+        baseBalanceB: Math.max(updatedProjectCost || 0, 0),
+    });
+    return Math.max(updatedProjectCost || 0, 0);
+}
+
+function normalizeReceiptBalances(receipts) {
+    let remainingBalance = getReceiptBaseProjectCost();
+    console.log('[ReceiptBalance] normalize start', {
+        baseBalanceB: remainingBalance,
+        rowCount: Array.isArray(receipts) ? receipts.length : 0,
+    });
+
+    return (Array.isArray(receipts) ? receipts : []).map((receipt, index) => {
+        const amount = parseFloat(receipt?.amount || 0) || 0;
+        let amountNoVAT = Math.round(amount / 1.1);
+        if (amountNoVAT === 1) amountNoVAT = 0;
+
+        const previousBalance = remainingBalance;
+        remainingBalance -= amountNoVAT;
+        if (remainingBalance === 1) remainingBalance = 0;
+        remainingBalance = Math.max(remainingBalance, 0);
+
+        console.log('[ReceiptBalance] normalize row', {
+            rowIndex: index + 1,
+            baseOrPreviousBalanceB: previousBalance,
+            grossAmount: amount,
+            vatExcludedAmountA: amountNoVAT,
+            nextBalance: remainingBalance,
+            formula: `${previousBalance} - ${amountNoVAT} = ${remainingBalance}`,
+        });
+
+        return {
+            ...receipt,
+            amount,
+            Amount_NoVAT: amountNoVAT,
+            balance: remainingBalance,
+        };
+    });
+}
+
+function attachFixedCellEditor(td, editor, options = {}) {
+    const {
+        border = '1px solid #cbd5e0',
+        borderRadius = '4px',
+        padding = '2px 4px',
+        fontSize = '14px',
+        backgroundColor = '#ffffff',
+        disableResize = false
+    } = options;
+
+    td.style.position = td.style.position || 'relative';
+    td.style.overflow = 'hidden';
+    td.innerHTML = '';
+    td.appendChild(editor);
+
+    editor.style.setProperty('position', 'absolute', 'important');
+    editor.style.setProperty('top', '0', 'important');
+    editor.style.setProperty('left', '0', 'important');
+    editor.style.setProperty('width', '100%', 'important');
+    editor.style.setProperty('height', '100%', 'important');
+    editor.style.setProperty('min-width', '0', 'important');
+    editor.style.setProperty('border', border, 'important');
+    editor.style.setProperty('border-radius', borderRadius, 'important');
+    editor.style.setProperty('padding', padding, 'important');
+    editor.style.setProperty('margin', '0', 'important');
+    editor.style.setProperty('box-sizing', 'border-box', 'important');
+    editor.style.setProperty('font-size', fontSize, 'important');
+    editor.style.setProperty('background-color', backgroundColor, 'important');
+
+    if (disableResize && editor.tagName === 'TEXTAREA') {
+        editor.style.setProperty('resize', 'none', 'important');
+        editor.style.setProperty('overflow', 'auto', 'important');
+    }
+
+    editor.focus();
+}
+
 // 텍스트박스로 전환 시 금액 처리 포함
 function TextChangeWithreceipts(td) {
+    if (blockDetailWriteIfReadOnly()) return;
     // 이미 input이 있는 경우 return
     if (td.querySelector('input')) return;
     // input 생성 및 설정
@@ -6974,23 +7502,7 @@ function TextChangeWithreceipts(td) {
     input.value = currentValue; // 현재 값을 input의 초기값으로 설정
     input.classList.add('editable-input');
 
-    // td 크기와 동일하게 input 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
-    td.innerHTML = ''; // td 내용을 비우고
-    td.appendChild(input); // input 추가
-
-    // 스타일 설정
-    input.style.width = (tdWidth - 2) + 'px'; // 테두리 고려하여 2px 감소
-    input.style.height = (tdHeight - 2) + 'px'; // 테두리 고려하여 2px 감소
-    input.style.border = '1px solid #cbd5e0';
-    input.style.borderRadius = '4px';
-    input.style.padding = '2px 4px'; // 좌우 패딩 추가
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.style.fontSize = '14px';
-    input.style.backgroundColor = '#ffffff';
-    input.focus();
+    attachFixedCellEditor(td, input);
 
     // blur 이벤트 발생 시 처리
     input.addEventListener('blur', () => {
@@ -7020,6 +7532,7 @@ function TextChangeWithreceipts(td) {
 
 // 날짜 선택을 위한 함수
 function DateChange(td) {
+    if (blockDetailWriteIfReadOnly()) return;
     if (td.querySelector('input')) return;
 
     const input = document.createElement('input');
@@ -7033,20 +7546,12 @@ function DateChange(td) {
     const currentValue = td.textContent.trim().replace(/\./g, '-').replace(/\s/g, '');
     input.value = /^\d{4}-\d{2}-\d{2}$/.test(currentValue) ? currentValue : '';
 
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
     const originalValue = td.textContent.trim(); // 기존 값 저장
-    td.innerHTML = ''; // td 초기화
-    td.appendChild(input);
-
-    // 스타일 설정
-    input.style.width = tdWidth + 'px';
-    input.style.height = tdHeight + 'px';
-    input.style.border = 'none';
-    input.style.padding = '0';
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.focus();
+    attachFixedCellEditor(td, input, {
+        border: '1px solid #cbd5e0',
+        borderRadius: '4px',
+        padding: '0 4px'
+    });
 
     // 입력 시 연도 4글자로 제한
     input.addEventListener('input', () => {
@@ -7078,6 +7583,7 @@ function DateChange(td) {
 }
 
 function TextChangeWithCalculation(td, isText = false) {
+    if (blockDetailWriteIfReadOnly()) return;
     if (td.querySelector('input')) return;
 
     const input = document.createElement('input');
@@ -7085,18 +7591,12 @@ function TextChangeWithCalculation(td, isText = false) {
     input.value = td.textContent.replace(/,/g, '');
     input.classList.add('editable-input');
 
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
     const savetd = td.textContent;
-    td.innerHTML = '';
-    td.appendChild(input);
-    input.style.width = tdWidth + 'px';
-    input.style.height = tdHeight + 'px';
-    input.style.border = 'none';
-    input.style.padding = '0';
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.focus();
+    attachFixedCellEditor(td, input, {
+        border: '1px solid #cbd5e0',
+        borderRadius: '4px',
+        padding: '2px 4px'
+    });
 
     input.addEventListener('input', () => {
         let value = input.value.replace(/,/g, '');
@@ -7143,6 +7643,68 @@ function TextChangeWithCalculation(td, isText = false) {
 
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
+            input.blur();
+        }
+    });
+}
+
+function TextChangePercent(td) {
+    if (blockDetailWriteIfReadOnly()) return;
+    if (td.querySelector('input')) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+
+    const originalValue = (td.textContent || '').trim();
+    const numericText = originalValue.replace('%', '').replace(/,/g, '').trim();
+    input.value = numericText;
+    input.classList.add('editable-input');
+
+    attachFixedCellEditor(td, input, {
+        border: '1px solid #cbd5e0',
+        borderRadius: '4px',
+        padding: '0 4px'
+    });
+    input.style.setProperty('text-align', 'center', 'important');
+
+    input.addEventListener('input', () => {
+        const cleaned = input.value.replace(/[^\d.]/g, '');
+        const parts = cleaned.split('.');
+        if (parts.length > 2) {
+            input.value = `${parts[0]}.${parts.slice(1).join('')}`;
+            return;
+        }
+        if (parts[1] && parts[1].length > 2) {
+            input.value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+            return;
+        }
+        input.value = cleaned;
+    });
+
+    const commit = () => {
+        const raw = (input.value || '').trim();
+        if (!raw) {
+            td.textContent = originalValue || '0%';
+            return;
+        }
+
+        const num = parseFloat(raw);
+        if (isNaN(num)) {
+            td.textContent = originalValue || '0%';
+            return;
+        }
+
+        const normalized = Math.round(num * 100) / 100;
+        const display = Number.isInteger(normalized)
+            ? normalized.toString()
+            : normalized.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+        td.textContent = `${display}%`;
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
             input.blur();
         }
     });
@@ -7541,6 +8103,7 @@ async function loadLatestChange() {
             <td>${desc}</td>
         `;
         tbody.appendChild(tr);
+        recalculateReceiptBalances();
     } catch (e) {
         console.warn('loadLatestChange error', e);
     }
@@ -8536,7 +9099,7 @@ async function updateOutsourcingTable() {
                         <td>${item.outsourcing_type || '-'}</td>
                         <td>${compName}</td>
                         <td class="no_wrap" data-bohal="${deptKey}">-</td>
-                        <td class="no_wrap" onclick="TextChange(this, true)">${(parseFloat(item.processing) || 0)}%</td>
+                        <td class="no_wrap" onclick="TextChangePercent(this)">${(parseFloat(item.processing) || 0)}%</td>
                         <td class="wrap-text">${item.outsourcing_quantity ? item.outsourcing_quantity.replace(/\n/g, '<br>') : '-'}</td>
                     `;
                     Process_tbody.appendChild(process_row);
@@ -9309,6 +9872,7 @@ async function loadEditableOutsourcingTable() {
 
 // 텍스트박스로 전환 시 줄넘김 처리 포함
 function TextChangeWithMultiline(td, isText = false) {
+    if (blockDetailWriteIfReadOnly()) return;
     // 이미 input이 있는 경우 return
     if (td.querySelector('textarea')) return;
 
@@ -9318,24 +9882,8 @@ function TextChangeWithMultiline(td, isText = false) {
     textarea.value = currentValue; // 현재 값을 textarea의 초기값으로 설정
     textarea.classList.add('editable-textarea');
 
-    // td 크기와 동일하게 textarea 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
     const savetd = currentValue; // 기존 값을 저장
-    td.innerHTML = ''; // td 내용을 비우고
-    td.appendChild(textarea); // textarea 추가
-
-    // 스타일 설정
-    textarea.style.width = (tdWidth - 2) + 'px'; // 테두리 고려하여 2px 감소
-    textarea.style.height = (tdHeight - 2) + 'px'; // 테두리 고려하여 2px 감소
-    textarea.style.border = '1px solid #cbd5e0';
-    textarea.style.borderRadius = '4px';
-    textarea.style.padding = '2px 4px'; // 좌우 패딩 추가
-    textarea.style.margin = '0';
-    textarea.style.boxSizing = 'border-box';
-    textarea.style.fontSize = '14px';
-    textarea.style.backgroundColor = '#ffffff';
-    textarea.focus();
+    attachFixedCellEditor(td, textarea, { disableResize: true });
 
     // blur 이벤트 발생 시 처리
     textarea.addEventListener('blur', () => {
@@ -9354,6 +9902,7 @@ function TextChangeWithMultiline(td, isText = false) {
 
 // 텍스트박스로 전환 시 금액 처리 포함
 function TextChangeWithCurrency(td) {
+    if (blockDetailWriteIfReadOnly()) return;
     // 이미 input이 있는 경우 return
     if (td.querySelector('input')) return;
 
@@ -9364,23 +9913,7 @@ function TextChangeWithCurrency(td) {
     input.value = currentValue ? parseInt(currentValue, 10).toLocaleString() : '';
     input.classList.add('editable-input');
 
-    // td 크기와 동일하게 input 크기 설정
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
-    td.innerHTML = ''; // td 내용을 비우고
-    td.appendChild(input); // input 추가
-
-    // 스타일 설정
-    input.style.width = (tdWidth - 2) + 'px'; // 테두리 고려하여 2px 감소
-    input.style.height = (tdHeight - 2) + 'px'; // 테두리 고려하여 2px 감소
-    input.style.border = '1px solid #cbd5e0';
-    input.style.borderRadius = '4px';
-    input.style.padding = '2px 4px'; // 좌우 패딩 추가
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.style.fontSize = '14px';
-    input.style.backgroundColor = '#ffffff';
-    input.focus();
+    attachFixedCellEditor(td, input);
 
     // blur 이벤트 발생 시 처리
     input.addEventListener('blur', () => {
@@ -9419,31 +9952,22 @@ function TextChangeWithCurrency(td) {
 
 // 외주 금액 지급 테이블 전용: 지급일자 달력/yyyy-mm-dd 입력
 function DateInputChange(td) {
+    if (blockDetailWriteIfReadOnly()) return;
     if (td.querySelector('input')) return;
 
     const input = document.createElement('input');
     input.type = 'date';
-    const tdWidth = td.offsetWidth;
-    const tdHeight = td.offsetHeight;
 
     // 초기값: yyyy-mm-dd 형식이면 그대로, 아니면 비움
     const raw = (td.textContent || '').trim();
     const isYMD = /^\d{4}-\d{2}-\d{2}$/.test(raw);
     input.value = isYMD ? raw : '';
 
-    td.innerHTML = '';
-    td.appendChild(input);
-
-    input.style.width = (tdWidth - 2) + 'px';
-    input.style.height = (tdHeight - 2) + 'px';
-    input.style.border = '1px solid #cbd5e0';
-    input.style.borderRadius = '4px';
-    input.style.padding = '2px 4px';
-    input.style.margin = '0';
-    input.style.boxSizing = 'border-box';
-    input.style.fontSize = '14px';
-    input.style.backgroundColor = '#ffffff';
-    input.focus();
+    attachFixedCellEditor(td, input, {
+        border: '1px solid #cbd5e0',
+        borderRadius: '4px',
+        padding: '0 4px'
+    });
 
     const commit = () => {
         let v = (input.value || '').trim();
@@ -10910,19 +11434,16 @@ function saveEditTable() {
 function saveProjectStatus() {
     const selectedStatus = document.querySelector('input[name="project_status"]:checked').value;
     const contractCode = document.getElementById('project-contractCode').value;
-    let statusToSend = selectedStatus;
+    const yearSelect = document.getElementById('year_select');
+    const selectedYear = yearSelect ? Number(yearSelect.value || 0) : 0;
 
-    // 준공이면 연도 select 값 붙이기
-    if (selectedStatus === '준공') {
-        const yearSelect = document.getElementById('year_select');
-        const selectedYear = yearSelect.value;
-        if (selectedYear) {
-            statusToSend = `준공(${selectedYear.slice(-2)})`; // '준공(25)' 형태
-        }
+    if (!contractCode || !selectedStatus) {
+        alert("프로젝트 코드 또는 상태가 유효하지 않습니다.");
+        return;
     }
 
-    if (!contractCode || !statusToSend) {
-        alert("프로젝트 코드 또는 상태가 유효하지 않습니다.");
+    if (!selectedYear) {
+        alert("상태 적용 연도를 선택해주세요.");
         return;
     }
 
@@ -10933,7 +11454,8 @@ function saveProjectStatus() {
         },
         body: JSON.stringify({
             contractCode: contractCode,
-            project_status: statusToSend
+            project_status: selectedStatus,
+            status_effective_year: selectedYear
         })
     })
         .then(response => response.json())
@@ -10949,6 +11471,45 @@ function saveProjectStatus() {
             console.error('에러 발생:', error);
             alert("서버 통신 중 문제가 발생했습니다.");
         });
+}
+
+function normalizeProjectStatusLabel(status) {
+    const rawStatus = String(status || '').trim();
+    if (!rawStatus) return '진행중';
+    if (rawStatus.includes('준공')) return '준공';
+    if (rawStatus.includes('용역중지')) return '용역중지';
+    return '진행중';
+}
+
+function extractProjectStatusYear(status) {
+    const rawStatus = String(status || '').trim();
+    const match = rawStatus.match(/\((\d{2}|\d{4})\)/);
+    if (!match) return null;
+
+    const yearText = match[1];
+    if (yearText.length === 2) {
+        return Number(`20${yearText}`);
+    }
+    return Number(yearText);
+}
+
+function syncProjectStatusControls() {
+    const currentStatusRaw = document.getElementById('currentProjectStatusRaw')?.value || '';
+    const normalizedStatus = normalizeProjectStatusLabel(currentStatusRaw);
+    const selectedYear = extractProjectStatusYear(currentStatusRaw) || new Date().getFullYear();
+    const yearSelect = document.getElementById('year_select');
+    const statusRadios = Array.from(document.getElementsByName('project_status'));
+
+    statusRadios.forEach((radio) => {
+        radio.checked = radio.value === normalizedStatus;
+    });
+
+    if (yearSelect) {
+        yearSelect.style.display = 'block';
+        if (selectedYear) {
+            yearSelect.value = String(selectedYear);
+        }
+    }
 }
 
 function removeCheckedRows(tbodyId) {

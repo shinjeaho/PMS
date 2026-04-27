@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
     cal_annualProject();
+    initAnnualMoneyStatsPanel();
+    initVatModeControls();
     enableHorizontalDragScroll('table-container');
 
     const tableContainer = document.getElementById('table-container');
@@ -47,6 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
 const processedProjects = [];  // 전역 저장소
 let currentSort = { key: null, type: null, dir: 'asc' }; // 정렬 상태
 let initialOrderMap = null; // 최초 화면 순서(projectID -> index)
+let vatMode = 'include';
 //합계
 let total = {
     ProjectCost_NoVAT: 0,
@@ -76,6 +79,181 @@ let marginFilterStates = {
     EX: 'all',
     AC: 'all'
 };
+
+function toNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function toVat(value) {
+    return Math.round(toNumber(value) * 1.1);
+}
+
+function toNoVat(value) {
+    return Math.round(toNumber(value) / 1.1);
+}
+
+function normalizeTiny(value) {
+    return Math.abs(value) <= 1 ? 0 : value;
+}
+
+function initVatModeControls() {
+    const includeInput = document.getElementById('vatIncludeChk');
+    const excludeInput = document.getElementById('vatExcludeChk');
+    if (!includeInput || !excludeInput) return;
+
+    const mark = (input, active) => {
+        const label = input.closest('.annual-vat-check');
+        if (label) label.classList.toggle('active', active);
+    };
+
+    const applyMode = (mode) => {
+        vatMode = mode;
+        includeInput.checked = mode === 'include';
+        excludeInput.checked = mode === 'exclude';
+        mark(includeInput, includeInput.checked);
+        mark(excludeInput, excludeInput.checked);
+        document.body.setAttribute('data-vat-mode', mode);
+        renderAnnualProjectTable(processedProjects);
+    };
+
+    includeInput.addEventListener('change', () => applyMode(includeInput.checked ? 'include' : 'exclude'));
+    excludeInput.addEventListener('change', () => applyMode(excludeInput.checked ? 'exclude' : 'include'));
+
+    applyMode('exclude');
+}
+
+function getVatView(project, options = {}) {
+    const mode = options.mode || vatMode;
+    const include = mode === 'include';
+    const includeReceipt = include;
+    const estimatedLabor = toNumber(project.estimated_labor);
+    const estimatedExpense = toNumber(project.estimated_expense);
+    const estimatedOther = include ? toVat(project.estimated_other) : toNumber(project.estimated_other);
+    const estimatedPerformance = toNumber(project.estimated_performance);
+    const actualLabor = toNumber(project.actual_labor);
+    const actualExpense = toNumber(project.actual_expense);
+    const actualOther = include ? toVat(project.actual_other) : toNumber(project.actual_other);
+    const actualPerformance = toNumber(project.actual_performance);
+
+    const exMoney = toNumber(project.EX_company_money);
+    const acMoney = toNumber(project.AC_company_money);
+
+    const contractCostShareDisplay = include ? toNumber(project.contractCostShareVAT) : toNumber(project.contractCostShare);
+    const realCostShareDisplay = include ? toNumber(project.realCostShare_VAT) : toNumber(project.realCostShare);
+
+    const estimatedProfit = Math.round(
+        contractCostShareDisplay
+        - (exMoney + estimatedLabor + estimatedExpense + estimatedOther + estimatedPerformance)
+    );
+    const actualProfit = Math.round(
+        realCostShareDisplay
+        - (acMoney + actualLabor + actualExpense + actualOther + actualPerformance)
+    );
+
+    const estimatedMargin = contractCostShareDisplay === 0 ? 0 : ((estimatedProfit / contractCostShareDisplay) * 100);
+    const actualMargin = realCostShareDisplay === 0 ? 0 : ((actualProfit / realCostShareDisplay) * 100);
+
+    const advanceTotal = includeReceipt ? toNumber(project.advanceTotal) : toNoVat(project.advanceTotal);
+    const progress1stTotal = includeReceipt ? toNumber(project.progress1stTotal) : toNoVat(project.progress1stTotal);
+    const progress2ndTotal = includeReceipt ? toNumber(project.progress2ndTotal) : toNoVat(project.progress2ndTotal);
+    const completionTotal = includeReceipt ? toNumber(project.completionTotal) : toNoVat(project.completionTotal);
+
+    const outsourcingPaid = include ? toVat(project.outsourcing_paid) : toNumber(project.outsourcing_paid);
+    const outsourcingBalanceRaw = include
+        ? toVat(project.outsourcing_balance)
+        : toNumber(project.outsourcing_balance);
+    const outsourcingBalance = Math.abs(normalizeTiny(outsourcingBalanceRaw));
+
+    return {
+        exMoney,
+        acMoney,
+        estimatedLabor,
+        estimatedExpense,
+        estimatedOther,
+        estimatedPerformance,
+        actualLabor,
+        actualExpense,
+        actualOther,
+        actualPerformance,
+        contractCostShareDisplay,
+        realCostShareDisplay,
+        estimatedProfit,
+        actualProfit,
+        estimatedMargin,
+        actualMargin,
+        advanceTotal,
+        progress1stTotal,
+        progress2ndTotal,
+        completionTotal,
+        outsourcingPaid,
+        outsourcingBalance,
+    };
+}
+
+function buildSummary(list, options = {}) {
+    return list.reduce((acc, project) => {
+        const view = getVatView(project, options);
+        acc.orderTotalCostInclude += toNumber(project.ProjectCost);
+        acc.orderTotalCostExclude += toNumber(project.ProjectCost_NoVAT);
+        acc.orderShareCostInclude += toNumber(project.realCostShare_VAT);
+        acc.orderShareCostExclude += toNumber(project.realCostShare);
+        acc.contractCostShare += view.contractCostShareDisplay;
+        acc.contractCostShareInclude += toNumber(project.contractCostShareVAT);
+        acc.contractCostShareExclude += toNumber(project.contractCostShare);
+        acc.exMoney += view.exMoney;
+        acc.estimatedLabor += view.estimatedLabor;
+        acc.estimatedExpense += view.estimatedExpense;
+        acc.estimatedOther += view.estimatedOther;
+        acc.estimatedPerformance += view.estimatedPerformance;
+        acc.estimatedProfit += view.estimatedProfit;
+        acc.realCostShare += view.realCostShareDisplay;
+        acc.realCostShareInclude += toNumber(project.realCostShare_VAT);
+        acc.realCostShareExclude += toNumber(project.realCostShare);
+        acc.acMoney += view.acMoney;
+        acc.actualLabor += view.actualLabor;
+        acc.actualExpense += view.actualExpense;
+        acc.actualOther += view.actualOther;
+        acc.actualPerformance += view.actualPerformance;
+        acc.actualProfit += view.actualProfit;
+        acc.advanceTotal += view.advanceTotal;
+        acc.progress1stTotal += view.progress1stTotal;
+        acc.progress2ndTotal += view.progress2ndTotal;
+        acc.completionTotal += view.completionTotal;
+        acc.outsourcingPaid += view.outsourcingPaid;
+        acc.outsourcingBalance += view.outsourcingBalance;
+        return acc;
+    }, {
+        orderTotalCostInclude: 0,
+        orderTotalCostExclude: 0,
+        orderShareCostInclude: 0,
+        orderShareCostExclude: 0,
+        contractCostShare: 0,
+        contractCostShareInclude: 0,
+        contractCostShareExclude: 0,
+        exMoney: 0,
+        estimatedLabor: 0,
+        estimatedExpense: 0,
+        estimatedOther: 0,
+        estimatedPerformance: 0,
+        estimatedProfit: 0,
+        realCostShare: 0,
+        realCostShareInclude: 0,
+        realCostShareExclude: 0,
+        acMoney: 0,
+        actualLabor: 0,
+        actualExpense: 0,
+        actualOther: 0,
+        actualPerformance: 0,
+        actualProfit: 0,
+        advanceTotal: 0,
+        progress1stTotal: 0,
+        progress2ndTotal: 0,
+        completionTotal: 0,
+        outsourcingPaid: 0,
+        outsourcingBalance: 0,
+    });
+}
 
 function cal_annualProject() {
     const table = document.getElementById("annualProject_tbody");
@@ -209,8 +387,11 @@ function cal_annualProject() {
         total.progress2ndTotal += progress2ndTotal;
         total.completionTotal += completionTotal;
         // 외주비 지급/잔금 합계 (잔금 = 실제진행비의 외주경비 - 지급금액; 단, 화면 표시는 양수값)
-        const paid = Number(project.outsourcing_paid || 0); // Cost_NoVAT 합계
-        const balance = Number(project.actual_other || 0) - paid; // 남은 집행 예정액(+), 초과지급 시 음수
+        const paid = Number(project.outsourcing_paid || 0); // Cost_NoVAT 합계(현재 연도)
+        const rawBalance = Number.isFinite(Number(project.outsourcing_balance))
+            ? Number(project.outsourcing_balance)
+            : (Number(project.actual_other || 0) - paid);
+        const balance = Math.abs(rawBalance) <= 1 ? 0 : rawBalance;
         total.outsourcing_paid = (total.outsourcing_paid || 0) + paid;
         total.outsourcing_balance = (total.outsourcing_balance || 0) + balance;
 
@@ -244,6 +425,7 @@ function cal_annualProject() {
             hasCurrentYearProgress1st,
             hasCurrentYearProgress2nd,
             hasCurrentYearCompletion,
+            hasCurrentYearOutsourcingPaid: paid > 0,
 
             // 세분화 항목 추가
             estimated_labor: project.estimated_labor,
@@ -271,31 +453,194 @@ function cal_annualProject() {
     }
 }
 
+function initAnnualMoneyStatsPanel() {
+    const toggle = document.getElementById('annualMoneyStatsToggle');
+    const panel = document.getElementById('annualMoneyStatsPanel');
+    if (!toggle || !panel) return;
+
+    const applyVisibility = () => {
+        panel.style.display = toggle.checked ? 'block' : 'none';
+    };
+
+    toggle.addEventListener('change', applyVisibility);
+    applyVisibility();
+}
+
+function renderAnnualMoneyStats(summary) {
+    const panel = document.getElementById('annualMoneyStatsPanel');
+    if (!panel) return;
+
+    const safe = summary || {
+        orderTotalCostInclude: 0,
+        orderTotalCostExclude: 0,
+        orderShareCostInclude: 0,
+        orderShareCostExclude: 0,
+        acMoney: 0,
+        actualLabor: 0,
+        actualExpense: 0,
+        actualPerformance: 0,
+        advanceTotal: 0,
+        progress1stTotal: 0,
+        progress2ndTotal: 0,
+        completionTotal: 0,
+        outsourcingPaid: 0,
+    };
+
+    const bodyYear = Number(document.body?.dataset?.year) || 0;
+    const year = bodyYear || new Date().getFullYear();
+    const orderTotalCost = Number(vatMode === 'include' ? safe.orderTotalCostInclude : safe.orderTotalCostExclude);
+    const orderShareCost = Number(vatMode === 'include' ? safe.orderShareCostInclude : safe.orderShareCostExclude);
+    const advanceTotal = Number(safe.advanceTotal || 0);
+    const progress1stTotal = Number(safe.progress1stTotal || 0);
+    const progress2ndTotal = Number(safe.progress2ndTotal || 0);
+    const completionTotal = Number(safe.completionTotal || 0);
+    const receiptTotal = advanceTotal + progress1stTotal + progress2ndTotal + completionTotal;
+
+    const actualCost = Number(safe.acMoney || 0)
+        + Number(safe.actualLabor || 0)
+        + Number(safe.actualExpense || 0)
+        + Number(safe.actualPerformance || 0);
+
+    const outsourcingPaid = Number(safe.outsourcingPaid || 0);
+    const expenseTotal = actualCost + outsourcingPaid;
+    const profitAmount = receiptTotal - expenseTotal;
+    const profitRatio = receiptTotal > 0 ? (profitAmount / receiptTotal) * 100 : 0;
+
+    const yearLabels = document.querySelectorAll('.annual-money-year-label');
+    yearLabels.forEach(el => {
+        el.textContent = String(year);
+    });
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = value;
+    };
+
+    const moneyText = (value) => `${Math.round(value).toLocaleString()}`;
+
+    setText('statsOrderTotalCost', moneyText(orderTotalCost));
+    setText('statsOrderShareCost', moneyText(orderShareCost));
+    setText('statsAdvanceTotal', moneyText(advanceTotal));
+    setText('statsProgress1stTotal', moneyText(progress1stTotal));
+    setText('statsProgress2ndTotal', moneyText(progress2ndTotal));
+    setText('statsCompletionTotal', moneyText(completionTotal));
+    setText('statsReceiptTotal', `합계 : ${moneyText(receiptTotal)}`);
+    const ratioText = `${profitRatio.toFixed(2)}%`;
+
+    setText('statsActualCost', moneyText(actualCost));
+    setText('statsOutsourcingPaid', moneyText(outsourcingPaid));
+    setText('statsExpenseTotal', `합계 : ${moneyText(expenseTotal)}`);
+    setText('statsProfitAmount', moneyText(profitAmount));
+    setText('statsProfitRatio', ratioText);
+
+    renderAnnualMoneyBarGraph({ receiptTotal, actualCost, outsourcingPaid, profitAmount });
+    renderAnnualMoneyPieGraph({ receiptTotal, actualCost, outsourcingPaid, profitAmount, profitRatio });
+}
+
+function renderAnnualMoneyBarGraph({ receiptTotal, actualCost, outsourcingPaid, profitAmount }) {
+    const host = document.getElementById('statsBarGraph');
+    if (!host) return;
+
+    const items = [
+        { label: '수령금액', value: receiptTotal, color: '#3b82f6' },
+        { label: '실제비', value: actualCost, color: '#f59e0b' },
+        { label: '외주비', value: outsourcingPaid, color: '#10b981' },
+        { label: '수익금액', value: profitAmount, color: profitAmount >= 0 ? '#2563eb' : '#ef4444' },
+    ];
+
+    const maxValue = Math.max(...items.map(item => Math.abs(item.value)), 1);
+
+    host.innerHTML = items.map(item => {
+        const absValue = Math.abs(item.value);
+        const width = absValue === 0 ? 0 : Math.max(4, Math.round((absValue / maxValue) * 100));
+        const fillStyle = width === 0
+            ? 'width:0%; background:transparent;'
+            : `width:${width}%; background:${item.color};`;
+        return `
+            <div class="annual-money-bar-row">
+                <div class="annual-money-bar-label">${item.label}</div>
+                <div class="annual-money-bar-track">
+                    <div class="annual-money-bar-fill" style="${fillStyle}"></div>
+                </div>
+                <div class="annual-money-bar-value">${Math.round(item.value).toLocaleString()}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAnnualMoneyPieGraph({ receiptTotal, actualCost, outsourcingPaid, profitAmount, profitRatio }) {
+    const host = document.getElementById('statsPieGraph');
+    if (!host) return;
+
+    const partActual = Math.max(actualCost, 0);
+    const partOutsource = Math.max(outsourcingPaid, 0);
+    const partProfit = Math.max(profitAmount, 0);
+    const sum = Math.max(partActual + partOutsource + partProfit, 1);
+
+    const p1 = (partActual / sum) * 100;
+    const p2 = (partOutsource / sum) * 100;
+    const stop1 = p1;
+    const stop2 = p1 + p2;
+    const bg = `conic-gradient(#f59e0b 0 ${stop1}%, #10b981 ${stop1}% ${stop2}%, #3b82f6 ${stop2}% 100%)`;
+
+    host.innerHTML = `
+        <div class="annual-money-pie-block">
+            <div class="annual-money-pie" style="background:${bg};">
+                <span class="annual-money-pie-text">${profitRatio.toFixed(1)}%</span>
+            </div>
+            <div class="annual-money-pie-legend" aria-label="원형그래프 범례">
+                <div class="annual-money-pie-legend-row">
+                    <span class="annual-money-pie-legend-dot" style="background:#f59e0b;"></span>
+                    <span class="annual-money-pie-legend-label">실제진행비</span>
+                    <span class="annual-money-pie-legend-value">${Math.round(actualCost).toLocaleString()}</span>
+                </div>
+                <div class="annual-money-pie-legend-row">
+                    <span class="annual-money-pie-legend-dot" style="background:#10b981;"></span>
+                    <span class="annual-money-pie-legend-label">외주비 지급</span>
+                    <span class="annual-money-pie-legend-value">${Math.round(outsourcingPaid).toLocaleString()}</span>
+                </div>
+                <div class="annual-money-pie-legend-row">
+                    <span class="annual-money-pie-legend-dot" style="background:#3b82f6;"></span>
+                    <span class="annual-money-pie-legend-label">수익금액</span>
+                    <span class="annual-money-pie-legend-value">${Math.round(profitAmount).toLocaleString()}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 
 function renderAnnualProjectTable(dataList) {
     const table = document.getElementById("annualProject_tbody");
     table.innerHTML = "";
     // 현재 정렬 상태 적용
     const list = applySort(dataList);
+    const summary = buildSummary(list, { mode: vatMode });
 
     let totalHasCurrentYearAdvance = false;
     let totalHasCurrentYearProgress1st = false;
     let totalHasCurrentYearProgress2nd = false;
     let totalHasCurrentYearCompletion = false;
+    let totalHasCurrentYearOutsourcingPaid = false;
 
     list.forEach((project, i) => {
         const row = document.createElement("tr");
         if (project.project_status && project.project_status.includes("준공")) {
             row.classList.add("completed-row");
+        } else if (project.project_status === '용역중지') {
+            row.classList.add("stop-row");
         }
-        const estColor = getTextColorByProfit(project.estimated_profit, project.estimated_margin);
-        const actColor = getTextColorByProfit(project.actual_profit, project.actual_margin);
+        const vatView = getVatView(project, { mode: vatMode });
+        const estColor = getTextColorByProfit(vatView.estimatedProfit, vatView.estimatedMargin);
+        const actColor = getTextColorByProfit(vatView.actualProfit, vatView.actualMargin);
 
         //합계에서 현재 연도 수령내역 여부 체크
         if (project.hasCurrentYearAdvance) totalHasCurrentYearAdvance = true;
         if (project.hasCurrentYearProgress1st) totalHasCurrentYearProgress1st = true;
         if (project.hasCurrentYearProgress2nd) totalHasCurrentYearProgress2nd = true;
         if (project.hasCurrentYearCompletion) totalHasCurrentYearCompletion = true;
+        if (project.hasCurrentYearOutsourcingPaid) totalHasCurrentYearOutsourcingPaid = true;
 
         //행 렌더링 (기성금 1차/2차 분리, 색상 적용)
         row.innerHTML = `
@@ -309,36 +654,36 @@ function renderAnnualProjectTable(dataList) {
           <td>${(project.total_progress !== undefined && project.total_progress !== null) ? (function (p) { const n = parseFloat(p); if (isNaN(n)) return '-'; const f = n.toFixed(2).replace(/\.0+$/, '').replace(/\.(\d)0$/, '.$1'); return f + '%'; })(project.total_progress) : '-'}</td>
           <td>${project.performance_review ? project.performance_review : '-'}</td>
 
-          <td>${project.ProjectCost.toLocaleString()}</td>
-          <td>${project.ProjectCost_NoVAT.toLocaleString()}</td>
+          <td class="vat-col-include">${project.ProjectCost.toLocaleString()}</td>
+          <td class="vat-col-exclude">${project.ProjectCost_NoVAT.toLocaleString()}</td>
 
-          <td>${project.contractCostShareVAT.toLocaleString()}</td>
-          <td>${project.contractCostShare.toLocaleString()}</td>
-          <td>${project.EX_company_money.toLocaleString()}</td>
-          <td>${project.estimated_labor.toLocaleString()}</td>
-          <td>${project.estimated_expense.toLocaleString()}</td>
-          <td>${project.estimated_other.toLocaleString()}</td>
-          <td>${project.estimated_performance.toLocaleString()}</td>
-          <td style="color: ${estColor};" class="estimated_margin">${project.estimated_profit.toLocaleString()}</td>
-          <td style="color: ${estColor};" class="estimated_margin">${project.estimated_margin}%</td>
+          <td class="vat-col-include">${project.contractCostShareVAT.toLocaleString()}</td>
+          <td class="vat-col-exclude">${project.contractCostShare.toLocaleString()}</td>
+                    <td>${vatView.exMoney.toLocaleString()}</td>
+                    <td>${vatView.estimatedLabor.toLocaleString()}</td>
+                    <td>${vatView.estimatedExpense.toLocaleString()}</td>
+                    <td>${vatView.estimatedOther.toLocaleString()}</td>
+                    <td>${vatView.estimatedPerformance.toLocaleString()}</td>
+                    <td style="color: ${estColor};" class="estimated_margin">${vatView.estimatedProfit.toLocaleString()}</td>
+                    <td style="color: ${estColor};" class="estimated_margin">${vatView.estimatedMargin.toFixed(3)}%</td>
 
-          <td>${project.realCostShare_VAT.toLocaleString()}</td>
-          <td>${project.realCostShare.toLocaleString()}</td>
-          <td>${project.AC_company_money.toLocaleString()}</td>
-          <td>${project.actual_labor.toLocaleString()}</td>
-          <td>${project.actual_expense.toLocaleString()}</td>
-          <td>${project.actual_other.toLocaleString()}</td>
-          <td>${project.actual_performance.toLocaleString()}</td>
-          <td style="color: ${actColor};" class="actual_margin">${project.actual_profit.toLocaleString()}</td>
-          <td style="color: ${actColor};" class="actual_margin">${project.actual_margin}%</td>
+          <td class="vat-col-include">${project.realCostShare_VAT.toLocaleString()}</td>
+          <td class="vat-col-exclude">${project.realCostShare.toLocaleString()}</td>
+                    <td>${vatView.acMoney.toLocaleString()}</td>
+                    <td>${vatView.actualLabor.toLocaleString()}</td>
+                    <td>${vatView.actualExpense.toLocaleString()}</td>
+                    <td>${vatView.actualOther.toLocaleString()}</td>
+                    <td>${vatView.actualPerformance.toLocaleString()}</td>
+                    <td style="color: ${actColor};" class="actual_margin">${vatView.actualProfit.toLocaleString()}</td>
+                    <td style="color: ${actColor};" class="actual_margin">${vatView.actualMargin.toFixed(3)}%</td>
 
           <!--수령내역 (현재 연도 기준 색상 적용, 기성금 1차/2차 분리) -->
-          <td style="color: ${project.hasCurrentYearAdvance ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearAdvance ? 'bold' : 'normal'};">${project.advanceTotal.toLocaleString()}</td>
-          <td style="color: black; font-weight: normal;">${project.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 (올해 이전) -->
-          <td style="color: ${project.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: ${project.progress2ndTotal > 0 ? 'bold' : 'normal'};">${project.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 (0이면 검은색, 0 초과면 빨간색) -->
-          <td style="color: ${project.hasCurrentYearCompletion ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearCompletion ? 'bold' : 'normal'};">${project.completionTotal.toLocaleString()}</td>
-          <td style="border-left:3px solid #999;">${project.outsourcing_paid.toLocaleString()}</td>
-          <td>${Math.abs(project.outsourcing_balance).toLocaleString()}</td>
+                    <td style="color: ${project.hasCurrentYearAdvance ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearAdvance ? 'bold' : 'normal'};">${vatView.advanceTotal.toLocaleString()}</td>
+                    <td style="color: black; font-weight: normal;">${vatView.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 (올해 이전) -->
+                    <td style="color: ${vatView.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: ${vatView.progress2ndTotal > 0 ? 'bold' : 'normal'};">${vatView.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 (0이면 검은색, 0 초과면 빨간색) -->
+                    <td style="color: ${project.hasCurrentYearCompletion ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearCompletion ? 'bold' : 'normal'};">${vatView.completionTotal.toLocaleString()}</td>
+                    <td style="color: ${project.hasCurrentYearOutsourcingPaid ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearOutsourcingPaid ? 'bold' : 'normal'}; border-left:3px solid #999;">${vatView.outsourcingPaid.toLocaleString()}</td>
+                    <td style="color: ${project.hasCurrentYearOutsourcingPaid ? 'red' : 'black'}; font-weight: ${project.hasCurrentYearOutsourcingPaid ? 'bold' : 'normal'};">${vatView.outsourcingBalance.toLocaleString()}</td>
         `;
         // 리스크 존재 시 연한 빨간색 강조
         if (project.has_risk) {
@@ -347,8 +692,8 @@ function renderAnnualProjectTable(dataList) {
         table.appendChild(row);
     });
 
-    const estMargin = total.contractCostShare === 0 ? 0 : (total.estimated_profit / total.contractCostShare * 100).toFixed(3);
-    const actMargin = total.realCostShare === 0 ? 0 : (total.actual_profit / total.realCostShare * 100).toFixed(3);
+    const estMargin = summary.contractCostShare === 0 ? 0 : ((summary.estimatedProfit / summary.contractCostShare) * 100);
+    const actMargin = summary.realCostShare === 0 ? 0 : ((summary.actualProfit / summary.realCostShare) * 100);
 
     const totalRow = document.createElement("tr");
     totalRow.style.fontWeight = "bold";
@@ -358,39 +703,41 @@ function renderAnnualProjectTable(dataList) {
     //합계 행 (기성금 1차/2차 분리, 색상 적용)
     totalRow.innerHTML = `
         <td colspan="9" style="text-align:center;">합계</td>
-        <td>${total.ProjectCost.toLocaleString()}</td>
-        <td>${total.ProjectCost_NoVAT.toLocaleString()}</td>
+        <td class="vat-col-include">${summary.orderTotalCostInclude.toLocaleString()}</td>
+        <td class="vat-col-exclude">${summary.orderTotalCostExclude.toLocaleString()}</td>
 
-    <td id="sum_contractCostShare">${total.contractCostShareVAT.toLocaleString()}</td>
-        <td id="sum_contractCostShare">${total.contractCostShare.toLocaleString()}</td>
-        <td id="sum_EX_money">${total.EX_money.toLocaleString()}</td>
-        <td id="sum_estimated_labor">${total.estimated_labor.toLocaleString()}</td>
-        <td id="sum_estimated_expense">${total.estimated_expense.toLocaleString()}</td>
-        <td id="sum_estimated_other">${total.estimated_other.toLocaleString()}</td>
-        <td id="sum_estimated_performance">${total.estimated_performance.toLocaleString()}</td>
-        <td id="sum_estimated_profit" style="color:${getTextColorByProfit(total.estimated_profit, estMargin)};">${total.estimated_profit.toLocaleString()}</td>
-        <td id="sum_estimated_margin" style="color:${getTextColorByProfit(total.estimated_profit, estMargin)};">${estMargin}%</td>
+    <td id="sum_contractCostShare" class="vat-col-include">${summary.contractCostShareInclude.toLocaleString()}</td>
+        <td id="sum_contractCostShare" class="vat-col-exclude">${summary.contractCostShareExclude.toLocaleString()}</td>
+        <td id="sum_EX_money">${summary.exMoney.toLocaleString()}</td>
+        <td id="sum_estimated_labor">${summary.estimatedLabor.toLocaleString()}</td>
+        <td id="sum_estimated_expense">${summary.estimatedExpense.toLocaleString()}</td>
+        <td id="sum_estimated_other">${summary.estimatedOther.toLocaleString()}</td>
+        <td id="sum_estimated_performance">${summary.estimatedPerformance.toLocaleString()}</td>
+        <td id="sum_estimated_profit" style="color:${getTextColorByProfit(summary.estimatedProfit, estMargin)};">${summary.estimatedProfit.toLocaleString()}</td>
+        <td id="sum_estimated_margin" style="color:${getTextColorByProfit(summary.estimatedProfit, estMargin)};">${estMargin.toFixed(3)}%</td>
 
-    <td>${total.realCostShare_VAT.toLocaleString()}</td>
-        <td id="sum_realCostShare">${total.realCostShare.toLocaleString()}</td>
-        <td id="sum_AC_money">${total.AC_money.toLocaleString()}</td>
-        <td id="sum_actual_labor">${total.actual_labor.toLocaleString()}</td>
-        <td id="sum_actual_expense">${total.actual_expense.toLocaleString()}</td>
-        <td id="sum_actual_other">${total.actual_other.toLocaleString()}</td>
-        <td id="sum_actual_performance">${total.actual_performance.toLocaleString()}</td>
-        <td id="sum_actual_profit" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${total.actual_profit.toLocaleString()}</td>
-        <td id="sum_actual_margin" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${actMargin}%</td>
+    <td class="vat-col-include">${summary.realCostShareInclude.toLocaleString()}</td>
+        <td id="sum_realCostShare" class="vat-col-exclude">${summary.realCostShareExclude.toLocaleString()}</td>
+        <td id="sum_AC_money">${summary.acMoney.toLocaleString()}</td>
+        <td id="sum_actual_labor">${summary.actualLabor.toLocaleString()}</td>
+        <td id="sum_actual_expense">${summary.actualExpense.toLocaleString()}</td>
+        <td id="sum_actual_other">${summary.actualOther.toLocaleString()}</td>
+        <td id="sum_actual_performance">${summary.actualPerformance.toLocaleString()}</td>
+        <td id="sum_actual_profit" style="color:${getTextColorByProfit(summary.actualProfit, actMargin)};">${summary.actualProfit.toLocaleString()}</td>
+        <td id="sum_actual_margin" style="color:${getTextColorByProfit(summary.actualProfit, actMargin)};">${actMargin.toFixed(3)}%</td>
 
         <!--합계 행 수령내역 (기성금 1차/2차 분리, 색상 적용) -->
-    <td style="color: ${totalHasCurrentYearAdvance ? 'red' : 'black'}; font-weight: bold;" id="sum_advanceTotal">${total.advanceTotal.toLocaleString()}</td>
-        <td style="color: black; font-weight: bold;" id="sum_progress1stTotal">${total.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 합계 -->
-        <td style="color: ${total.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: bold;" id="sum_progress2ndTotal">${total.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 합계 (0이면 검은색, 0 초과면 빨간색) -->
-    <td style="color: ${totalHasCurrentYearCompletion ? 'red' : 'black'}; font-weight: bold;" id="sum_completionTotal">${total.completionTotal.toLocaleString()}</td>
-    <td id="sum_outsourcing_paid" style="border-left:3px solid #999;">${(total.outsourcing_paid || 0).toLocaleString()}</td>
-    <td id="sum_outsourcing_balance">${Math.abs(total.outsourcing_balance || 0).toLocaleString()}</td>
+    <td style="color: ${totalHasCurrentYearAdvance ? 'red' : 'black'}; font-weight: bold;" id="sum_advanceTotal">${summary.advanceTotal.toLocaleString()}</td>
+        <td style="color: black; font-weight: bold;" id="sum_progress1stTotal">${summary.progress1stTotal.toLocaleString()}</td>      <!-- 1차 기성금 합계 -->
+        <td style="color: ${summary.progress2ndTotal > 0 ? 'red' : 'black'}; font-weight: bold;" id="sum_progress2ndTotal">${summary.progress2ndTotal.toLocaleString()}</td>  <!--2차 기성금 합계 (0이면 검은색, 0 초과면 빨간색) -->
+    <td style="color: ${totalHasCurrentYearCompletion ? 'red' : 'black'}; font-weight: bold;" id="sum_completionTotal">${summary.completionTotal.toLocaleString()}</td>
+    <td id="sum_outsourcing_paid" style="color: ${totalHasCurrentYearOutsourcingPaid ? 'red' : 'black'}; font-weight: bold; border-left:3px solid #999;">${summary.outsourcingPaid.toLocaleString()}</td>
+    <td id="sum_outsourcing_balance" style="color: ${totalHasCurrentYearOutsourcingPaid ? 'red' : 'black'}; font-weight: bold;">${summary.outsourcingBalance.toLocaleString()}</td>
     `;
 
     table.appendChild(totalRow);
+    const statsSummary = buildSummary(list, { mode: vatMode });
+    renderAnnualMoneyStats(statsSummary);
 
     // 기존 스크롤 동기화 코드...
     const tableContainer = document.getElementById('table-container');
@@ -717,7 +1064,7 @@ function parseAnnualContextFromPath() {
     if (idx !== -1) {
         const a = parts[idx + 1];
         const b = parts[idx + 2];
-        if (!mode && a && ['complete', 'stop', 'progress'].includes(a)) {
+        if (!mode && a && ['complete', 'stop', 'progress', 'money', 'year'].includes(a)) {
             mode = a;
         }
         if (!year) {
@@ -747,11 +1094,13 @@ function parseAnnualContextFromPath() {
             if (txt.includes('준공')) mode = 'complete';
             else if (txt.includes('중지')) mode = 'stop';
             else if (txt.includes('진행')) mode = 'progress';
+            else if (txt.includes('사업비 수령내역')) mode = 'money';
         }
     }
 
     // 4) 최종 기본값 보정
     if (!mode) mode = 'annual';
+    if (mode === 'year') mode = 'annual';
 
     // 디버깅 로그 (필요 시 주석 처리 가능)
     // console.log('[parseAnnualContextFromPath]', { mode, year, parts });
@@ -768,6 +1117,8 @@ function buildExportTitle(ctx) {
             return `${y}용역중지 사업 통합자료`;
         case 'progress':
             return `${y}진행 사업 통합자료`;
+        case 'money':
+            return `${y}사업비 수령내역 모아보기`;
         default:
             // 연도별 통합자료(일반)
             return ctx.year ? `${ctx.year}년 비용 산출 통합자료` : '비용 산출 통합자료';
