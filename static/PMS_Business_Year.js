@@ -1,4 +1,10 @@
 
+const annualMoneyAllowedUsers = new Set(['최태혁', '김정욱', '나준영', '최도현', '개발', '관리자']);
+
+function canAccessAnnualMoneyByName(name) {
+    return annualMoneyAllowedUsers.has(String(name || '').trim());
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     initStaffGridSort();
     initProjectListSort();
@@ -31,6 +37,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
     const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
+    const annualMoneyAllowed = canAccessAnnualMoneyByName(userName);
 
     const dataAuth = Number(document.getElementById('sessionDataAuth')?.value || 0) === 1;
     if (dataAuth) {
@@ -38,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (integrationLi) integrationLi.style.display = "list-item";
         document.getElementById("annualBTN").style.display = "list-item";
         const annualMoneyBtn = document.getElementById("annualMoneyBTN");
-        if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
+        if (annualMoneyBtn) annualMoneyBtn.style.display = annualMoneyAllowed ? "list-item" : "none";
         const annualManagmentBtn = document.getElementById("annualManagmentBTN");
         if (annualManagmentBtn) annualManagmentBtn.style.display = "list-item";
         document.getElementById("stopProject").style.display = "list-item";
@@ -1232,6 +1239,10 @@ function viewAnnualProjects() {
 }
 
 function viewAnnualMoney() {
+    const userName = document.getElementById('sessionName')?.value || '';
+    if (!canAccessAnnualMoneyByName(userName)) {
+        return;
+    }
     const year = document.getElementById('projectYEAR')?.value;
     if (year) {
         window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(year)}`;

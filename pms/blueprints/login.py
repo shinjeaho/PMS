@@ -38,8 +38,9 @@ def login():
             SELECT *,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
+                   COALESCE(projectAUTH, 0) AS projectAUTH,
                    COALESCE(meetingAuth, 0) AS meetingAuth,
-                   COALESCE(projectAUTH, 0) AS projectAUTH
+                   COALESCE(adminAUTH, 0) AS adminAUTH
             FROM users
             WHERE userID = %s AND Password = %s
         """
@@ -49,16 +50,28 @@ def login():
         conn.close()
 
         if user:
+            department = user.get('Department', user.get('department', ''))
+            position = user.get('Position', user.get('position', ''))
+            auth = user.get('Auth', user.get('auth', ''))
+            meeting_auth = int(user.get('meetingAuth', user.get('meetingauth', 0)) or 0)
+            admin_auth = int(user.get('adminAUTH', user.get('adminauth', 0)) or 0)
+
             session['user'] = {
                 'userID': user['userID'],
                 'name': user['Name'],
-                'department': user['Department'],
-                'position': (user.get('Position') or '').strip(),
-                'auth': user['Auth'],
+                'department': department,
+                'Department': department,
+                'position': position,
+                'Position': position,
+                'auth': auth,
+                'Auth': auth,
                 'dataauth': int(user.get('dataauth', 0) or 0),
                 'reportAUTH': int(user.get('reportAUTH', 0) or 0),
-                'meetingAuth': int(user.get('meetingAuth', 0) or 0),
-                'projectAUTH': int(user.get('projectAUTH', 0) or 0)
+                'projectAUTH': int(user.get('projectAUTH', 0) or 0),
+                'meetingAuth': meeting_auth,
+                'meetingauth': meeting_auth,
+                'adminAUTH': admin_auth,
+                'adminauth': admin_auth,
             }
 
             print("[LOGIN SUCCESS] DB 조회 결과:", user)

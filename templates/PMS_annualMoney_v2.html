@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ selected_year or '' }}년 사업비 수령 및 외주비 지급 통합자료</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_annualMoney_v2.css') }}">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='PMS_annualMoney_v2.js') }}" defer></script>
+</head>
+
+<body class="annual-money-page">
+    <header class="annual-topbar">
+        <button onclick="window.location.href='/'" class="back-button annual-home-btn">
+            <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
+        </button>
+        <h1 id="projectName">{{ selected_year }}년 사업비 수령 및 외주비 지급 통합자료</h1>
+    </header>
+    <input type="radio" name="marginFilter" value="all" checked>
+    <!-- 예상 -->
+    <input type="radio" name="marginFilter" value="EX_positive">
+    <input type="radio" name="marginFilter" value="EX_negative">
+    <!-- 실제 -->
+    <input type="radio" name="marginFilter" value="AC_positive">
+    <input type="radio" name="marginFilter" value="AC_negative">
+
+    <div class="annual-money-top-sticky">
+        <div class="annual-money-help-outside">
+            <div class="annual-money-help-wrap" tabindex="0" aria-label="사업비 수령내역 도움말">
+                <button type="button" class="annual-money-help-trigger" aria-label="도움말">도움말</button>
+                <div class="annual-money-help-popover">
+                    <div class="annual-money-guide-top">
+                        <div class="annual-money-legend">
+                            <span>•</span>
+                            <div class="annual-money-dot annual-money-dot-complete"></div>
+                            <span>준공사업</span>
+                            <div class="annual-money-dot annual-money-dot-stop"></div>
+                            <span>용역중지 사업</span>
+                            <div class="annual-money-dot annual-money-dot-long"></div>
+                            <span>장기사업</span>
+                            <div class="annual-money-dot annual-money-dot-total"></div>
+                            <span>총괄사업</span>
+                        </div>
+                    </div>
+                    <div class="annual-money-guide-body">
+                        <div class="annual-money-guide-list">
+                            <span>• 기수령/기지급은 조회 연도 이전 누적 금액, 선금·기성금·준공금·지급금액은 조회 연도 금액입니다.</span>
+                            <span>• 헤더 클릭 시 해당 열이 정렬됩니다. 정렬순서 : 오름차순 - 내림차순 - 사업번호</span>
+                            <span>• 사업번호 또는 사업명 클릭 시 해당 사업으로 이동합니다.</span>
+                            <span>• 기수령은 조회 연도 이전 누적 수령금액, 기지급은 조회 연도 이전 누적 지급금액입니다.</span>
+                            <span>• 당해년도 : 준공일이 해당 연도이거나 이벤트가 발생한 사업의 잔금입니다.</span>
+                            <span>• 장기&amp;연차 : 준공일이 해당 연도 이후 사업의 잔금과 총괄사업-당해년도 사업의 잔금의 합계입니다.</span>
+                            <span>• 용역중지 : 사업현황이 용역중지인 사업의 잔금입니다.</span>
+                            <span>• 당해년도 사업비 수령 및 외주비 지급 관련 목록 : 준공일 기준 {{ selected_year }}년 대상과 이슈 발생 사업을 함께 표시합니다.</span>
+                            <span>• 장기사업 목록 : 준공일이 선택 연도 이후인 사업을 표시합니다.</span>
+                            <span>• 용역중지 사업 목록 : 선택 연도 기준 상태가 용역중지로 판정된 사업을 표시합니다.</span>
+                            <span>• 총괄사업 목록 : 사업번호가 -00으로 끝나는 총괄사업만 표시합니다.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="engineers-toolbar" style="margin-top: 10px; margin-bottom: 10px;">
+            <div class="engineers-toolbar-left">
+                <label for="annualMoneyYear">연도</label>
+                <select id="annualMoneyYear" class="settingSelect" style="width: 180px; height: 40px;">
+                    {% for y in available_years %}
+                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}년</option>
+                    {% endfor %}
+                </select>
+                <label for="annualMoneyQuarter">분기 선택</label>
+                <select id="annualMoneyQuarter" class="settingSelect" style="width: 180px; height: 40px;">
+                    <option value="all" selected>전체</option>
+                    <option value="q1">1분기</option>
+                    <option value="q2">2분기</option>
+                    <option value="q3">3분기</option>
+                    <option value="q4">4분기</option>
+                </select>
+                <label class="annual-money-stats-toggle" for="annualMoneyStatsToggle">
+                    <input type="checkbox" id="annualMoneyStatsToggle" checked>
+                    <span>통계</span>
+                </label>
+            </div>
+            <div class="engineers-toolbar-right">
+                <div class="annual-vat-tabs" aria-label="VAT 기준 선택">
+                    <label class="annual-vat-check active" for="vatExcludeChk">
+                        <input id="vatExcludeChk" type="checkbox" checked>
+                        <span>VAT제외</span>
+                    </label>
+                    <label class="annual-vat-check" for="vatIncludeChk">
+                        <input id="vatIncludeChk" type="checkbox">
+                        <span>VAT포함</span>
+                    </label>
+                </div>
+                <button id="excelExportBtn" class="excel-export-btn" onclick="exportToXlsx()">
+                    <span>엑셀 변환</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="annual-money-unit-between">
+            <nav class="annual-money-anchor-nav" aria-label="목록 바로가기">
+                <a class="annual-money-anchor-link" href="#annualMoneyCurrentList">당해년도 사업비 수령 및 외주비 지급 관련 목록</a>
+                <a class="annual-money-anchor-link" href="#annualMoneyLongList">장기사업 목록</a>
+                <a class="annual-money-anchor-link" href="#annualMoneyStopList">용역중지 사업 목록</a>
+                <a class="annual-money-anchor-link" href="#annualMoneyTotalList">총괄사업 목록</a>
+            </nav>
+            <span class="annual-money-unit">단위 : (원)</span>
+        </div>
+
+        <div id="annualMoneyStatsPanel" class="annual-money-stats-panel" style="display:none;">
+            <div id="statsAllWrap" class="annual-money-sheet-wrap">
+                <div class="annual-money-sheet-grid" aria-label="연간 수령/지급 통계 목록">
+                    <table class="annual-money-stats-table annual-money-stats-sheet" aria-label="사업비 수령내역">
+                        <tr>
+                            <td class="label title" colspan="9">사업비 수령내역</td>
+                        </tr>
+                        <tr>
+                            <td class="label" rowspan="2">기수령</td>
+                            <td class="label" rowspan="2">1/4</td>
+                            <td class="label" rowspan="2">2/4</td>
+                            <td class="label" rowspan="2">3/4</td>
+                            <td class="label" rowspan="2">4/4</td>
+                            <td class="label" rowspan="2">분기합계</td>
+                            <td class="label" colspan="3">잔금</td>
+                        </tr>
+                        <tr>
+                            <td class="label">당해년도</td>
+                            <td class="label">장기&연차</td>
+                            <td class="label">용역중지</td>
+                        </tr>
+                        <tr>
+                            <td class="value" id="statsAllReceivedBeforeTotal">0</td>
+                            <td class="value" id="statsAllReceiptQ1">0</td>
+                            <td class="value" id="statsAllReceiptQ2">0</td>
+                            <td class="value" id="statsAllReceiptQ3">0</td>
+                            <td class="value" id="statsAllReceiptQ4">0</td>
+                            <td class="value" id="statsAllReceiptTotal">0</td>
+                            <td class="value" id="statsAllReceiptBalanceCurrent">0</td>
+                            <td class="value" id="statsAllReceiptBalanceLong">0</td>
+                            <td class="value" id="statsAllReceiptBalanceStop">0</td>
+                        </tr>
+                    </table>
+
+                    <table class="annual-money-stats-table annual-money-stats-sheet" aria-label="외주비 지급내역">
+                        <tr>
+                            <td class="label title" colspan="9">외주비 지급내역</td>
+                        </tr>
+                        <tr>
+                            <td class="label" rowspan="2">기지급</td>
+                            <td class="label" rowspan="2">1/4</td>
+                            <td class="label" rowspan="2">2/4</td>
+                            <td class="label" rowspan="2">3/4</td>
+                            <td class="label" rowspan="2">4/4</td>
+                            <td class="label" rowspan="2">분기합계</td>
+                            <td class="label" colspan="3">잔금</td>
+                        </tr>
+                        <tr>
+                            <td class="label">당해년도</td>
+                            <td class="label">장기&연차</td>
+                            <td class="label">용역중지</td>
+                        </tr>
+                        <tr>
+                            <td class="value" id="statsAllPayPrevious">0</td>
+                            <td class="value" id="statsAllPayQ1">0</td>
+                            <td class="value" id="statsAllPayQ2">0</td>
+                            <td class="value" id="statsAllPayQ3">0</td>
+                            <td class="value" id="statsAllPayQ4">0</td>
+                            <td class="value" id="statsAllPayGrandTotal">0</td>
+                            <td class="value" id="statsAllPayBalanceCurrent">0</td>
+                            <td class="value" id="statsAllPayBalanceLong">0</td>
+                            <td class="value" id="statsAllPayBalanceStop">0</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="annual-money-hidden-totals" aria-hidden="true">
+                    <span id="statsAllAdvanceTotal">0</span>
+                    <span id="statsAllProgressTotal">0</span>
+                    <span id="statsAllCompletionTotal">0</span>
+                </div>
+            </div>
+
+            <div id="statsQuarterWrap" style="display:none; margin-top: 8px;">
+                <table class="annual-money-stats-table" aria-label="선택 분기 사업비 수령내역 통계">
+                    <tr>
+                        <td class="label" colspan="5"><span class="annual-money-year-label">N</span>년 <span id="statsQuarterLabel">N분기</span> 사업비 수령내역</td>
+                    </tr>
+                    <tr>
+                        <td class="label">선금</td>
+                        <td class="label">기성금</td>
+                        <td class="label">준공금</td>
+                        <td class="label">수령합계</td>
+                        <td class="label">수령 잔금</td>
+                    </tr>
+                    <tr>
+                        <td class="value" id="statsQAdvance">0</td>
+                        <td class="value" id="statsQProgress">0</td>
+                        <td class="value" id="statsQCompletion">0</td>
+                        <td class="value" id="statsQReceiptTotal">0</td>
+                        <td class="value" id="statsQReceiptBalance">0</td>
+                    </tr>
+                </table>
+
+                <table class="annual-money-stats-table" aria-label="선택 분기 외주비 지급내역 통계" style="margin-top: 8px;">
+                    <tr>
+                        <td class="label" colspan="2"><span class="annual-money-year-label">N</span>년 <span id="statsQuarterLabelPay">N분기</span> 외주비 지급내역</td>
+                    </tr>
+                    <tr>
+                        <td class="label">지급금액</td>
+                        <td class="label">외주 잔금</td>
+                    </tr>
+                    <tr>
+                        <td class="value" id="statsQPay">0</td>
+                        <td class="value" id="statsQPayBalance">0</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="annual-money-sections-scroll">
+        <main class="annual-money-sections" id="annualMoneySections">
+            <section class="annual-money-section" id="annualMoneyCurrentList">
+                <div class="annual-money-section-head annual-money-section-head-current">
+                    <div>
+                        <h2>당해년도 사업비 수령 및 외주비 지급 관련 목록</h2>
+                    </div>
+                    <span class="annual-money-section-count" id="annualMoneyCurrentCount">0건</span>
+                </div>
+                <div class="annual-money-section-body" id="annualMoneyCurrentSection"></div>
+            </section>
+
+            <section class="annual-money-section" id="annualMoneyLongList">
+                <div class="annual-money-section-head annual-money-section-head-long">
+                    <div>
+                        <h2>장기사업 목록</h2>
+                    </div>
+                    <span class="annual-money-section-count" id="annualMoneyLongCount">0건</span>
+                </div>
+                <div class="annual-money-section-body" id="annualMoneyLongSection"></div>
+            </section>
+
+            <section class="annual-money-section" id="annualMoneyStopList">
+                <div class="annual-money-section-head annual-money-section-head-stop">
+                    <div>
+                        <h2>용역중지 사업 목록</h2>
+                    </div>
+                    <span class="annual-money-section-count" id="annualMoneyStopCount">0건</span>
+                </div>
+                <div class="annual-money-section-body" id="annualMoneyStopSection"></div>
+            </section>
+
+            <section class="annual-money-section" id="annualMoneyTotalList">
+                <div class="annual-money-section-head annual-money-section-head-total">
+                    <div>
+                        <h2>총괄사업 목록</h2>
+                    </div>
+                    <span class="annual-money-section-count" id="annualMoneyTotalCount">0건</span>
+                </div>
+                <div class="annual-money-section-body" id="annualMoneyTotalSection"></div>
+            </section>
+        </main>
+    </div>
+    <footer>
+        <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo">
+    </footer>
+
+</body>
+<script>
+    window.projects = {{ projects | tojson }};
+    window.selectedYear = {{ (selected_year or 0) | tojson }};
+    const annualMoneyYearEl = document.getElementById('annualMoneyYear');
+    if (annualMoneyYearEl) {
+        annualMoneyYearEl.addEventListener('change', function () {
+            const y = this.value;
+            if (!y) return;
+            window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(y)}`;
+        });
+    }
+</script>
+
+</html>

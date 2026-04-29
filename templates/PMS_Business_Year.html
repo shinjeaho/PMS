@@ -67,7 +67,7 @@
                     <a style="display: none;" id="completeProject" href="#" data-status = 'complete' onclick="viewCompleteProjects(this)">준공 사업 통합자료</a>
                     <a style="display: none;" id="stopProject" href="/PMS_annualProject/status/stop">용역중지 사업 통합자료</a>
                     <a id="annualBTN" href="#" onclick="viewAnnualProjects()" style="display: none;">연도별 통합자료</a>
-                    <a id="annualMoneyBTN" href="/PMS_annualMoney?year={{ selected_year }}" style="display: none;">사업비 수령내역 모아보기</a>
+                    <a id="annualMoneyBTN" href="#" onclick="viewAnnualMoney(); return false;" style="display: none;">사업비 수령내역 모아보기</a>
                 </div>
             </li>
             <li class="dropdown">

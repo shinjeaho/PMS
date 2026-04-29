@@ -12,30 +12,6 @@ from ..services.progress import calc_progress, calc_progress_bulk
 bp = Blueprint('business_year', __name__)
 
 
-def ensure_users_extended_columns(cursor) -> None:
-    cursor.execute("SHOW COLUMNS FROM users")
-    rows = cursor.fetchall() or []
-    existing = set()
-    for row in rows:
-        if isinstance(row, dict):
-            existing.add(row.get('Field'))
-        elif isinstance(row, (list, tuple)) and row:
-            existing.add(row[0])
-
-    ddl = {
-        'EmpNo': "ALTER TABLE users ADD COLUMN EmpNo VARCHAR(50) NULL AFTER Name",
-        'Position': "ALTER TABLE users ADD COLUMN Position VARCHAR(50) NULL AFTER Department",
-        'JoinDate': "ALTER TABLE users ADD COLUMN JoinDate DATE NULL AFTER Position",
-        'Phone': "ALTER TABLE users ADD COLUMN Phone VARCHAR(30) NULL AFTER JoinDate",
-        'adminAUTH': "ALTER TABLE users ADD COLUMN adminAUTH TINYINT(1) NOT NULL DEFAULT 0 AFTER Auth",
-        'meetingAuth': "ALTER TABLE users ADD COLUMN meetingAuth TINYINT(1) NOT NULL DEFAULT 0 AFTER reportAUTH",
-    }
-
-    for column_name, sql in ddl.items():
-        if column_name not in existing:
-            cursor.execute(sql)
-
-
 @bp.route('/api/get_projects/')
 def get_projects():
     """선택된 연도의 프로젝트 데이터를 JSON으로 반환 (페이지네이션 적용)"""
@@ -50,21 +26,16 @@ def get_projects():
         page = request.args.get('page', 1, type=int)
         per_page = 20
 
-        if year:
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS count FROM Projects 
-                WHERE YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'
-                """,
-                (year,),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS count FROM Projects 
-                WHERE ContractCode NOT LIKE '%%검토%%'
-                """
-            )
+        if not year:
+            return jsonify({"error": "Year is required"}), 400
+
+        cursor.execute(
+            """
+                SELECT COUNT(*) AS count FROM Projects
+            WHERE YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'
+            """,
+            (year,),
+        )
         total_projects = cursor.fetchone()['count']
         total_pages = max(1, (total_projects + per_page - 1) // per_page)
 
@@ -73,29 +44,17 @@ def get_projects():
 
         offset = (page - 1) * per_page
 
-        if year:
-            cursor.execute(
-                """
-                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status 
-                FROM Projects 
-                WHERE YEAR(StartDate) = %s 
-                AND ContractCode NOT LIKE '%%검토%%'
-                ORDER BY ContractCode DESC 
-                LIMIT %s OFFSET %s
-                """,
-                (year, per_page, offset),
-            )
-        else:
-            cursor.execute(
-                """
-                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status 
-                FROM Projects 
-                WHERE ContractCode NOT LIKE '%%검토%%'
-                ORDER BY ContractCode DESC 
-                LIMIT %s OFFSET %s
-                """,
-                (per_page, offset),
-            )
+        cursor.execute(
+            """
+                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status
+                FROM Projects
+                WHERE YEAR(StartDate) = %s
+            AND ContractCode NOT LIKE '%%검토%%'
+                ORDER BY ContractCode DESC
+            LIMIT %s OFFSET %s
+            """,
+            (year, per_page, offset),
+        )
         projects = cursor.fetchall()
 
         try:
@@ -174,7 +133,6 @@ def business(year: int):
     cursor = None
     try:
         cursor = db.cursor(dictionary=True)
-        ensure_users_extended_columns(cursor)
 
         cursor.execute("SELECT DISTINCT YEAR(StartDate) as year FROM Projects ORDER BY year DESC")
         available_years = [row['year'] for row in cursor.fetchall()]
@@ -203,15 +161,11 @@ def business(year: int):
 
         cursor.execute(
             """
-            SELECT userID, Name, Department, Auth, note,
-                 COALESCE(EmpNo, '') AS emp_no,
-                 COALESCE(Position, '') AS position,
-                 JoinDate AS join_date,
-                 COALESCE(Phone, '') AS phone,
-                                    COALESCE(adminAUTH, 0) AS adminAUTH,
+             SELECT userID, Name, Department, Position, EmpNo, JoinDate, Phone, Auth, note,
+                 COALESCE(adminAUTH, 0) AS adminAUTH,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
-                     COALESCE(meetingAuth, 0) AS meetingAuth,
+                 COALESCE(meetingAuth, 0) AS meetingAuth,
                    COALESCE(projectAUTH, 0) AS projectAUTH
             FROM users
             """
@@ -221,38 +175,6 @@ def business(year: int):
         for user in users:
             if user.get('note') is None:
                 user['note'] = ''
-
-        session_user = session.get('user') or {}
-        session_user_id = session_user.get('userID')
-        if session_user_id:
-            cursor.execute(
-                """
-                SELECT userID, Name, Department, COALESCE(Position, '') AS Position, Auth,
-                      COALESCE(adminAUTH, 0) AS adminAUTH,
-                       COALESCE(dataauth, 0) AS dataauth,
-                       COALESCE(reportAUTH, 0) AS reportAUTH,
-                       COALESCE(meetingAuth, 0) AS meetingAuth,
-                       COALESCE(projectAUTH, 0) AS projectAUTH
-                FROM users
-                WHERE userID = %s
-                LIMIT 1
-                """,
-                (session_user_id,),
-            )
-            fresh_user = cursor.fetchone()
-            if fresh_user:
-                session['user'] = {
-                    'userID': fresh_user.get('userID'),
-                    'name': fresh_user.get('Name', ''),
-                    'department': fresh_user.get('Department', ''),
-                    'position': (fresh_user.get('Position', '') or '').strip(),
-                    'auth': fresh_user.get('Auth', ''),
-                    'adminAUTH': int(fresh_user.get('adminAUTH', 0) or 0),
-                    'dataauth': int(fresh_user.get('dataauth', 0) or 0),
-                    'reportAUTH': int(fresh_user.get('reportAUTH', 0) or 0),
-                    'meetingAuth': int(fresh_user.get('meetingAuth', 0) or 0),
-                    'projectAUTH': int(fresh_user.get('projectAUTH', 0) or 0),
-                }
 
     except mysql.connector.Error as e:
         print(f"Error executing SQL query: {e}")
@@ -340,16 +262,13 @@ def search_projects():
         params = [f"%{search_term}%", f"%{search_term}%"]
 
         if year:
-            base_query += " AND YEAR(StartDate) = %s"
+            base_query += " AND YEAR(StartDate) = %s AND ContractCode NOT LIKE '%%검토%%'"
             params.append(year)
 
         if search_type == "yearly":
             base_query += " AND yearProject = 1"
         elif search_type == "examine":
             base_query += " AND ContractCode LIKE '%%검토%%'"
-
-        if search_type != 'examine':
-            base_query += " AND ContractCode NOT LIKE '%%검토%%'"
 
         query = f"""
             SELECT 
@@ -445,7 +364,7 @@ def search_projects():
 
 @bp.route('/save_staff', methods=['POST'])
 def save_staff():
-    data = request.get_json() or []
+    data = request.get_json()
     db = create_connection()
 
     if db is None:
@@ -454,96 +373,78 @@ def save_staff():
     cursor = None
     try:
         cursor = db.cursor(dictionary=True)
-        ensure_users_extended_columns(cursor)
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         base_password = "1q2w3e4r!"
         default_password = hashlib.sha256(base_password.encode()).hexdigest()
 
         cursor.execute(
             """
-             SELECT userID, Name, Password, note,
-                 COALESCE(EmpNo, '') AS EmpNo,
-                 COALESCE(Position, '') AS Position,
-                 JoinDate,
-                 COALESCE(Phone, '') AS Phone,
-                                    COALESCE(adminAUTH, 0) AS adminAUTH,
+            SELECT userID, Name, Password, Department, Position, EmpNo, JoinDate, Phone, Auth, note, CreateDate,
+                   COALESCE(adminAUTH, 0)  AS adminAUTH,
                    COALESCE(dataauth, 0)   AS dataauth,
                    COALESCE(reportAUTH, 0) AS reportAUTH,
-                                     COALESCE(meetingAuth, 0) AS meetingAuth,
-                   COALESCE(projectAUTH, 0) AS projectAUTH
+                   COALESCE(projectAUTH, 0) AS projectAUTH,
+                   COALESCE(meetingAuth, 0) AS meetingAuth
             FROM users
             """
         )
         existing_users = {
-            row['userID']: {
+            (row['userID'], row['Name']): {
                 'Password': row['Password'],
-                'note': row.get('note', '') or '',
-                'EmpNo': row.get('EmpNo', '') or '',
-                'Position': row.get('Position', '') or '',
-                'JoinDate': row.get('JoinDate', None),
-                'Phone': row.get('Phone', '') or '',
+                'Department': row.get('Department') or '',
+                'Position': row.get('Position') or '',
+                'EmpNo': row.get('EmpNo') or '',
+                'JoinDate': row.get('JoinDate'),
+                'Phone': row.get('Phone') or '',
+                'Auth': row.get('Auth') or '',
+                'note': row.get('note') or '',
+                'CreateDate': row.get('CreateDate'),
                 'adminAUTH': int(row.get('adminAUTH', 0) or 0),
                 'dataauth': int(row.get('dataauth', 0) or 0),
                 'reportAUTH': int(row.get('reportAUTH', 0) or 0),
-                'meetingAuth': int(row.get('meetingAuth', 0) or 0),
                 'projectAUTH': int(row.get('projectAUTH', 0) or 0),
+                'meetingAuth': int(row.get('meetingAuth', 0) or 0),
             }
             for row in cursor.fetchall()
         }
 
-        rows_to_save = []
-        seen_user_ids = set()
-        duplicate_user_ids = set()
+        cursor.execute("DELETE FROM users")
+        current_session_user = session.get('user') or {}
+        current_session_user_id = str(current_session_user.get('userID') or '').strip().lower()
+        refreshed_session_user = None
 
         for user in data:
-            userID = str(user.get('userID', '') or '').strip()
-            name = str(user.get('Name', '') or '').strip()
-            if not userID or not name:
-                continue
-
-            if userID in seen_user_ids:
-                duplicate_user_ids.add(userID)
-            seen_user_ids.add(userID)
-            rows_to_save.append(user)
-
-        if duplicate_user_ids:
-            dup_text = ', '.join(sorted(duplicate_user_ids))
-            return jsonify({"success": False, "message": f"중복된 아이디가 있습니다: {dup_text}"}), 400
-
-        cursor.execute("DELETE FROM users")
-
-        for user in rows_to_save:
             userID = user.get('userID')
             name = user.get('Name')
             if not userID or not name:
                 continue
 
-            prev = existing_users.get(userID)
+            prev = existing_users.get((userID, name))
             password = prev['Password'] if prev else default_password
+            department = user.get('Department', prev['Department'] if prev else '')
+            auth = user.get('Auth', prev['Auth'] if prev else '')
+            note = user.get('note', prev['note'] if prev else '')
+            emp_no = user.get('EmpNo', prev['EmpNo'] if prev else '')
+            position = user.get('Position', prev['Position'] if prev else '')
+            join_date = user.get('JoinDate', prev['JoinDate'] if prev else None) or None
+            phone = user.get('Phone', prev['Phone'] if prev else '')
+            create_date = prev['CreateDate'] if prev and prev.get('CreateDate') else now
 
-            incoming_emp_no = user.get('EmpNo', user.get('emp_no', None))
-            emp_no = str(incoming_emp_no).strip() if incoming_emp_no is not None else (prev['EmpNo'] if prev else '')
-
-            incoming_position = user.get('Position', user.get('position', None))
-            position = str(incoming_position).strip() if incoming_position is not None else (prev['Position'] if prev else '')
-
-            incoming_phone = user.get('Phone', user.get('phone', None))
-            phone = str(incoming_phone).strip() if incoming_phone is not None else (prev['Phone'] if prev else '')
-
-            incoming_note = user.get('note', None)
-            note = str(incoming_note).strip() if incoming_note is not None else (prev['note'] if prev else '')
-
-            incoming_join_date = user.get('JoinDate', user.get('join_date', None))
-            join_date = prev['JoinDate'] if prev else None
-            if incoming_join_date is not None:
-                raw = str(incoming_join_date).strip()
-                if raw:
-                    try:
-                        join_date = datetime.strptime(raw[:10], '%Y-%m-%d').date()
-                    except Exception:
-                        join_date = None
-                else:
-                    join_date = None
+            incoming_admin = user.get('adminAUTH', None)
+            if incoming_admin is None:
+                adminAUTH = prev['adminAUTH'] if prev is not None else 0
+            else:
+                try:
+                    if isinstance(incoming_admin, bool):
+                        adminAUTH = 1 if incoming_admin else 0
+                    elif isinstance(incoming_admin, (int, float)):
+                        adminAUTH = 1 if int(incoming_admin) == 1 else 0
+                    elif isinstance(incoming_admin, str):
+                        adminAUTH = 1 if incoming_admin.lower() in ('1', 'true', 'y', 'yes') else 0
+                    else:
+                        adminAUTH = 0
+                except Exception:
+                    adminAUTH = 0
 
             incoming = user.get('dataauth', None)
             if incoming is None:
@@ -609,49 +510,56 @@ def save_staff():
                 except Exception:
                     meetingAuth = 0
 
-            incoming_admin = user.get('adminAUTH', None)
-            if incoming_admin is None:
-                adminAUTH = prev['adminAUTH'] if prev is not None else 0
-            else:
-                try:
-                    if isinstance(incoming_admin, bool):
-                        adminAUTH = 1 if incoming_admin else 0
-                    elif isinstance(incoming_admin, (int, float)):
-                        adminAUTH = 1 if int(incoming_admin) == 1 else 0
-                    elif isinstance(incoming_admin, str):
-                        adminAUTH = 1 if incoming_admin.lower() in ('1', 'true', 'y', 'yes') else 0
-                    else:
-                        adminAUTH = 0
-                except Exception:
-                    adminAUTH = 0
-
             cursor.execute(
                 """
-                INSERT INTO users (userID, Password, Name, Department, Position, JoinDate, Phone, Auth, adminAUTH, EmpNo, note, dataauth, reportAUTH, meetingAuth, projectAUTH, CreateDate, UpdateDate)
+                INSERT INTO users (userID, Password, Name, Department, Position, EmpNo, JoinDate, Phone, Auth, note, adminAUTH, dataauth, reportAUTH, projectAUTH, meetingAuth, CreateDate, UpdateDate)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     userID,
                     password,
                     name,
-                    user.get('Department', ''),
+                    department,
                     position,
+                    emp_no,
                     join_date,
                     phone,
-                    user.get('Auth', ''),
-                    adminAUTH,
-                    emp_no,
+                    auth,
                     note,
+                    adminAUTH,
                     dataauth,
                     reportAUTH,
-                    meetingAuth,
                     projectAUTH,
-                    now,
+                    meetingAuth,
+                    create_date,
                     now,
                 ),
             )
 
+            if current_session_user_id and str(userID).strip().lower() == current_session_user_id:
+                refreshed_session_user = {
+                    **current_session_user,
+                    'userID': userID,
+                    'name': name,
+                    'Name': name,
+                    'department': department,
+                    'Department': department,
+                    'position': position,
+                    'Position': position,
+                    'auth': auth,
+                    'Auth': auth,
+                    'adminAUTH': adminAUTH,
+                    'adminauth': adminAUTH,
+                    'dataauth': dataauth,
+                    'reportAUTH': reportAUTH,
+                    'projectAUTH': projectAUTH,
+                    'meetingAuth': meetingAuth,
+                    'meetingauth': meetingAuth,
+                }
+
         db.commit()
+        if refreshed_session_user is not None:
+            session['user'] = refreshed_session_user
         return jsonify({"success": True})
 
     except mysql.connector.Error as e:
