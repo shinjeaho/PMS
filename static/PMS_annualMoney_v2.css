@@ -1418,8 +1418,12 @@ input[name="marginFilter"] {
     background-size: 100% 32px, 80px 100%;
 }
 
-.long-term-row td {
+.custom-table tbody tr.long-term-row td {
     background-color: #fff8db;
+}
+
+.custom-table tbody tr.validation-green-row td {
+    background-color: #dcfce7;
 }
 
 .summary-row td {
