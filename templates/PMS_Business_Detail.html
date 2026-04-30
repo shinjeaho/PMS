@@ -18,25 +18,36 @@
     <script src="{{ url_for('static', filename='PMS_Business_Detail.js') }}" defer></script>
 </head>
 
-<body>
+<body class="detail-page">
+    {% set login_user = session.get('user', {}) %}
 
 
 
-    <header style="display: flex; align-items: center; gap: 12px;">
-        <button onclick="window.location.href='/'" class="back-button" style="margin-left: 20px;">
+    <header class="annual-topbar detail-topbar">
+        <button onclick="window.location.href='/'" class="back-button annual-home-btn">
             <!-- 삼인 -->
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+            <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
             <!-- BIT -->
             <!-- <img src="{{ url_for('static', filename='img/BIT_home.png') }}" alt="뒤로" style="width: 150px; height: 80px;"> -->
         </button>
-        <h1 style="position: absolute; left: 50%; transform: translateX(-50%); text-align: center; margin: 0;" id="projectName"></h1>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;">
-            <div class="standard-hover-wrap">
-                <button type="button" class="info-button standard-info-btn header-standard-btn"
-                    onclick="openStandardInfoModal()">기준정보</button>
+        <h1 id="projectName"></h1>
+        <div class="detail-header-side">
+            <div class="annual-topbar-userbox detail-topbar-userbox">
+                <div class="annual-topbar-userlabel" title="로그인 정보">
+                    <span>{{ login_user.get('Department', login_user.get('department', '')) }}</span>
+                    <span class="annual-topbar-user-sep">/</span>
+                    <span>{{ login_user.get('position', login_user.get('Position', '-')) or '-' }}</span>
+                    <span class="annual-topbar-user-sep">/</span>
+                    <span>{{ login_user.get('name', '-') }}</span>
+                </div>
             </div>
-            <button class="edit-button" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
-
+            <div class="header-actions">
+                <div class="standard-hover-wrap">
+                    <button type="button" class="info-button standard-info-btn header-standard-btn"
+                        onclick="openStandardInfoModal()">기준정보</button>
+                </div>
+                <button class="edit-button" id="statusModalBTN" onclick="openModal(this)">현황수정</button>
+            </div>
         </div>
 
         <input type="hidden" id="headerName" value="{{ project['ProjectName'] }}">

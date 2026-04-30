@@ -144,40 +144,86 @@
       padding: 12px 0;
     }
 
-    /* 화면용 헤더 스타일 (전역 적용) */
-    header.page-header {
-      position: relative;
+    header.page-header.annual-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      font-family: 'Outfit', 'Noto Sans KR', 'Segoe UI', sans-serif;
+      background: #ffffff;
+      color: #334155;
+      border: 0;
+      border-bottom: 1px solid #e2e8f0;
+      border-radius: 0;
+      box-shadow: none;
+      min-height: 60px;
+      margin: 0 0 20px;
+      padding: 12px 24px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      /* 정확한 중앙 정렬 */
-      gap: 0;
-      background-color: #007bff;
-      background-image: none !important;
-      /* 배너 이미지 백그라운드 제거 */
-      color: #fff;
-      padding: 12px 20px;
-      margin-bottom: 20px;
-      height: 75px;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-sizing: border-box;
+      text-align: left;
     }
 
-    header.page-header h1 {
+    header.page-header.annual-topbar h1 {
       margin: 0;
-      font-weight: 800;
-      text-align: center;
-      font-size: 32px;
+      flex: 1 1 320px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0;
+      color: #334155;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    /* 뒤로가기 버튼은 레이아웃에 영향 주지 않도록 절대 배치 */
-    header.page-header .back-button {
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
+    header.page-header.annual-topbar .back-button {
       background: transparent;
       border: none;
       padding: 0;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .annual-home-logo {
+      width: 110px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .annual-topbar-userbox {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex: 0 1 auto;
+      margin-left: auto;
+      align-self: flex-start;
+      padding-top: 2px;
+    }
+
+    .annual-topbar-userlabel {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .annual-topbar-user-sep {
+      color: #94a3b8;
     }
 
     /* 배너 이미지는 유지, 헤더 배경이미지만 제거 */
@@ -202,6 +248,33 @@
 
     .print-btn:hover {
       background: #1d4ed8;
+    }
+
+    @media (max-width: 768px) {
+      header.page-header.annual-topbar {
+        padding: 10px 14px;
+        gap: 10px;
+      }
+
+      header.page-header.annual-topbar h1 {
+        flex-basis: 100%;
+        font-size: 17px;
+        order: 2;
+      }
+
+      .annual-topbar-userbox {
+        width: 100%;
+        justify-content: flex-end;
+        order: 3;
+        margin-left: 0;
+        padding-top: 0;
+      }
+
+      .annual-topbar-userlabel {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     }
 
     /* 수정 버튼 */
@@ -581,16 +654,21 @@
 </head>
 
 <body>
-  <header class="page-header"
-    style="display: flex; align-items: center; gap: 12px; width: 100%; height: 75px; background-color: #007bff; color: #fff; padding: 12px 20px; margin-bottom: 20px; box-sizing: border-box;">
-    <button type="button" onclick="window.location.href='/'" class="back-button"
-      style="margin-left: 20px; background: transparent; border: none; padding: 0; cursor: pointer;">
-      <img src="{{ url_for('static', filename='img/home.png') }}" alt="배너" style="width: 150px; height: 80px;">
+  {% set login_user = session.get('user', {}) %}
+  <header class="page-header annual-topbar">
+    <button type="button" onclick="window.location.href='/'" class="back-button annual-home-btn">
+      <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
     </button>
-    <h1 id="projectName"
-      style="flex: 1; text-align: center; margin: 0; font-weight: 800; font-size: 32px; min-width:0; max-width:100%; overflow-x:auto; white-space:nowrap;">
-      {{ week_title }} 주간보고</h1>
-    <div class="header-actions" style="display: flex; align-items: center; gap: 8px; margin-right: 10px;"></div>
+    <h1 id="projectName">{{ week_title }} 주간보고</h1>
+    <div class="annual-topbar-userbox">
+      <div class="annual-topbar-userlabel" title="로그인 정보">
+        <span>{{ login_user.get('Department', login_user.get('department', '')) }}</span>
+        <span class="annual-topbar-user-sep">/</span>
+        <span>{{ login_user.get('position', login_user.get('Position', '-')) or '-' }}</span>
+        <span class="annual-topbar-user-sep">/</span>
+        <span>{{ login_user.get('name', '-') }}</span>
+      </div>
+    </div>
   </header>
 
   <div class="weekly-detail-container" style="overflow-x:auto; max-width:100vw;">
