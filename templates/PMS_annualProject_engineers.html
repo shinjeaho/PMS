@@ -10,12 +10,22 @@
     <script src="{{ url_for('static', filename='PMS_annualProject_engineers.js') }}" defer></script>
 </head>
 
-<body>
-    <header style="display: flex; align-items: center; position: relative;">
-        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
+<body class="annual-project-page">
+    {% set login_user = session.get('user', {}) %}
+    <header class="annual-topbar">
+        <button onclick="window.location.href='/'" class="back-button annual-home-btn">
+            <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
         </button>
-        <h1 style="flex: 1; text-align: center;" id="projectName">참여기술자 모아보기</h1>
+        <h1 id="projectName">참여기술자 모아보기</h1>
+        <div class="annual-topbar-userbox">
+            <div class="annual-topbar-userlabel" title="로그인 정보">
+                <span>{{ login_user.get('Department', login_user.get('department', '')) }}</span>
+                <span class="annual-topbar-user-sep">/</span>
+                <span>{{ login_user.get('position', login_user.get('Position', '-')) or '-' }}</span>
+                <span class="annual-topbar-user-sep">/</span>
+                <span>{{ login_user.get('name', '-') }}</span>
+            </div>
+        </div>
     </header>
 
     

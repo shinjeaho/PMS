@@ -708,17 +708,20 @@ header.annual-topbar {
     border-bottom: 1px solid #e2e8f0;
     border-radius: 0;
     box-shadow: none;
-    height: 60px;
+    min-height: 60px;
     margin: -20px -20px 0 -20px;
     padding: 12px 24px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
     text-align: left;
 }
 
 header.annual-topbar #projectName {
     margin: 0;
+    flex: 1 1 320px;
     font-size: 20px;
     font-weight: 600;
     letter-spacing: 0;
@@ -740,6 +743,36 @@ header.annual-topbar .annual-home-logo {
     width: 110px;
     height: 56px;
     object-fit: contain;
+}
+
+.annual-topbar-userbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex: 0 1 auto;
+    margin-left: auto;
+    align-self: flex-start;
+    padding-top: 2px;
+}
+
+.annual-topbar-userlabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.annual-topbar-user-sep {
+    color: #94a3b8;
 }
 
 main {
@@ -1449,6 +1482,31 @@ input[name="marginFilter"] {
 }
 
 @media (max-width: 768px) {
+    header.annual-topbar {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    header.annual-topbar #projectName {
+        flex-basis: 100%;
+        font-size: 17px;
+        order: 2;
+    }
+
+    .annual-topbar-userbox {
+        width: 100%;
+        justify-content: flex-end;
+        order: 3;
+        margin-left: 0;
+        padding-top: 0;
+    }
+
+    .annual-topbar-userlabel {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .annual-money-section {
         min-height: 420px;
     }
