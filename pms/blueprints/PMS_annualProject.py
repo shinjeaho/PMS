@@ -1237,9 +1237,9 @@ def export_annual_project():
 
         worksheet = workbook.add_worksheet(f'{year}년_연도별통합자료')
 
-        worksheet.set_column('A:A', 10)
+        worksheet.set_column('A:A', 4.5)
         worksheet.set_column('B:B', 20)
-        worksheet.set_column('C:C', 40)
+        worksheet.set_column('C:C', 75)
         worksheet.set_column('D:D', 25)
         worksheet.set_column('E:F', 12)
         worksheet.set_column('G:G', 8)
@@ -1247,11 +1247,13 @@ def export_annual_project():
         worksheet.set_column('J:R', 13)
         worksheet.set_column('S:AA', 13)
         worksheet.set_column('AB:AE', 15)
+        worksheet.set_column('AF:AG', 15)
 
         worksheet.merge_range(1, 0, 1, 8, '구분', category_end_format)
         worksheet.merge_range(1, 9, 1, 17, '예상진행비', category_end_format)
         worksheet.merge_range(1, 18, 1, 26, '실제진행비', category_end_format)
         worksheet.merge_range(1, 27, 1, 30, '사업비 수령내역', category_end_format)
+        worksheet.merge_range(1, 31, 1, 32, '외주비 지급내역', category_end_format)
 
         detailed_headers = [
             'No.',
@@ -1285,9 +1287,11 @@ def export_annual_project():
             '1차기성금',
             '2차기성금',
             '준공금',
+            '지급금액',
+            '잔금',
         ]
 
-        section_ends = [8, 17, 26, 30]
+        section_ends = [8, 17, 26, 30, 32]
 
         for col, header in enumerate(detailed_headers):
             if col in section_ends:
@@ -1472,6 +1476,27 @@ def export_annual_project():
             worksheet.write(row, col, project.get('completionTotal', 0), completion_end_format)
             col += 1
 
+            outsourcing_paid_format = workbook.add_format(
+                {
+                    'num_format': '#,##0',
+                    'align': 'right',
+                    'border': 1,
+                    'left': 2,
+                }
+            )
+            outsourcing_balance_end_format = workbook.add_format(
+                {
+                    'num_format': '#,##0',
+                    'align': 'right',
+                    'border': 1,
+                    'right': 2,
+                }
+            )
+            worksheet.write(row, col, project.get('outsourcing_paid', 0), outsourcing_paid_format)
+            col += 1
+            worksheet.write(row, col, abs(project.get('outsourcing_balance', 0)), outsourcing_balance_end_format)
+            col += 1
+
             row += 1
 
         total_format = workbook.add_format({'bold': True, 'bg_color': '#E7E6E6', 'num_format': '#,##0', 'align': 'right', 'border': 1})
@@ -1583,6 +1608,16 @@ def export_annual_project():
         col += 1
         worksheet.write(row, col, total.get('completionTotal', 0), total_end_format)
         col += 1
+        total_outsourcing_paid_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'num_format': '#,##0', 'align': 'right', 'border': 1, 'left': 2}
+        )
+        total_outsourcing_balance_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'num_format': '#,##0', 'align': 'right', 'border': 1, 'right': 2}
+        )
+        worksheet.write(row, col, total.get('outsourcing_paid', 0), total_outsourcing_paid_format)
+        col += 1
+        worksheet.write(row, col, abs(total.get('outsourcing_balance', 0)), total_outsourcing_balance_format)
+        col += 1
 
         workbook.close()
         output.seek(0)
@@ -1600,6 +1635,284 @@ def export_annual_project():
         print(f'Error: {e}')
         traceback.print_exc()
         return jsonify({'error': True, 'message': '엑셀 파일 생성 중 오류가 발생했습니다.'}), 500
+
+
+@bp.route('/api/export_annual_money', methods=['POST'])
+def export_annual_money():
+    try:
+        data = request.get_json() or {}
+        sections = data.get('sections') or []
+        stats = data.get('stats') or {}
+        year = data.get('year') or datetime.now().year
+        title = data.get('title') or f'{year}년 사업비 수령내역'
+        vat_mode = 'VAT포함' if data.get('vatMode') == 'include' else 'VAT제외'
+
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        stats_sheet_name = str(f'{year}년_통계표')[:31]
+        project_sheet_name = str(f'{year}년_사업목록')[:31]
+        stats_worksheet = workbook.add_worksheet(stats_sheet_name)
+        project_worksheet = workbook.add_worksheet(project_sheet_name)
+
+        title_format = workbook.add_format({'bold': True, 'font_size': 18, 'align': 'center', 'valign': 'vcenter'})
+        meta_format = workbook.add_format({'font_size': 10, 'align': 'left', 'valign': 'vcenter'})
+        block_title_format = workbook.add_format(
+            {'bold': True, 'font_size': 13, 'bg_color': '#D9EAF7', 'border': 1, 'align': 'left', 'valign': 'vcenter'}
+        )
+        group_header_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#4472C4', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'}
+        )
+        group_header_end_format = workbook.add_format(
+            {
+                'bold': True,
+                'bg_color': '#4472C4',
+                'font_color': 'white',
+                'border': 1,
+                'right': 2,
+                'align': 'center',
+                'valign': 'vcenter',
+            }
+        )
+        header_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#DCE6F1', 'border': 1, 'align': 'center', 'valign': 'vcenter'}
+        )
+        header_end_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#DCE6F1', 'border': 1, 'right': 2, 'align': 'center', 'valign': 'vcenter'}
+        )
+        stats_header_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#EAF2F8', 'border': 1, 'align': 'center', 'valign': 'vcenter'}
+        )
+        text_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+        center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        money_format = workbook.add_format({'border': 1, 'align': 'right', 'valign': 'vcenter', 'num_format': '#,##0'})
+        money_end_format = workbook.add_format(
+            {'border': 1, 'right': 2, 'align': 'right', 'valign': 'vcenter', 'num_format': '#,##0'}
+        )
+        summary_label_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'align': 'center', 'valign': 'vcenter'}
+        )
+        summary_text_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'align': 'left', 'valign': 'vcenter'}
+        )
+        summary_center_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'align': 'center', 'valign': 'vcenter'}
+        )
+        summary_money_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'num_format': '#,##0'}
+        )
+        summary_money_end_format = workbook.add_format(
+            {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'right': 2, 'align': 'right', 'valign': 'vcenter', 'num_format': '#,##0'}
+        )
+        empty_format = workbook.add_format({'italic': True, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+
+        stats_worksheet.set_column('A:S', 12)
+
+        project_worksheet.set_column('A:A', 4.5)
+        project_worksheet.set_column('B:B', 17)
+        project_worksheet.set_column('C:C', 68)
+        project_worksheet.set_column('D:D', 22)
+        project_worksheet.set_column('E:F', 12)
+        project_worksheet.set_column('G:G', 18)
+        project_worksheet.set_column('H:H', 10)
+        project_worksheet.set_column('I:I', 18)
+        project_worksheet.set_column('J:O', 14)
+        project_worksheet.set_column('P:R', 14)
+
+        def _number(value):
+            try:
+                if value is None or value == '':
+                    return 0
+                return float(value)
+            except Exception:
+                return 0
+
+        def write_stats_table(worksheet, start_row, start_col, title_text, values):
+            title_end_col = start_col + 8
+            worksheet.merge_range(start_row, start_col, start_row, title_end_col, title_text, block_title_format)
+
+            row_top = start_row + 1
+            row_sub = start_row + 2
+            row_value = start_row + 3
+
+            single_headers = ['기수령', '1/4', '2/4', '3/4', '4/4', '분기합계']
+            for offset, label in enumerate(single_headers):
+                worksheet.merge_range(row_top, start_col + offset, row_sub, start_col + offset, label, stats_header_format)
+
+            worksheet.merge_range(row_top, start_col + 6, row_top, start_col + 8, '잔금', stats_header_format)
+            worksheet.write(row_sub, start_col + 6, '당해년도', stats_header_format)
+            worksheet.write(row_sub, start_col + 7, '장기&연차', stats_header_format)
+            worksheet.write(row_sub, start_col + 8, '용역중지', stats_header_format)
+
+            for offset, value in enumerate(values):
+                fmt = money_end_format if offset == 8 else money_format
+                worksheet.write_number(row_value, start_col + offset, _number(value), fmt)
+
+            return row_value
+
+        def write_section_table(worksheet, start_row, section):
+            title_text = str(section.get('title') or '사업 목록')
+            count = int(section.get('count') or 0)
+            empty_message = section.get('emptyMessage') or '표시할 데이터가 없습니다.'
+            rows = section.get('rows') or []
+            summary = section.get('summary') or {}
+
+            worksheet.merge_range(start_row, 0, start_row, 17, f'{title_text} ({count}건)', block_title_format)
+            start_row += 1
+
+            worksheet.merge_range(start_row, 0, start_row, 8, '구분', group_header_end_format)
+            worksheet.merge_range(start_row, 9, start_row, 14, '수령내역', group_header_end_format)
+            worksheet.merge_range(start_row, 15, start_row, 17, '외주비 지급내역', group_header_end_format)
+            start_row += 1
+
+            headers = [
+                'No.',
+                '사업번호',
+                '사업명',
+                '발주처',
+                '계약일자',
+                '준공일자',
+                f'사업비(총괄,{vat_mode})',
+                '지분율',
+                f'사업비(지분,{vat_mode})',
+                '선금 기수령',
+                '선금 당해년도',
+                '기성금 기수령',
+                '기성금 당해년도',
+                '준공금',
+                '잔금',
+                '기지급',
+                '당해년도',
+                '잔금',
+            ]
+            header_end_cols = {8, 14, 17}
+            for col, header in enumerate(headers):
+                worksheet.write(start_row, col, header, header_end_format if col in header_end_cols else header_format)
+            start_row += 1
+
+            if not rows:
+                worksheet.merge_range(start_row, 0, start_row, 17, empty_message, empty_format)
+                return start_row + 2
+
+            for item in rows:
+                worksheet.write_number(start_row, 0, _number(item.get('no')), center_format)
+                worksheet.write(start_row, 1, item.get('contractCode', ''), text_format)
+                worksheet.write(start_row, 2, item.get('projectName', ''), text_format)
+                worksheet.write(start_row, 3, item.get('orderPlace', ''), text_format)
+                worksheet.write(start_row, 4, item.get('startDate', ''), center_format)
+                worksheet.write(start_row, 5, item.get('endDate', ''), center_format)
+                worksheet.write_number(start_row, 6, _number(item.get('projectCost')), money_format)
+                worksheet.write(start_row, 7, f"{_number(item.get('contributionRate')):g}%", center_format)
+                worksheet.write_number(start_row, 8, _number(item.get('costShare')), money_end_format)
+                worksheet.write_number(start_row, 9, _number(item.get('advanceBeforeTotal')), money_format)
+                worksheet.write_number(start_row, 10, _number(item.get('advanceTotal')), money_format)
+                worksheet.write_number(start_row, 11, _number(item.get('progressBeforeTotal')), money_format)
+                worksheet.write_number(start_row, 12, _number(item.get('progressTotal')), money_format)
+                worksheet.write_number(start_row, 13, _number(item.get('completionTotal')), money_format)
+                worksheet.write_number(start_row, 14, _number(item.get('receiptBalance')), money_end_format)
+                worksheet.write_number(start_row, 15, _number(item.get('outsourcingPaidPrevious')), money_format)
+                worksheet.write_number(start_row, 16, _number(item.get('outsourcingPaid')), money_format)
+                worksheet.write_number(start_row, 17, _number(item.get('outsourcingBalance')), money_end_format)
+                start_row += 1
+
+            worksheet.merge_range(start_row, 0, start_row, 5, '합계', summary_label_format)
+            worksheet.write_number(start_row, 6, _number(summary.get('projectCost')), summary_money_format)
+            worksheet.write(start_row, 7, '-', summary_center_format)
+            worksheet.write_number(start_row, 8, _number(summary.get('costShare')), summary_money_end_format)
+            worksheet.write_number(start_row, 9, _number(summary.get('advanceBeforeTotal')), summary_money_format)
+            worksheet.write_number(start_row, 10, _number(summary.get('advanceTotal')), summary_money_format)
+            worksheet.write_number(start_row, 11, _number(summary.get('progressBeforeTotal')), summary_money_format)
+            worksheet.write_number(start_row, 12, _number(summary.get('progressTotal')), summary_money_format)
+            worksheet.write_number(start_row, 13, _number(summary.get('completionTotal')), summary_money_format)
+            worksheet.write_number(start_row, 14, _number(summary.get('receiptBalance')), summary_money_end_format)
+            worksheet.write_number(start_row, 15, _number(summary.get('outsourcingPaidPrevious')), summary_money_format)
+            worksheet.write_number(start_row, 16, _number(summary.get('outsourcingPaid')), summary_money_format)
+            worksheet.write_number(start_row, 17, _number(summary.get('outsourcingBalance')), summary_money_end_format)
+
+            return start_row + 2
+
+        stats_worksheet.merge_range(0, 0, 0, 18, title, title_format)
+        stats_worksheet.merge_range(
+            1,
+            0,
+            1,
+            18,
+            f'조회년도: {year} / VAT 기준: {vat_mode} / 생성시각: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+            meta_format,
+        )
+
+        current_row = 3
+        stats_worksheet.merge_range(current_row, 0, current_row, 18, '통계표', block_title_format)
+        current_row += 1
+
+        receipt_stats = stats.get('receipt') or {}
+        pay_stats = stats.get('pay') or {}
+
+        write_stats_table(
+            stats_worksheet,
+            current_row,
+            0,
+            '사업비 수령내역 통계',
+            [
+                receipt_stats.get('receivedBeforeTotal', 0),
+                receipt_stats.get('q1', 0),
+                receipt_stats.get('q2', 0),
+                receipt_stats.get('q3', 0),
+                receipt_stats.get('q4', 0),
+                receipt_stats.get('total', 0),
+                receipt_stats.get('balanceCurrent', 0),
+                receipt_stats.get('balanceLong', 0),
+                receipt_stats.get('balanceStop', 0),
+            ],
+        )
+
+        write_stats_table(
+            stats_worksheet,
+            current_row,
+            10,
+            '외주비 지급내역 통계',
+            [
+                pay_stats.get('paidPrevious', 0),
+                pay_stats.get('q1', 0),
+                pay_stats.get('q2', 0),
+                pay_stats.get('q3', 0),
+                pay_stats.get('q4', 0),
+                pay_stats.get('total', 0),
+                pay_stats.get('balanceCurrent', 0),
+                pay_stats.get('balanceLong', 0),
+                pay_stats.get('balanceStop', 0),
+            ],
+        )
+
+        project_worksheet.merge_range(0, 0, 0, 17, title, title_format)
+        project_worksheet.merge_range(
+            1,
+            0,
+            1,
+            17,
+            f'조회년도: {year} / VAT 기준: {vat_mode} / 생성시각: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+            meta_format,
+        )
+
+        current_row = 3
+
+        for section in sections:
+            current_row = write_section_table(project_worksheet, current_row, section)
+
+        workbook.close()
+        output.seek(0)
+
+        filename = f"{year}년_사업비수령내역_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        print(f'Error: {e}')
+        traceback.print_exc()
+        return jsonify({'error': True, 'message': '사업비 수령내역 엑셀 파일 생성 중 오류가 발생했습니다.'}), 500
 
 
 @bp.route('/api/companyExpense/<int:year>')

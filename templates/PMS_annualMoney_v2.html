@@ -88,12 +88,12 @@
                     <option value="q3">3분기</option>
                     <option value="q4">4분기</option>
                 </select>
+            </div>
+            <div class="engineers-toolbar-right">
                 <label class="annual-money-stats-toggle" for="annualMoneyStatsToggle">
                     <input type="checkbox" id="annualMoneyStatsToggle" checked>
                     <span>통계</span>
                 </label>
-            </div>
-            <div class="engineers-toolbar-right">
                 <div class="annual-vat-tabs" aria-label="VAT 기준 선택">
                     <label class="annual-vat-check active" for="vatExcludeChk">
                         <input id="vatExcludeChk" type="checkbox" checked>
@@ -287,7 +287,7 @@
         annualMoneyYearEl.addEventListener('change', function () {
             const y = this.value;
             if (!y) return;
-            window.location.href = `/PMS_annualMoney?year=${encodeURIComponent(y)}`;
+            window.location.href = `/PMS_annualMoney_v2?year=${encodeURIComponent(y)}`;
         });
     }
 </script>

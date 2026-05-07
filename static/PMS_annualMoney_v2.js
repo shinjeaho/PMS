@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initAnnualMoneyQuarterFilter();
     initVatModeControls();
     initAnnualMoneyAnchorNavigation();
+    initAnnualMoneyHorizontalScroll();
 });
 
 
@@ -1136,6 +1137,33 @@ function buildAnnualMoneyTableHead() {
     `;
 }
 
+function buildAnnualMoneyTableColgroup() {
+    return `
+        <colgroup>
+            <col style="width: 30px;">
+            <col style="width: 110px;">
+            <col style="width: 330px;">
+            <col style="width: 180px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 150px;">
+            <col style="width: 150px;">
+            <col style="width: 70px;">
+            <col style="width: 150px;">
+            <col style="width: 150px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+            <col style="width: 110px;">
+        </colgroup>
+    `;
+}
+
 function renderAnnualMoneySectionTable(containerId, list, options = {}) {
     const host = document.getElementById(containerId);
     const countEl = options.countId ? document.getElementById(options.countId) : null;
@@ -1150,6 +1178,7 @@ function renderAnnualMoneySectionTable(containerId, list, options = {}) {
 
     host.innerHTML = `
         <table class="custom-table no_wrap annual-money-data-table">
+            ${buildAnnualMoneyTableColgroup()}
             ${buildAnnualMoneyTableHead()}
             <tbody>
                 ${list.map((project, index) => buildAnnualMoneyProjectRow(project, index)).join('')}
@@ -1242,6 +1271,155 @@ function buildAnnualMoneySummaryRow(list) {
             <td class="group-end" style="font-weight: bold;">${(summary.outsourcingBalance || 0).toLocaleString()}</td>
         </tr>
     `;
+}
+
+function buildAnnualMoneyExportRow(project, index) {
+    const vatView = getAnnualMoneyVatView(project);
+    const useInclude = vatMode === 'include';
+
+    return {
+        no: index + 1,
+        contractCode: project.ContractCode || '',
+        projectName: project.ProjectName || '',
+        orderPlace: project.orderPlace || '',
+        startDate: formatDate(project.StartDate),
+        endDate: formatDate(project.EndDate),
+        projectCost: useInclude ? vatView.projectCostInclude : vatView.projectCostExclude,
+        contributionRate: Number(project.ContributionRate || 0),
+        costShare: useInclude ? vatView.shareInclude : vatView.shareExclude,
+        advanceBeforeTotal: vatView.advanceBeforeTotal,
+        advanceTotal: vatView.advanceTotal,
+        progressBeforeTotal: vatView.progressBeforeTotal,
+        progressTotal: vatView.progressTotal,
+        completionTotal: vatView.completionTotal,
+        receiptBalance: vatView.receiptBalance,
+        outsourcingPaidPrevious: vatView.outsourcingPaidPrevious,
+        outsourcingPaid: vatView.outsourcingPaid,
+        outsourcingBalance: vatView.outsourcingBalance,
+    };
+}
+
+function buildAnnualMoneyExportSummary(list) {
+    const summary = aggregateAnnualMoneyDisplaySummary(list);
+    const useInclude = vatMode === 'include';
+
+    return {
+        projectCost: useInclude ? summary.ProjectCost : summary.ProjectCost_NoVAT,
+        costShare: useInclude ? summary.realCostShare_VAT : summary.realCostShare,
+        advanceBeforeTotal: summary.advanceBeforeTotal,
+        advanceTotal: summary.advanceTotal,
+        progressBeforeTotal: summary.progressBeforeTotal,
+        progressTotal: summary.progressTotal,
+        completionTotal: summary.completionTotal,
+        receiptBalance: summary.receiptBalance,
+        outsourcingPaidPrevious: summary.outsourcingPaidPrevious,
+        outsourcingPaid: summary.outsourcingPaid,
+        outsourcingBalance: summary.outsourcingBalance,
+    };
+}
+
+function buildAnnualMoneyExportSectionPayload(title, list, emptyMessage) {
+    const safeList = Array.isArray(list) ? list : [];
+    return {
+        title,
+        count: safeList.length,
+        emptyMessage,
+        rows: safeList.map((project, index) => buildAnnualMoneyExportRow(project, index)),
+        summary: buildAnnualMoneyExportSummary(safeList),
+    };
+}
+
+function buildAnnualMoneyExportStatsPayload(list, sections) {
+    const safeList = Array.isArray(list) ? list : [];
+    const summary = aggregateAnnualMoneyDisplaySummary(safeList);
+    const balanceBuckets = buildAnnualMoneyStatsBuckets(sections || {
+        currentEvent: [],
+        longTerm: [],
+        stop: [],
+        total: [],
+    });
+    const quarterReceiptTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const quarterPayTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+    safeList.forEach((project) => {
+        for (let quarter = 1; quarter <= 4; quarter += 1) {
+            const vatView = getAnnualMoneyVatView(project, quarter);
+            quarterReceiptTotals[quarter] += vatView.advanceTotal + vatView.progressTotal + vatView.completionTotal;
+            quarterPayTotals[quarter] += vatView.outsourcingPaid;
+        }
+    });
+
+    return {
+        year: Number(window.selectedYear) || new Date().getFullYear(),
+        receipt: {
+            receivedBeforeTotal: summary.receivedBeforeTotal,
+            q1: quarterReceiptTotals[1],
+            q2: quarterReceiptTotals[2],
+            q3: quarterReceiptTotals[3],
+            q4: quarterReceiptTotals[4],
+            total: quarterReceiptTotals[1] + quarterReceiptTotals[2] + quarterReceiptTotals[3] + quarterReceiptTotals[4],
+            balanceCurrent: balanceBuckets.current.receiptBalance,
+            balanceLong: balanceBuckets.long.receiptBalance,
+            balanceStop: balanceBuckets.stop.receiptBalance,
+        },
+        pay: {
+            paidPrevious: summary.outsourcingPaidPrevious,
+            q1: quarterPayTotals[1],
+            q2: quarterPayTotals[2],
+            q3: quarterPayTotals[3],
+            q4: quarterPayTotals[4],
+            total: quarterPayTotals[1] + quarterPayTotals[2] + quarterPayTotals[3] + quarterPayTotals[4],
+            balanceCurrent: balanceBuckets.current.outsourcingBalance,
+            balanceLong: balanceBuckets.long.outsourcingBalance,
+            balanceStop: balanceBuckets.stop.outsourcingBalance,
+        }
+    };
+}
+
+function buildAnnualMoneyExportTitle(ctx) {
+    const year = ctx.year || Number(window.selectedYear) || new Date().getFullYear();
+    return year ? `${year}년 사업비 수령내역` : '사업비 수령내역';
+}
+
+function buildAnnualMoneyExportPayload() {
+    const ctx = parseAnnualContextFromPath();
+    const exportTitle = buildAnnualMoneyExportTitle(ctx);
+    const baseList = applySort(getFilteredProjectsByQuarter(processedProjects));
+    const sections = splitAnnualMoneySections(baseList);
+    const statsSourceList = [
+        ...sections.currentEvent,
+        ...sections.longTerm,
+        ...sections.stop,
+    ];
+
+    return {
+        year: ctx.year || Number(window.selectedYear) || new Date().getFullYear(),
+        title: exportTitle,
+        vatMode,
+        stats: buildAnnualMoneyExportStatsPayload(statsSourceList, sections),
+        sections: [
+            buildAnnualMoneyExportSectionPayload(
+                '당해년도 사업비 수령 및 외주비 지급 관련 목록',
+                sections.currentEvent,
+                '당해년도 준공예정 또는 이벤트 발생 사업이 없습니다.'
+            ),
+            buildAnnualMoneyExportSectionPayload(
+                '장기사업 목록',
+                sections.longTerm,
+                '장기사업으로 분류된 대상이 없습니다.'
+            ),
+            buildAnnualMoneyExportSectionPayload(
+                '용역중지 사업 목록',
+                sections.stop,
+                '용역중지 사업이 없습니다.'
+            ),
+            buildAnnualMoneyExportSectionPayload(
+                '총괄사업 목록',
+                sections.total,
+                '표시할 사업이 없습니다.'
+            ),
+        ],
+    };
 }
 //프로젝트 마진율 필터
 // function filterByMargin(type) {
@@ -1415,11 +1593,22 @@ function enableHorizontalDragScroll(divId) {
 }
 
 function enableHorizontalDragScrollElement(el) {
+    if (!el || el.dataset.horizontalDragBound === '1') return;
+    el.dataset.horizontalDragBound = '1';
+
     let isDown = false;
+    let hasDragged = false;
     let startX, scrollLeft;
 
+    const shouldIgnoreTarget = (target) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('input, textarea, select, button, label'));
+    };
+
     el.addEventListener('mousedown', function (e) {
+        if (e.button !== 0 || shouldIgnoreTarget(e.target)) return;
         isDown = true;
+        hasDragged = false;
         el.classList.add('dragging');
         startX = e.pageX - el.offsetLeft;
         scrollLeft = el.scrollLeft;
@@ -1445,29 +1634,34 @@ function enableHorizontalDragScrollElement(el) {
         if (!isDown) return;
         e.preventDefault();
         const x = e.pageX - el.offsetLeft;
+        if (Math.abs(x - startX) > 4) {
+            hasDragged = true;
+        }
         el.scrollLeft = scrollLeft - (x - startX);
     });
     // 드래그 중 발생하는 텍스트 선택 시작 자체를 무시
     el.addEventListener('selectstart', function (e) {
         if (isDown) e.preventDefault();
     });
+    el.addEventListener('click', function (e) {
+        if (!hasDragged) return;
+        e.preventDefault();
+        e.stopPropagation();
+        hasDragged = false;
+    }, true);
+}
+
+function initAnnualMoneyHorizontalScroll() {
+    const sectionsScroll = document.querySelector('.annual-money-sections-scroll');
+    if (!sectionsScroll) return;
+    enableHorizontalDragScrollElement(sectionsScroll);
 }
 
 // 엑셀 다운로드 함수 수정
 function exportToXlsx() {
     try {
-        // 컨텍스트(모드/연도) 파싱 및 제목 생성
-        const ctx = parseAnnualContextFromPath();
-        const exportTitle = buildExportTitle(ctx);
-
-        // 현재 필터링된 데이터와 합계 데이터 준비
-        const currentData = {
-            processedProjects: processedProjects,  // 전역 변수
-            total: total,  // 전역 변수
-            year: ctx.year || new Date().getFullYear(),
-            mode: ctx.mode,               // 서버에서 필요하면 사용
-            title: exportTitle            // 서버에서 시트 타이틀 등에 사용할 수 있도록 전달
-        };
+        const currentData = buildAnnualMoneyExportPayload();
+        const exportTitle = currentData.title;
 
         console.log('📊 엑셀 다운로드 데이터:', currentData);
 
@@ -1495,7 +1689,7 @@ function exportToXlsx() {
         document.body.appendChild(loadingDiv);
 
         // Flask API 호출
-        fetch('/api/export_annual_project', {
+        fetch('/api/export_annual_money', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

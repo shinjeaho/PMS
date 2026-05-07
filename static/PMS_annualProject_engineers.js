@@ -132,6 +132,7 @@ function exportEngineersTableToExcel() {
     if (maxParticipants === 0) maxParticipants = 1;
 
     const headers = [
+        'No.',
         '사업번호',
         '사업명',
         '사책수',
@@ -148,8 +149,9 @@ function exportEngineersTableToExcel() {
         headers.push(maxParticipants === 1 ? '분참' : `분참${i + 1}`);
     }
 
-    const rows = list.map(project => {
+    const rows = list.map((project, index) => {
         const row = [
+            index + 1,
             project.ContractCode || '',
             project.ProjectName || '',
             project.chief_count ?? 0,
@@ -171,6 +173,20 @@ function exportEngineersTableToExcel() {
     const data = [headers, ...rows];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(data);
+
+    ws['!cols'] = [
+        { wch: 4.5 },
+        { wch: 17 },
+        { wch: 68 }
+    ];
+
+    for (let rowIndex = 1; rowIndex <= data.length; rowIndex += 1) {
+        const cell = ws[`A${rowIndex}`];
+        if (!cell) continue;
+        if (!cell.s) cell.s = {};
+        cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, '참여기술자');
 
     const year = document.getElementById('engineersYearSelect')?.value || '전체';
@@ -542,12 +558,23 @@ function scriptGroup(s) {
 function enableHorizontalDragScroll(divId) {
     const el = document.getElementById(divId);
     if (!el) return;
+    if (el.dataset.horizontalDragBound === '1') return;
+    el.dataset.horizontalDragBound = '1';
+
     let isDown = false;
+    let hasDragged = false;
     let startX;
     let scrollLeft;
 
+    const shouldIgnoreTarget = (target) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('input, textarea, select, button, label'));
+    };
+
     el.addEventListener('mousedown', function (e) {
+        if (e.button !== 0 || shouldIgnoreTarget(e.target)) return;
         isDown = true;
+        hasDragged = false;
         el.classList.add('dragging');
         startX = e.pageX - el.offsetLeft;
         scrollLeft = el.scrollLeft;
@@ -570,11 +597,20 @@ function enableHorizontalDragScroll(divId) {
         if (!isDown) return;
         e.preventDefault();
         const x = e.pageX - el.offsetLeft;
+        if (Math.abs(x - startX) > 4) {
+            hasDragged = true;
+        }
         el.scrollLeft = scrollLeft - (x - startX);
     });
     el.addEventListener('selectstart', function (e) {
         if (isDown) e.preventDefault();
     });
+    el.addEventListener('click', function (e) {
+        if (!hasDragged) return;
+        e.preventDefault();
+        e.stopPropagation();
+        hasDragged = false;
+    }, true);
 }
 
 let fakeScrollbarState = null;

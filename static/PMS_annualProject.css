@@ -32,6 +32,30 @@
     border-radius: 12px;
 }
 
+.engineers-toolbar-right .search-button,
+.engineers-toolbar-right .excel-export-btn {
+    height: 40px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: normal;
+    width: auto;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.engineers-toolbar-left .search-button {
+    height: 40px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: normal;
+    width: auto;
+    white-space: nowrap;
+}
+
 .engineers-status-row {
     display: flex;
     align-items: center;
