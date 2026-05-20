@@ -471,6 +471,7 @@
                 <input type="hidden" id="meetingDocNumber">
                 <input type="hidden" id="meetingCreatedAt">
                 <input type="hidden" id="meetingAuthor">
+                <input type="hidden" id="meetingCategory" value="사업관련">
                 <table class="meeting-form-table">
                     <colgroup>
                         <col style="width: 12%;">
@@ -479,6 +480,33 @@
                         <col style="width: 38%;">
                     </colgroup>
                     <tbody>
+                        <tr>
+                            <th>구분</th>
+                            <td colspan="3">
+                                {% set meeting_user_name = session['user'].get('name', '') %}
+                                {% set can_use_meeting_special_categories = meeting_user_name in ['우승범', '나준영', '최도현', '개발'] %}
+                                <div class="meeting-category-group" id="meetingCategoryGroup">
+                                    <label class="meeting-category-option is-selected">
+                                        <input type="checkbox" class="meeting-category-checkbox" value="사업관련" checked>
+                                        <span>사업관련</span>
+                                    </label>
+                                    <label class="meeting-category-option">
+                                        <input type="checkbox" class="meeting-category-checkbox" value="공통">
+                                        <span>공통</span>
+                                    </label>
+                                    {% if can_use_meeting_special_categories %}
+                                    <label class="meeting-category-option">
+                                        <input type="checkbox" class="meeting-category-checkbox" value="주간보고">
+                                        <span>주간보고</span>
+                                    </label>
+                                    <label class="meeting-category-option">
+                                        <input type="checkbox" class="meeting-category-checkbox" value="TF">
+                                        <span>TF</span>
+                                    </label>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
                         <tr>
                             <th>관련사업번호</th>
                             <td class="meeting-suggest-cell">

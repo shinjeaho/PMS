@@ -100,6 +100,7 @@ let meetingItemsFiltered = [];
 let meetingCurrentPage = 1;
 const meetingsPerPage = 20;
 let meetingSelectedYear = '';
+let meetingSelectedCategory = '';
 let meetingSearchText = '';
 
 let dailyReportYear = null;
@@ -1677,11 +1678,23 @@ function viewMeetingMinutes() {
     if (toolbar) {
         toolbar.innerHTML = `
             <div class="meeting-toolbar-row">
-                <div class="meeting-toolbar-group meeting-toolbar-year">
-                    <div class="meeting-toolbar-label">연도</div>
-                    <select id="meetingYearFilter" class="settingSelect meeting-year-filter">
-                        <option value="">전체</option>
-                    </select>
+                <div class="meeting-toolbar-left">
+                    <div class="meeting-toolbar-group meeting-toolbar-year">
+                        <div class="meeting-toolbar-label">연도</div>
+                        <select id="meetingYearFilter" class="settingSelect meeting-year-filter">
+                            <option value="">전체</option>
+                        </select>
+                    </div>
+                    <div class="meeting-toolbar-group meeting-toolbar-category">
+                        <div class="meeting-toolbar-label">구분</div>
+                        <select id="meetingCategoryFilter" class="settingSelect meeting-year-filter">
+                            <option value="">전체</option>
+                            <option value="사업관련">사업관련</option>
+                            <option value="공통">공통</option>
+                            <option value="주간보고">주간보고</option>
+                            <option value="TF">TF</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="meeting-toolbar-group meeting-toolbar-search">
                     <div class="meeting-search-wrap">
@@ -1711,6 +1724,16 @@ function viewMeetingMinutes() {
                 yearFilter.value = meetingSelectedYear;
                 yearFilter.onchange = () => {
                     meetingSelectedYear = yearFilter.value || '';
+                    meetingCurrentPage = 1;
+                    applyMeetingFiltersAndRender();
+                };
+            }
+
+            const categoryFilter = document.getElementById('meetingCategoryFilter');
+            if (categoryFilter) {
+                categoryFilter.value = meetingSelectedCategory;
+                categoryFilter.onchange = () => {
+                    meetingSelectedCategory = categoryFilter.value || '';
                     meetingCurrentPage = 1;
                     applyMeetingFiltersAndRender();
                 };
@@ -1763,6 +1786,8 @@ function applyMeetingFiltersAndRender() {
     meetingItemsFiltered = meetingItemsAll.filter((item) => {
         const rowYear = String(item?.meeting_datetime || item?.created_at || '').match(/^(\d{4})/)?.[1] || '';
         if (meetingSelectedYear && rowYear !== meetingSelectedYear) return false;
+        const rowCategory = String(item?.meeting_category || '').trim();
+        if (meetingSelectedCategory && rowCategory !== meetingSelectedCategory) return false;
         if (!keyword) return true;
 
         const hay = [
@@ -5203,6 +5228,8 @@ function initMeetingUploadModal() {
     const projectInput = document.getElementById('meetingProjectNumber');
     const projectNameInput = document.getElementById('meetingProjectName');
     const meetingDateStartInput = document.getElementById('meetingDateStart');
+    const meetingCategoryInput = document.getElementById('meetingCategory');
+    const meetingCategoryCheckboxes = Array.from(modal.querySelectorAll('.meeting-category-checkbox'));
     const suggestCell = modal.querySelector('.meeting-suggest-cell');
 
     initDateYearAutoAdvance(meetingDateStartInput);
@@ -5218,6 +5245,44 @@ function initMeetingUploadModal() {
 
     let suggestTimer = null;
     let suggestAbort = null;
+
+    const syncMeetingProjectFieldState = (categoryValue) => {
+        const isProjectCategory = categoryValue === '사업관련';
+        if (projectInput) {
+            projectInput.disabled = !isProjectCategory;
+            projectInput.readOnly = !isProjectCategory;
+            projectInput.classList.toggle('is-disabled', !isProjectCategory);
+            if (!isProjectCategory) {
+                projectInput.value = '';
+            }
+        }
+        if (projectNameInput) {
+            projectNameInput.readOnly = true;
+            projectNameInput.classList.toggle('is-disabled', !isProjectCategory);
+            if (!isProjectCategory) {
+                projectNameInput.value = '';
+            }
+        }
+        if (suggestCell) {
+            suggestCell.classList.toggle('is-disabled', !isProjectCategory);
+        }
+        if (!isProjectCategory) {
+            hideProjectSuggest();
+        }
+    };
+
+    const setMeetingCategory = (value) => {
+        const resolvedValue = value || '사업관련';
+        if (meetingCategoryInput) {
+            meetingCategoryInput.value = resolvedValue;
+        }
+        meetingCategoryCheckboxes.forEach((checkbox) => {
+            const checked = checkbox.value === resolvedValue;
+            checkbox.checked = checked;
+            checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
+        });
+        syncMeetingProjectFieldState(resolvedValue);
+    };
 
     const hideProjectSuggest = () => {
         if (!suggestBox) return;
@@ -5342,12 +5407,14 @@ function initMeetingUploadModal() {
     if (projectInput) {
         projectInput.setAttribute('autocomplete', 'off');
         projectInput.addEventListener('input', () => {
+            if (projectInput.disabled) return;
             if (projectNameInput) projectNameInput.value = '';
             const q = projectInput.value || '';
             if (suggestTimer) clearTimeout(suggestTimer);
             suggestTimer = setTimeout(() => requestProjectSuggest(q), 180);
         });
         projectInput.addEventListener('keydown', (e) => {
+            if (projectInput.disabled) return;
             if (e.key === 'Escape') hideProjectSuggest();
         });
     }
@@ -5359,6 +5426,19 @@ function initMeetingUploadModal() {
         if (suggestBox.contains(target)) return;
         hideProjectSuggest();
     });
+
+    meetingCategoryCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                setMeetingCategory(checkbox.value);
+                return;
+            }
+            const checkedItem = meetingCategoryCheckboxes.find((item) => item.checked);
+            setMeetingCategory(checkedItem ? checkedItem.value : '사업관련');
+        });
+    });
+
+    setMeetingCategory(meetingCategoryInput?.value || '사업관련');
 }
 
 function openMeetingUploadModal(editMeeting = null) {
@@ -5400,6 +5480,24 @@ function openMeetingUploadModal(editMeeting = null) {
     if (meetingOrganizerInput) meetingOrganizerInput.value = '';
     const meetingAttendeesInput = document.getElementById('meetingAttendees');
     if (meetingAttendeesInput) meetingAttendeesInput.value = '';
+    const meetingCategoryInput = document.getElementById('meetingCategory');
+    if (meetingCategoryInput) meetingCategoryInput.value = '사업관련';
+    const meetingCategoryCheckboxes = Array.from(document.querySelectorAll('#meetingUploadModal .meeting-category-checkbox'));
+    meetingCategoryCheckboxes.forEach((checkbox) => {
+        const checked = checkbox.value === '사업관련';
+        checkbox.checked = checked;
+        checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
+    });
+    if (projectNumberInput) {
+        projectNumberInput.disabled = false;
+        projectNumberInput.readOnly = false;
+        projectNumberInput.classList.remove('is-disabled');
+    }
+    if (projectNameInput) {
+        projectNameInput.readOnly = true;
+        projectNameInput.classList.remove('is-disabled');
+    }
+    document.querySelector('#meetingUploadModal .meeting-suggest-cell')?.classList.remove('is-disabled');
 
     meetingEditingRecordId = null;
     meetingEditExistingPdf = null;
@@ -5416,15 +5514,28 @@ function openMeetingUploadModal(editMeeting = null) {
             file_path: buildMeetingFileUrl(editMeeting),
         };
 
+        const editCategory = String(editMeeting.meeting_category || '').trim() || '사업관련';
+        if (meetingCategoryInput) meetingCategoryInput.value = editCategory;
+        meetingCategoryCheckboxes.forEach((checkbox) => {
+            const checked = checkbox.value === editCategory;
+            checkbox.checked = checked;
+            checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
+        });
+
         if (docInput) docInput.value = editMeeting.doc_number || '';
         if (createdAtInput) createdAtInput.value = editMeeting.created_at || formatDateYMD(new Date());
         if (authorInput) authorInput.value = editMeeting.author || authorName;
-        if (projectNumberInput) projectNumberInput.value = editMeeting.contractcode || '';
-        if (projectNameInput) projectNameInput.value = editMeeting.project_name || '';
+        if (projectNumberInput) projectNumberInput.value = editCategory === '사업관련' ? (editMeeting.contractcode || '') : '';
+        if (projectNameInput) projectNameInput.value = editCategory === '사업관련' ? (editMeeting.project_name || '') : '';
         if (agendaTitleInput) agendaTitleInput.value = editMeeting.title || '';
         if (meetingPlaceInput) meetingPlaceInput.value = editMeeting.meeting_place || '';
         if (meetingOrganizerInput) meetingOrganizerInput.value = editMeeting.organizer || '';
         if (meetingAttendeesInput) meetingAttendeesInput.value = editMeeting.attendees || '';
+
+        const activeCategoryCheckbox = meetingCategoryCheckboxes.find((checkbox) => checkbox.checked);
+        if (activeCategoryCheckbox) {
+            activeCategoryCheckbox.dispatchEvent(new Event('change'));
+        }
 
         const startRaw = String(editMeeting.meeting_datetime || '').trim();
         const startMatch = startRaw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
@@ -5578,8 +5689,11 @@ function summarizeMeetingUploadError(message) {
 function uploadMeetingPdf(file) {
     const isEditMode = !!meetingEditingRecordId;
     const docNumber = document.getElementById('meetingDocNumber')?.value || '';
-    const contractcode = document.getElementById('meetingProjectNumber')?.value || '';
-    const projectName = document.getElementById('meetingProjectName')?.value || '';
+    const meetingCategory = document.getElementById('meetingCategory')?.value || '사업관련';
+    const inputContractCode = (document.getElementById('meetingProjectNumber')?.value || '').trim();
+    const inputProjectName = (document.getElementById('meetingProjectName')?.value || '').trim();
+    const contractcode = meetingCategory === '사업관련' ? inputContractCode : meetingCategory;
+    const projectName = meetingCategory === '사업관련' ? inputProjectName : '';
     const agendaTitle = document.getElementById('meetingAgendaTitle')?.value || document.getElementById('meetingTitle')?.value || '';
     const meetingDateStart = document.getElementById('meetingDateStart')?.value || '';
     const meetingTimeStartHour = document.getElementById('meetingTimeStartHour')?.value || '';
@@ -5607,6 +5721,12 @@ function uploadMeetingPdf(file) {
     const userName = document.getElementById('sessionName')?.value || '';
     const createdAt = document.getElementById('meetingCreatedAt')?.value || formatDateYMD(new Date());
     const author = document.getElementById('meetingAuthor')?.value || userName;
+
+    if (meetingCategory === '사업관련' && !String(contractcode || '').trim()) {
+        alert('사업번호를 입력하세요.');
+        return;
+    }
+
     const pdfUploadList = document.getElementById('meetingPdfUploadList');
     const attachmentUploadList = document.getElementById('meetingAttachmentUploadList');
     if (pdfUploadList) {
@@ -5619,6 +5739,7 @@ function uploadMeetingPdf(file) {
     const fd = new FormData();
     if (file) fd.append('file', file);
     if (isEditMode) fd.append('meetingId', String(meetingEditingRecordId));
+    fd.append('meetingCategory', meetingCategory);
     fd.append('docNumber', docNumber);
     fd.append('contractcode', contractcode);
     fd.append('projectName', projectName);
@@ -5852,6 +5973,12 @@ function renderMeetingAttachmentPendingFiles() {
 }
 
 function submitMeetingUpload() {
+    const meetingCategory = document.getElementById('meetingCategory')?.value || '사업관련';
+    const contractcode = (document.getElementById('meetingProjectNumber')?.value || '').trim();
+    if (meetingCategory === '사업관련' && !contractcode) {
+        alert('사업번호를 입력하세요.');
+        return;
+    }
     if (!meetingSelectedFile && !meetingEditExistingPdf) {
         alert('업로드할 PDF 파일을 선택해 주세요.');
         return;

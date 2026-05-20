@@ -295,8 +295,11 @@ def upload_meeting_pdf():
             return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
 
     doc_number = (request.form.get('docNumber') or '').strip()
-    contractcode = (request.form.get('contractcode') or '').strip()
-    project_name = (request.form.get('projectName') or '').strip()
+    meeting_category = (request.form.get('meetingCategory') or '사업관련').strip() or '사업관련'
+    input_contractcode = (request.form.get('contractcode') or '').strip()
+    input_project_name = (request.form.get('projectName') or '').strip()
+    contractcode = input_contractcode if meeting_category == '사업관련' else meeting_category
+    project_name = input_project_name if meeting_category == '사업관련' else ''
     agenda_title = (request.form.get('agendaTitle') or request.form.get('title') or '').strip()
     meeting_date_start = (request.form.get('meetingDateStart') or '').strip()
     meeting_time_start = (request.form.get('meetingTimeStart') or '').strip()
@@ -323,6 +326,9 @@ def upload_meeting_pdf():
     if not author:
         author = user_name
 
+    if meeting_category == '사업관련' and not contractcode:
+        return jsonify({'success': False, 'message': '사업번호를 입력하세요.'}), 400
+
     year_folder = os.path.join(MEETING_UPLOAD_FOLDER, datetime.now().strftime('%Y'))
     os.makedirs(year_folder, exist_ok=True)
 
@@ -336,7 +342,7 @@ def upload_meeting_pdf():
     saved_attachments = []
 
     try:
-        if contractcode:
+        if meeting_category == '사업관련' and contractcode:
             conn = create_connection()
             if conn is None:
                 return jsonify({'success': False, 'message': 'DB connection failed'}), 500
@@ -387,6 +393,7 @@ def upload_meeting_pdf():
         cursor = conn.cursor()
         try:
             has_user_name_col = _column_exists(cursor, 'meeting_files', 'user_name')
+            has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
             has_attachment_table = _table_exists(cursor, 'meeting_file_attachments')
 
             insert_cols = [
@@ -424,6 +431,9 @@ def upload_meeting_pdf():
             if has_user_name_col:
                 insert_cols.append('user_name')
                 insert_vals.append(user_name or None)
+            if has_meeting_category_col:
+                insert_cols.append('meeting_category')
+                insert_vals.append(meeting_category)
             insert_cols.append('create_at')
 
             placeholders = ', '.join(['%s'] * len(insert_vals))
@@ -492,8 +502,11 @@ def update_meeting_pdf():
             return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
 
     doc_number = (request.form.get('docNumber') or '').strip()
-    contractcode = (request.form.get('contractcode') or '').strip()
-    project_name = (request.form.get('projectName') or '').strip()
+    meeting_category = (request.form.get('meetingCategory') or '사업관련').strip() or '사업관련'
+    input_contractcode = (request.form.get('contractcode') or '').strip()
+    input_project_name = (request.form.get('projectName') or '').strip()
+    contractcode = input_contractcode if meeting_category == '사업관련' else meeting_category
+    project_name = input_project_name if meeting_category == '사업관련' else ''
     agenda_title = (request.form.get('agendaTitle') or request.form.get('title') or '').strip()
     meeting_date_start = (request.form.get('meetingDateStart') or '').strip()
     meeting_time_start = (request.form.get('meetingTimeStart') or '').strip()
@@ -519,6 +532,9 @@ def update_meeting_pdf():
     user_name = (request.form.get('userName') or '').strip()
     if not author:
         author = user_name
+
+    if meeting_category == '사업관련' and not contractcode:
+        return jsonify({'success': False, 'message': '사업번호를 입력하세요.'}), 400
 
     conn = create_connection()
     if conn is None:
@@ -593,6 +609,7 @@ def update_meeting_pdf():
             })
 
         has_user_name_col = _column_exists(cursor, 'meeting_files', 'user_name')
+        has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
         has_attachment_table = _table_exists(cursor, 'meeting_file_attachments')
 
         update_fields = [
@@ -626,6 +643,9 @@ def update_meeting_pdf():
         if has_user_name_col:
             update_fields.append("user_name = %s")
             params.append(user_name or None)
+        if has_meeting_category_col:
+            update_fields.append("meeting_category = %s")
+            params.append(meeting_category)
 
         if file is not None:
             update_fields.extend(["file_path = %s", "original_name = %s", "file_size = %s"])
@@ -725,10 +745,13 @@ def list_meeting_files():
 
     cursor = conn.cursor(dictionary=True)
     try:
+        has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
+        meeting_category_sql = 'meeting_category,' if has_meeting_category_col else "'사업관련' AS meeting_category,"
         cursor.execute(
-            """
+            f"""
                 SELECT id, doc_number, contractcode, project_name,
                        agenda_title AS title,
+                      {meeting_category_sql}
                       DATE_FORMAT(meeting_datetime, '%Y-%m-%d %H:%i') AS meeting_datetime,
                       DATE_FORMAT(meeting_end_datetime, '%Y-%m-%d %H:%i') AS meeting_end_datetime,
                       meeting_place, organizer, attendees,
