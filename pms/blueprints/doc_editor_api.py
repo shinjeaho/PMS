@@ -185,6 +185,10 @@ def _get_session_user_name() -> str:
     return (user.get('name') or user.get('Name') or '').strip()
 
 
+def _can_view_special_meeting_categories() -> bool:
+    return _get_session_user_name() in {'우승범', '나준영', '최도현', '개발'}
+
+
 def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
     has_department = _meeting_viewers_has_department(cursor)
     has_position = _meeting_viewers_has_position(cursor)
@@ -747,6 +751,10 @@ def list_meeting_files():
     try:
         has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
         meeting_category_sql = 'meeting_category,' if has_meeting_category_col else "'사업관련' AS meeting_category,"
+        where_clause = ''
+        params = []
+        if has_meeting_category_col and not _can_view_special_meeting_categories():
+            where_clause = "WHERE COALESCE(meeting_category, '사업관련') NOT IN ('주간보고', 'TF')"
         cursor.execute(
             f"""
                 SELECT id, doc_number, contractcode, project_name,
@@ -759,8 +767,11 @@ def list_meeting_files():
                        DATE_FORMAT(COALESCE(created_at, DATE(create_at)), '%Y-%m-%d') AS created_at,
                        file_path, COALESCE(view_count, 0) AS view_count
             FROM meeting_files
+            {where_clause}
             ORDER BY create_at DESC, id DESC
             """
+            ,
+            tuple(params),
         )
         items = cursor.fetchall() or []
         return jsonify({'items': items})
