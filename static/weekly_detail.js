@@ -205,6 +205,45 @@ function renderWeeklyTables(root, data) {
     return Math.max(400, (pageHeightMm - marginTopMm - marginBottomMm) * ppm);
   }
 
+  function weeklyPrepareScheduleTableForPrint(table) {
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    if (tbody.dataset.weeklySchedulePrepared === '1') return;
+
+    tbody.dataset.weeklySchedulePrepared = '1';
+    tbody.dataset.weeklyScheduleOrigHtml = tbody.innerHTML;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach((tr) => {
+      const deptName = tr.querySelector('td.dept-col')?.textContent || '';
+      const maxLines = weeklyGetScheduleLineLimitForDept(deptName);
+      const dayCells = Array.from(tr.querySelectorAll('td.day-col'));
+      dayCells.forEach((td) => {
+        td.innerHTML = weeklyTrimHtmlToPrintLines(
+          td.innerHTML,
+          weeklyScheduleColumnWidthPxForPrint(td),
+          maxLines
+        );
+      });
+    });
+  }
+
+  function weeklyRestoreScheduleTableAfterPrint(table) {
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    if (tbody.dataset.weeklySchedulePrepared !== '1') return;
+
+    const orig = tbody.dataset.weeklyScheduleOrigHtml;
+    if (orig != null) {
+      tbody.innerHTML = orig;
+    }
+
+    delete tbody.dataset.weeklySchedulePrepared;
+    delete tbody.dataset.weeklyScheduleOrigHtml;
+  }
+
   // 상단: 부서별 주간일정표
   // 스케줄 섹션 래퍼
   const scheduleSection = document.createElement('div');
@@ -324,6 +363,7 @@ function renderWeeklyTables(root, data) {
       // 이슈표는 한 부서의 내용이 페이지를 넘을 수 있으므로,
       // 강제 높이/행높이 균등 분배를 적용하지 않고 자연스럽게 페이지가 넘어가도록 둠.
       if (tbl1 && tbl1.isConnected) {
+        weeklyPrepareScheduleTableForPrint(tbl1);
         const thead = tbl1.querySelector('thead');
         const tbody = tbl1.querySelector('tbody');
         if (tbody) {
@@ -390,6 +430,7 @@ function renderWeeklyTables(root, data) {
           });
         });
       }
+      weeklyRestoreScheduleTableAfterPrint(tbl1);
     }
 
     // 이슈표: 인쇄 전 행 분할을 원상 복구
