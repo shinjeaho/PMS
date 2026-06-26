@@ -222,8 +222,26 @@ main {
     /* 버튼의 모서리를 둥글게 하지 않음 */
 }
 
+.navbar a.year-button {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #007bff;
+    color: white;
+    padding: 14px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 0;
+    display: block;
+    text-align: center;
+}
+
 .navbar button.year-button:hover {
     background-color: #0056b3;
+}
+
+.navbar a.year-button:hover {
+    background-color: #0056b3;
+    color: white;
 }
 
 .navbar button.active {
@@ -853,6 +871,40 @@ main {
     font-weight: 700;
 }
 
+.meeting-category-group{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 2px 0;
+}
+
+.meeting-category-option{
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 10px;
+    border: 1px solid #cfd8e3;
+    border-radius: 999px;
+    background: #f8fbff;
+    color: #334155;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.1;
+}
+
+.meeting-category-option input{
+    margin: 0;
+}
+
+.meeting-category-option.is-selected{
+    border-color: #2d70b8;
+    background: #eaf3ff;
+    color: #184b7a;
+}
+
 .meeting-form-input{
     width: 100%;
     height: 28px;
@@ -865,6 +917,16 @@ main {
 
 .meeting-form-input[readonly]{
     color: #1f2937;
+}
+
+.meeting-form-input.is-disabled{
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+.meeting-suggest-cell.is-disabled{
+    background: #f8fafc;
 }
 
 .meeting-suggest-cell{
@@ -1019,15 +1081,22 @@ main {
 
 /* 회의록 목록: 행 폰트 크기 통일 */
 .projectList tbody tr[data-meeting-id] td{
-    font-size: 18px;
+    font-size: 14px;
     padding: 10px 12px;
 }
 
 /* 회의록 목록: 작성일 한 줄 고정 */
 .meeting-date-cell{
-    font-size: 18px;
+    font-size: 14px;
     line-height: 1.3;
     white-space: nowrap;
+}
+
+.projectList tbody td.meeting-title-cell{
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* 작은 화면 대응 */
@@ -1354,21 +1423,37 @@ body.modal-open {
 
 .projectList {
     width: 100%;
-    border-collapse: collapse;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #cfd8e3;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .projectList thead {
-    background-color: #808080;
-    color: white;
-    border-bottom: 2px solid #ddd;
+    background-color: #e5e7eb;
+    color: #1f2937;
+    border-bottom: 1px solid #cfd8e3;
 }
 
 .projectList thead th {
-    padding: 20px;
+    padding: 14px 16px;
     text-align: center;
-    /* font-weight: bold; */
-    border-right: 3px solid #ddd;
-    border-bottom: 5px outset #000000;
+    font-weight: 700;
+    font-size: 15px;
+    border-right: 1px solid #d6dde7;
+    border-bottom: 1px solid #cfd8e3;
+    background-color: #e5e7eb;
+    letter-spacing: -0.1px;
+}
+
+.projectList thead th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.projectList thead th:last-child {
+    border-top-right-radius: 12px;
 }
 
 .projectList thead th:last-child {
@@ -1393,15 +1478,27 @@ body.modal-open {
     line-height: 1;
     font-size: 12px;
     font-weight: 700;
-    color: #ffffff;
+    color: #374151;
 }
 
 .projectList tbody td {
-    padding: 20px;
+    padding: 10px 12px;
     text-align: center;
-    border-bottom: 3px solid #ddd;
+    border-bottom: 2px solid #d8dde5;
     cursor: pointer;
-    font-size: 20px;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.projectList tbody tr {
+    height: 54px;
+}
+
+.projectList tbody td:nth-child(2) {
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .projectList tbody tr:hover {
@@ -1410,7 +1507,7 @@ body.modal-open {
 
 /* 리스크 존재 사업 강조 */
 .risk-row td {
-    background-color: #fc6868 !important;
+    background-color: #fb8d8d !important;
 }
 
 .pagination {
@@ -2234,6 +2331,423 @@ body.modal-open {
     .daily-report-calendar td {
         font-size: 12px;
         height: 40px;
+    }
+}
+
+/* =========================
+   Year Page Visual Refresh
+========================= */
+:root {
+    --year-bg-top: #f7f9fc;
+    --year-bg-bottom: #eef3f9;
+    --year-card: #ffffff;
+    --year-text: #0f172a;
+    --year-muted: #475569;
+    --year-line: #d6dde8;
+    --year-primary: #1f4f8f;
+    --year-primary-strong: #173f72;
+}
+
+html {
+    background: var(--year-bg-top);
+}
+
+body {
+    width: min(1600px, 96%);
+    background: var(--year-bg-top);
+    color: var(--year-text);
+    font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif;
+}
+
+header.pageheader {
+    width: 100%;
+    box-sizing: content-box;
+    border-radius: 24px;
+    border: 1px solid var(--year-line);
+    border-bottom: 0;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    background-color: var(--year-card);
+    padding: 26px 24px 22px;
+}
+
+#yearTitle {
+    margin: 8px 0 14px !important;
+    color: #0b2540;
+    letter-spacing: -0.03em;
+}
+
+.user-logout-box {
+    top: 16px;
+    right: 16px;
+    gap: 8px;
+}
+
+.user-logout-box .user-label {
+    border-color: #d4dde9;
+    color: #1e293b;
+    background: #f8fbff;
+}
+
+.navbar {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--year-line);
+    border-top: 0;
+    border-bottom: 0;
+    background: linear-gradient(180deg, #2f6db2 0%, #255e9d 100%);
+}
+
+.navbar li {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.year-button {
+    background-color: transparent;
+    border: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.navbar button.year-button {
+    background-color: transparent;
+    padding: 14px 12px;
+}
+
+.navbar a.year-button {
+    background-color: transparent;
+    color: white;
+    padding: 14px 12px;
+}
+
+.navbar button.year-button:hover,
+.navbar a.year-button:hover,
+.navbar button.active {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.dropdown-content {
+    border: 1px solid #d2dbe7;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+    top: 100%;
+    left: 0;
+    margin-top: 0;
+}
+
+.dropdown-content a {
+    padding: 10px 14px;
+    text-align: center;
+    color: #1e293b;
+}
+
+.dropdown-content a:hover {
+    background-color: #edf3fb;
+}
+
+#searchDIV {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 10px;
+    padding: 4px 0 8px;
+    background: transparent;
+    border: 0;
+}
+
+#searchScope {
+    flex: 0 0 auto;
+    width: 72px;
+    min-width: 72px;
+    height: 32px;
+    padding: 0 22px 0 10px;
+    border: 2px solid #c5ccd6;
+    border-radius: 12px;
+    background-color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b7280;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+#searchScope:focus {
+    border-color: #aeb7c2;
+    box-shadow: 0 0 0 3px rgba(197, 204, 214, 0.24);
+}
+
+.year-search-input-wrap {
+    position: relative;
+    display: block;
+    flex: 0 1 280px;
+    min-width: 180px;
+    padding: 0;
+    border-bottom: 2px solid #c5ccd6;
+}
+
+#search {
+    width: 100%;
+    height: 32px;
+    padding: 0 26px 0 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+    box-shadow: none;
+}
+
+#search::placeholder {
+    color: #8d95a1;
+}
+
+#search:focus {
+    outline: none;
+}
+
+.year-search-icon-btn {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #111111;
+    cursor: pointer;
+}
+
+#search_BTN.year-search-icon-btn {
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    right: 0;
+    padding: 0;
+}
+
+.year-search-icon-svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
+.year-search-icon-btn:hover {
+    background: transparent;
+}
+
+.year-search-icon-btn:focus-visible {
+    outline: 3px solid rgba(148, 163, 184, 0.22);
+    outline-offset: 2px;
+}
+
+.search-button {
+    border-radius: 10px;
+    font-weight: 700;
+    background: linear-gradient(180deg, #2d70b8 0%, #205790 100%);
+}
+
+.search-button:hover {
+    background: linear-gradient(180deg, #2a66a6 0%, #194876 100%);
+}
+
+.meeting-toolbar-row {
+    display: grid;
+    grid-template-columns: 1fr minmax(200px, 500px) 1fr;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.meeting-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.meeting-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-toolbar-year {
+    flex: 0 0 auto;
+    min-width: 240px;
+}
+
+.meeting-toolbar-category {
+    flex: 0 0 auto;
+    min-width: 180px;
+}
+
+.meeting-toolbar-label {
+    font-weight: 700;
+    color: #334155;
+    font-size: 14px;
+}
+
+.meeting-year-filter {
+    width: 180px;
+    height: 38px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    background-color: #fff;
+    font-size: 14px;
+}
+
+.meeting-toolbar-search {
+    justify-content: center;
+    min-width: 0;
+}
+
+.meeting-search-wrap {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meeting-search-input {
+    height: 38px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    background-color: #fff;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+.meeting-search-input:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.25);
+    outline: none;
+}
+
+.meeting-search-wrap #meetingSearchBtn,
+.meeting-toolbar-actions .search-button {
+    height: 38px;
+    padding: 0 16px;
+    white-space: nowrap;
+}
+
+.meeting-toolbar-actions {
+    justify-self: end;
+}
+
+@media (max-width: 980px) {
+    .meeting-toolbar-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+    }
+
+    .meeting-toolbar-left {
+        display: contents;
+    }
+
+    .meeting-toolbar-year,
+    .meeting-toolbar-category,
+    .meeting-toolbar-search,
+    .meeting-toolbar-actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .meeting-search-wrap {
+        max-width: none;
+    }
+}
+
+.main-section {
+    width: 100% !important;
+    max-width: none;
+    border-radius: 24px;
+    border: 1px solid var(--year-line);
+    border-top: 0;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+    box-sizing: content-box;
+    margin: 0 0 18px;
+    padding: 0 24px 18px;
+}
+
+.table-container {
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+    margin-top: 0;
+    box-sizing: border-box;
+    padding: 12px 0 0;
+}
+
+.projectList {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border-color: #cfd8e4;
+}
+
+.projectList thead th {
+    font-size: 16px;
+    color: #1f2f44;
+}
+
+.projectList thead th.project-sortable .sort-indicator {
+    font-size: 13px;
+}
+
+.projectList tbody tr {
+    transition: background-color 0.18s ease;
+}
+
+.projectList tbody tr:hover {
+    background-color: #eef4fb;
+}
+
+.projectList tbody td {
+    color: #0f172a;
+    font-size: 18px;
+    line-height: 1.45;
+}
+
+.projectList tbody tr {
+    min-height: 58px;
+}
+
+.risk-row td {
+    background-color: #fca5a5 !important;
+}
+
+@media (max-width: 900px) {
+    .main-section {
+        width: 100% !important;
+        padding: 0 14px 14px;
+        margin-bottom: 14px;
+    }
+
+    #searchDIV {
+        justify-content: stretch;
+        flex-wrap: wrap;
+    }
+
+    #searchScope {
+        width: 100%;
+    }
+
+    .year-search-input-wrap {
+        flex-basis: 100%;
+        min-width: 0;
     }
 }
 

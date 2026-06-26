@@ -975,6 +975,70 @@ function initWeeklyEditTables() {
   renderEditIssuesTable(initDept);
 }
 
+/**
+ * 전주 주간보고로 이동 (현재 페이지의 week_start를 파싱하여 -7일)
+ */
+function goToPreviousWeek() {
+    const root = document.getElementById('weeklyDetailRoot');
+    const weekStart = root?.dataset?.weekStart;
+    
+    if (!weekStart) return;
+
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() - 7);
+    const prevWeekStart = weeklyEditFormatDateISO(date);
+    
+    window.location.href = `/weekly_report/${prevWeekStart}`;
+}
+
+function goToNextWeek() {
+    const root = document.getElementById('weeklyDetailRoot');
+    const weekStart = root?.dataset?.weekStart;
+    
+    if (!weekStart) return;
+
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + 7);
+    const nextWeekStart = weeklyEditFormatDateISO(date);
+
+    fetch('/api/weekly_reports')
+        .then(res => res.json())
+        .then(data => {
+            const weeks = data.weeks || [];
+            const exists = weeks.some(w => w.week_start === nextWeekStart);
+            if (exists) {
+                window.location.href = `/weekly_report/${nextWeekStart}`;
+            } else {
+                alert('마지막 주간보고 입니다.');
+            }
+        })
+        .catch(err => {
+            console.error('Next week validation failed:', err);
+            alert('마지막 주간보고 입니다.');
+        });
+}
+
+/**
+ * 목록으로 이동 (PMS_Business_Year의 주간보고 탭)
+ */
+function goToList() {
+    const root = document.getElementById('weeklyDetailRoot');
+    const weekStart = root?.dataset?.weekStart;
+    let year = new Date().getFullYear();
+    if (weekStart) {
+        const d = new Date(weekStart);
+        if (!isNaN(d.getTime())) {
+            year = d.getFullYear();
+        }
+    }
+    
+    try {
+        sessionStorage.setItem('activeTab', 'weekly');
+        sessionStorage.setItem('addressLockDisabled', 'true');
+    } catch (_) {}
+    
+    window.location.href = `/PMS_Business/${year}?tab=weekly`;
+}
 function renderEditTitles(monday, weekMeta) {
   const iso = weeklyGetISOWeekInfo(monday);
   const info = weeklyGetThursdayMonthWeekInfo(monday);

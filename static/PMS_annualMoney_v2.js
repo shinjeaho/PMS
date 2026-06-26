@@ -937,7 +937,32 @@ function hasAnnualMoneyEvent(project) {
 function isAnnualMoneyCurrentEventProject(project, selectedYear) {
     if (isAnnualMoneyStopProject(project) || isTotalContractCode(project?.ContractCode)) return false;
     const endYear = getYearFromDateValue(project?.EndDate);
-    return endYear === selectedYear || hasAnnualMoneyEvent(project);
+    
+    // 1. 준공 연도가 당해년도인 경우 포함
+    if (endYear === selectedYear) return true;
+    
+    // 2. 리스크(이슈)가 발생한 경우 포함
+    if (hasAnnualMoneyEvent(project)) return true;
+
+    // 3. [추가된 로직] 당해년도에 사업비를 수령한 내역이 있는 경우 포함
+    if (Array.isArray(project.receipt_details)) {
+        const hasReceiptThisYear = project.receipt_details.some(receipt => {
+            const receiptYear = getYearFromDateValue(receipt.receipt_date);
+            return receiptYear === selectedYear;
+        });
+        if (hasReceiptThisYear) return true;
+    }
+
+    // 4. [추가된 로직] 당해년도에 외주비를 지급한 내역이 있는 경우 포함
+    if (Array.isArray(project.outsourcing_payment_details)) {
+        const hasPaymentThisYear = project.outsourcing_payment_details.some(payment => {
+            const paymentYear = getYearFromDateValue(payment.payment_date);
+            return paymentYear === selectedYear;
+        });
+        if (hasPaymentThisYear) return true;
+    }
+
+    return false;
 }
 
 function isAnnualMoneyLongTermProject(project, selectedYear) {

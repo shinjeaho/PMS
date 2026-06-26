@@ -77,7 +77,7 @@
       line-height: var(--weekly-issues-line-height);
     }
 
-    .weekly-issues-table td div + div {
+    .weekly-issues-table td div+div {
       margin-top: var(--weekly-issues-row-gap);
     }
 
@@ -248,6 +248,21 @@
 
     .print-btn:hover {
       background: #1d4ed8;
+    }
+
+    /* 전주, 앞주 주간보고, 목록으로 버튼 전용 녹색 스타일 */
+    .green-btn {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .green-btn:hover {
+      background: #218838;
     }
 
     @media (max-width: 768px) {
@@ -423,9 +438,11 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-    .weekly-line {
-      white-space: pre-wrap;
-    }
+
+      .weekly-line {
+        white-space: pre-wrap;
+      }
+
       /* 화면 전용 요소 숨김 */
       .print-toolbar {
         display: none !important;
@@ -551,7 +568,7 @@
         line-height: var(--weekly-issues-line-height) !important;
       }
 
-      .weekly-issues-table td div + div {
+      .weekly-issues-table td div+div {
         margin-top: 0 !important;
       }
 
@@ -675,6 +692,10 @@
     <input type="hidden" id="sessionDept"
       value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
     <div class="print-toolbar">
+      <button type="button" class="green-btn" onclick="goToPreviousWeek()">◀ 전주 주간보고</button>
+      <button type="button" class="green-btn" onclick="goToNextWeek()">앞주 주간보고 ▶</button>
+      <button type="button" class="green-btn" onclick="goToList()">목록으로</button>
+
       <button type="button" class="print-btn" onclick="window.print()">인쇄</button>
       <button type="button" class="edit-btn" onclick="openWeeklyEditModal()">수정</button>
     </div>

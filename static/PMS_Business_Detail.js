@@ -250,6 +250,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // 1. 기본 이벤트 리스너 설정
         setupEventListeners();
+        setupActualInputStatusTooltip();
+        initializeDetailTotalBoldObserver();
 
         // 2. 모든 주요 데이터 로딩
         await loadInitialData();
@@ -320,11 +322,149 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
+function setupActualInputStatusTooltip() {
+    if (window.__actualInputStatusTooltipBound) return;
+    window.__actualInputStatusTooltipBound = true;
+
+    document.addEventListener('mouseover', handleActualInputStatusTooltipOver);
+    document.addEventListener('mousemove', handleActualInputStatusTooltipMove);
+    document.addEventListener('mouseout', handleActualInputStatusTooltipOut);
+}
+
+function handleActualInputStatusTooltipOver(event) {
+    const target = event.target.closest('#actual_fee_table td.actual-hover-target, #EX_fee_table td.expected-hover-target');
+    if (!target) return;
+
+    showActualInputStatusTooltip(target, event.clientX, event.clientY);
+}
+
+function handleActualInputStatusTooltipMove(event) {
+    if (!window.__actualInputStatusTooltipCurrentTarget) return;
+    positionActualInputStatusTooltip(event.clientX, event.clientY);
+}
+
+function handleActualInputStatusTooltipOut(event) {
+    const target = event.target.closest('#actual_fee_table td.actual-hover-target, #EX_fee_table td.expected-hover-target');
+    if (!target) return;
+
+    const related = event.relatedTarget;
+    if (related && target.contains(related)) return;
+
+    hideActualInputStatusTooltip();
+}
+
+function ensureActualInputStatusTooltipElement() {
+    let tooltip = document.getElementById('actualInputStatusTooltip');
+    if (tooltip) return tooltip;
+
+    tooltip = document.createElement('div');
+    tooltip.id = 'actualInputStatusTooltip';
+    tooltip.className = 'actual-input-status-tooltip';
+    document.body.appendChild(tooltip);
+    return tooltip;
+}
+
+function showActualInputStatusTooltip(target, clientX, clientY) {
+    const tooltip = ensureActualInputStatusTooltipElement();
+    const isExpected = target.classList.contains('expected-hover-target');
+    const hoverType = target.dataset.hoverType === 'record' ? 'record' : 'budget';
+
+    tooltip.innerHTML = buildActualInputStatusTooltipHtml(hoverType, isExpected);
+    tooltip.classList.add('is-visible');
+    window.__actualInputStatusTooltipCurrentTarget = target;
+    positionActualInputStatusTooltip(clientX, clientY);
+}
+
+function hideActualInputStatusTooltip() {
+    const tooltip = document.getElementById('actualInputStatusTooltip');
+    if (!tooltip) return;
+
+    tooltip.classList.remove('is-visible');
+    window.__actualInputStatusTooltipCurrentTarget = null;
+}
+
+function positionActualInputStatusTooltip(clientX, clientY) {
+    const tooltip = document.getElementById('actualInputStatusTooltip');
+    if (!tooltip || !tooltip.classList.contains('is-visible')) return;
+
+    const offset = 14;
+    const rect = tooltip.getBoundingClientRect();
+    let left = clientX + offset;
+    let top = clientY + offset;
+
+    if (left + rect.width > window.innerWidth - 12) {
+        left = clientX - rect.width - offset;
+    }
+    if (top + rect.height > window.innerHeight - 12) {
+        top = clientY - rect.height - offset;
+    }
+
+    left = Math.max(12, left);
+    top = Math.max(12, top);
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+}
+
+function buildActualInputStatusTooltipHtml(type, isExpected = false) {
+    let sourceId, label, headers;
+    if (isExpected) {
+        sourceId = type === 'record' ? 'record_result_tbody' : 'budget_result_tbody';
+        label = type === 'record' ? '예상 경비' : '예상 인건비';
+        headers = type === 'record'
+            ? ['경비', '금액']
+            : ['직급', '인원', '투입일자', '투입인력', '합계'];
+    } else {
+        sourceId = type === 'record' ? 'Real_record_result_tbody' : 'Real_budget_result_tbody';
+        label = type === 'record' ? '자체 경비' : '자체 인건비';
+        headers = type === 'record'
+            ? ['경비항목', '금액']
+            : ['직급', '투입현황(일)', '금액'];
+    }
+
+    const sourceTbody = document.getElementById(sourceId);
+    const rows = sourceTbody ? Array.from(sourceTbody.querySelectorAll('tr')) : [];
+
+    let rowHtml = '';
+    if (rows.length === 0) {
+        rowHtml = `<tr><td colspan="${headers.length}" class="empty">데이터가 없습니다.</td></tr>`;
+    } else {
+        rowHtml = rows.map((row) => {
+            const cells = Array.from(row.cells).slice(0, headers.length);
+            const tds = headers.map((_, idx) => {
+                const value = cells[idx] ? escapeActualTooltipHtml((cells[idx].textContent || '').trim()) : '';
+                return `<td>${value}</td>`;
+            }).join('');
+            return `<tr>${tds}</tr>`;
+        }).join('');
+    }
+
+    const headerHtml = headers.map((h) => `<th>${h}</th>`).join('');
+    return `
+        <div class="actual-input-status-tooltip-title">투입현황 · ${label}</div>
+        <table class="actual-input-status-tooltip-table">
+            <thead>
+                <tr>${headerHtml}</tr>
+            </thead>
+            <tbody>${rowHtml}</tbody>
+        </table>
+    `;
+}
+
+function escapeActualTooltipHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // 1. 이벤트 리스너 설정 함수
 function setupEventListeners() {
     //사업명
     const projectName = document.getElementById('headerName').value;
-    document.getElementById('projectName').textContent = truncateText(projectName, 30)
+    document.getElementById('projectName').textContent = projectName;
 
     //==========검토
     // 첫 번째 부서 버튼들
@@ -419,6 +559,38 @@ function setupEventListeners() {
             openMeetingUploadModal();
         });
     }
+}
+
+function applyTotalBoldStyles(scope = document) {
+    if (!scope || !scope.querySelectorAll) return;
+
+    const cells = scope.querySelectorAll('td, th');
+    cells.forEach((cell) => {
+        const normalized = (cell.textContent || '').replace(/\s+/g, '').trim();
+        if (!normalized.includes('총계')) return;
+
+        cell.classList.add('total-bold-cell');
+        const row = cell.closest('tr');
+        if (row) row.classList.add('total-bold-row');
+    });
+}
+
+function initializeDetailTotalBoldObserver() {
+    applyTotalBoldStyles(document);
+
+    if (window.__detailTotalBoldObserver) return;
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node && node.nodeType === 1) {
+                    applyTotalBoldStyles(node);
+                }
+            });
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.__detailTotalBoldObserver = observer;
 }
 
 function updateParticipantEngineersHeader(engineers) {
@@ -535,9 +707,9 @@ function loadMeetingMinutesList() {
                 row.innerHTML = `
                     <td style="text-align:center; vertical-align:middle;">${escapeHtmlSafe(m.doc_number || '-')}</td>
                     <td style="text-align:center; vertical-align:middle;">${escapeHtmlSafe(m.contractcode || currentContract || '-')}</td>
-                    <td style="padding: 12px 12px; cursor: pointer;" class="meeting-title-cell">${escapeHtmlSafe(m.title || m.original_name || '-') }</td>
-                    <td style="text-align:center; vertical-align:middle;">${escapeHtmlSafe(m.author || '-') }</td>
-                    <td style="text-align:center; vertical-align:middle;" class="meeting-date-cell">${escapeHtmlSafe(m.created_at || '-') }</td>
+                    <td style="padding: 12px 12px; cursor: pointer;" class="meeting-title-cell">${escapeHtmlSafe(m.title || m.original_name || '-')}</td>
+                    <td style="text-align:center; vertical-align:middle;">${escapeHtmlSafe(m.author || '-')}</td>
+                    <td style="text-align:center; vertical-align:middle;" class="meeting-date-cell">${escapeHtmlSafe(m.created_at || '-')}</td>
                     <td style="text-align:center; vertical-align:middle;" class="meeting-view-count-cell">${escapeHtmlSafe(String(m.view_count ?? 0))}</td>
                 `;
                 const titleCell = row.querySelector('.meeting-title-cell');
@@ -1839,23 +2011,45 @@ function processTableCells(cells) {
 
 // 메인 탭 관리 함수
 function openTab(evt, tabName) {
-    var i, tabcontent, tablinks;
+    var i;
 
     // 모든 tabcontent를 숨김
-    tabcontent = document.getElementsByClassName("tabcontent");
+    var tabcontent = document.getElementsByClassName("tabcontent");
     for (i = 0; i < tabcontent.length; i++) {
         tabcontent[i].style.display = "none";
     }
 
-    // 모든 tablinks에서 active 클래스를 제거
-    tablinks = document.getElementsByClassName("tablinks");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    // 상단 탭 버튼 + 사이드바 메뉴 active 상태를 모두 초기화
+    var topTabLinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < topTabLinks.length; i++) {
+        topTabLinks[i].classList.remove("active");
     }
 
-    // 현재 tabcontent를 표시하고, 해당 버튼에 active 클래 추가
-    document.getElementById(tabName).style.display = "block";
-    evt.currentTarget.className += " active";
+    var sideNavLinks = document.getElementsByClassName("nav-item");
+    for (i = 0; i < sideNavLinks.length; i++) {
+        sideNavLinks[i].classList.remove("active");
+    }
+
+    // 선택된 탭 표시
+    var targetTab = document.getElementById(tabName);
+    if (!targetTab) {
+        return;
+    }
+    targetTab.style.display = "block";
+
+    // 클릭한 버튼 active 처리 (이벤트가 없는 호출도 안전하게 처리)
+    if (evt && evt.currentTarget && evt.currentTarget.classList) {
+        evt.currentTarget.classList.add("active");
+    }
+
+    // 동일한 tabName을 여는 상단/사이드 컨트롤 모두 active 동기화
+    var controls = document.querySelectorAll('.tablinks, .nav-item');
+    controls.forEach(function (el) {
+        var onclickAttr = el.getAttribute("onclick") || "";
+        if (onclickAttr.indexOf("'" + tabName + "'") !== -1) {
+            el.classList.add("active");
+        }
+    });
 
 }
 
@@ -3200,7 +3394,7 @@ function addRows(tableID, rowCount, BTN = false) {
         // applyWorkFieldRowspan();
     }
     // 문제예상 테이블 행 추가
-     // 문제예상 테이블 행 추가
+    // 문제예상 테이블 행 추가
     if (tableID === 'issue_prediction_tbody') {
         const tableBody = tableBodies;
         for (let i = 0; i < rowCount; i++) {
@@ -4271,7 +4465,7 @@ function saveBudgetData() {
     if (blockDetailWriteIfReadOnly()) return;
     const contractCode = document.getElementById('project-contractCode').value;
     const fullHeaderText = document.getElementById('Dep_fir_Bud_header_text').textContent;
-    let department = fullHeaderText.replace(/\s*인건비\s*/, '').trim();
+    let department = fullHeaderText.replace(/\s*(인건비|투입시간)\s*/, '').trim();
     department = department.split(/\s|\t/)[0];
 
     if (!department || !contractCode) {
@@ -4395,6 +4589,8 @@ function fetchDepartmentData(department, modalID) {
     const paginationContainer = document.getElementById('pagination-container');
     const outsourcingDiv = document.getElementById('Outsourcing_process_div'); // '외주' 전용 div
     const Budget_Tab = document.getElementById('Dep_fir_Budget_Tab'); // 인건비 div
+    const Department_Budget_Tab = document.getElementById('Dep_fir_department_budget_Tab'); // 부서 인건비 div
+    const Department_Budget_Header = document.getElementById('Dep_fir_department_budget_header_text');
     const specific_Tab = document.getElementById('Dep_fir_specific_Tab'); // 경비 div
 
     // department 값이 유효하지 않으면 함수를 종료
@@ -4411,6 +4607,7 @@ function fetchDepartmentData(department, modalID) {
         if (paginationContainer) paginationContainer.style.display = 'none';
         if (specific_Tab) specific_Tab.style.display = 'none';
         if (Budget_Tab) Budget_Tab.style.display = 'none';
+        if (Department_Budget_Tab) Department_Budget_Tab.style.display = 'none';
         if (outsourcingDiv) outsourcingDiv.style.display = 'block'; // '외주' 전용 div 보이기
         return;
     } else {
@@ -4421,8 +4618,14 @@ function fetchDepartmentData(department, modalID) {
         if (paginationContainer) paginationContainer.style.display = isQuantityLogView ? 'block' : 'none';
         if (specific_Tab) specific_Tab.style.display = 'block';
         if (Budget_Tab) Budget_Tab.style.display = 'block';
+        if (Department_Budget_Tab) Department_Budget_Tab.style.display = isQuantityLogView ? 'none' : 'block';
         if (outsourcingDiv) outsourcingDiv.style.display = 'none'; // '외주' 전용 div 숨기기
     }
+
+    if (Department_Budget_Header) {
+        Department_Budget_Header.textContent = `${department} 인건비`;
+    }
+    syncDepartmentBudgetPreviewTable();
 
     // 비용 계산 호출
     fetchExpenseDepartmentData(department, modalID);
@@ -4442,7 +4645,7 @@ function fetchDepartmentData(department, modalID) {
         })
         .then(data => {
             if (modalID === 'Dep_fir_Money') {
-                headerText.textContent = department + '\t' + '인건비';
+                headerText.textContent = department + '\t' + '투입시간';
                 updateTable(data, department);
             } else if (modalID === 'itemModal') {
                 updateItemSelect(data);
@@ -5821,6 +6024,7 @@ function toggleQuantityLog() {
     const specificLogTable = document.getElementById('Dep_Log_Specific');  // 경비 로그 테이블
     const viewLogBtn = document.getElementById('view_quantity_log');
     const headerText = document.getElementById('Dep_fir_Bud_header_text');
+    const departmentBudgetTab = document.getElementById('Dep_fir_department_budget_Tab');
     const currentDepartment = headerText.textContent.split('\t')[0];
     const paginationContainer = document.getElementById('pagination-container');
     const excelDownloadBtn = document.getElementById('excel_download');
@@ -5830,8 +6034,9 @@ function toggleQuantityLog() {
         specificTable.style.display = 'none';  // 경비 테이블 숨김
         logTable.style.display = 'table';
         specificLogTable.style.display = 'table';  // 경비 로그 테이블 표시
+        if (departmentBudgetTab) departmentBudgetTab.style.display = 'none';
         paginationContainer.style.display = 'flex';
-        viewLogBtn.textContent = '인건비 보기';
+        viewLogBtn.textContent = '투입시간 보기';
         headerText.textContent = currentDepartment + '\t물량 로그';
         excelDownloadBtn.style.display = 'block';
         isQuantityLogView = true;
@@ -5844,9 +6049,10 @@ function toggleQuantityLog() {
         specificTable.style.display = 'table';  // 경비 테이블 표시
         logTable.style.display = 'none';
         specificLogTable.style.display = 'none';  // 경비 로그 테이블 숨김
+        if (departmentBudgetTab) departmentBudgetTab.style.display = 'block';
         paginationContainer.style.display = 'none';
         viewLogBtn.textContent = '물량 로그 보기';
-        headerText.textContent = currentDepartment + '\t인건비';
+        headerText.textContent = currentDepartment + '\t투입시간';
         excelDownloadBtn.style.display = 'none';
         isQuantityLogView = false;
 
@@ -6928,7 +7134,7 @@ function createProjectChangeTable() {
         `;
     }
 
-     // 문제예상 테이블 thead 구성 (참여 기술자와 동일한 체크박스 열 포함)
+    // 문제예상 테이블 thead 구성 (참여 기술자와 동일한 체크박스 열 포함)
     const issueHead = document.querySelector('#issue_prediction_table thead');
     if (issueHead) {
         issueHead.innerHTML = `
@@ -7146,6 +7352,7 @@ function createProjectChangeTable() {
                 <td class="date-cell" onclick="DateChange(this)"></td>
                 <td class="edit_cell" onclick="TextChange(this, true)"></td>
             </tr>`;
+                if (typeof window.updateDetailTopKpi === 'function') window.updateDetailTopKpi();
                 return;
             }
 
@@ -7169,6 +7376,7 @@ function createProjectChangeTable() {
 
             receiptTbody.innerHTML = receiptRows;
             recalculateReceiptBalances();
+            if (typeof window.updateDetailTopKpi === 'function') window.updateDetailTopKpi();
         })
         .catch(error => {
             console.error('Error fetching project receipts:', error);
@@ -7184,6 +7392,7 @@ function createProjectChangeTable() {
         <td class="date-cell" onclick="DateChange(this)"></td>
         <td class="edit_cell" onclick="TextChange(this, true)"></td>
     </tr>`;
+            if (typeof window.updateDetailTopKpi === 'function') window.updateDetailTopKpi();
         });
 
     // 4. 참여 기술자 명단: 기존 저장 데이터가 없으면 기본 1행 생성 (새 양식: 체크박스 + 분야 + 담당업무 select 등)
@@ -7421,6 +7630,10 @@ function recalculateReceiptBalances() {
         balanceCell.textContent = Math.max(remainingBalance, 0).toLocaleString(); // 음수 방지
     });
 
+    if (typeof window.updateDetailTopKpi === 'function') {
+        window.updateDetailTopKpi();
+    }
+
 }
 
 function attachFixedCellEditor(td, editor, options = {}) {
@@ -7482,6 +7695,9 @@ function TextChangeWithreceipts(td) {
         // 현재 행만 업데이트
         const row = td.closest('tr');
         updateReceiptBalances(row);
+        if (typeof window.updateDetailTopKpi === 'function') {
+            window.updateDetailTopKpi();
+        }
     });
 
     // input 이벤트 발생 시 실시간 자릿수 표시
@@ -7816,12 +8032,15 @@ function saveProjectChange() {
                 const review_date = (cells[3]?.textContent || '').trim();
                 const statusSelectEl = cells[4]?.querySelector('select');
                 let performance_review = statusSelectEl ? statusSelectEl.value : '';
-                // 저장 시에만 현황값 정규화: '-' / 공란 / (과거값) '성과심사 없음' -> '없음'
+                // 저장 시에만 현황값 정규화: 구분이 '성과심사 없음'일 때만 '없음'으로 저장, 그 외는 원래 값('-' 등) 유지
                 const pr = (performance_review || '').trim();
-                if (pr === '' || pr === '-' || pr.toLowerCase?.() === 'none' || pr === '성과심사 없음') {
+                if (description === '성과심사 없음') {
                     performance_review = '없음';
+                } else {
+                    performance_review = (pr === '' || pr.toLowerCase?.() === 'none' || pr === '성과심사 없음') ? '-' : pr;
                 }
                 const remark = (cells[5]?.textContent || '').trim();
+
 
                 reviewRows.push({
                     amount,
@@ -8507,6 +8726,7 @@ function updateRealLaborCost() {
                     <td style="background-color: #ebf7d3;" id = "Real_budgetSum">${totalAmount.toLocaleString()}</td>
                 `;
                 realBudgetResultTbody.appendChild(totalRow);
+                syncDepartmentBudgetPreviewTable();
 
                 return totalAmount; // 결과값 반환
             } else {
@@ -8522,6 +8742,7 @@ function updateRealLaborCost() {
                         <td style="background-color: #ebf7d3;" id = "Real_budgetSum">0</td>
                     </tr>
                 `;
+                syncDepartmentBudgetPreviewTable();
                 return 0;
             }
         })
@@ -8529,6 +8750,33 @@ function updateRealLaborCost() {
             console.error('Error fetching labor cost data:', error);
             throw error; // 에러 전파
         });
+}
+
+function syncDepartmentBudgetPreviewTable() {
+    const source = document.getElementById('Real_budget_result_tbody');
+    const target = document.getElementById('Dep_fir_department_budget_tbody');
+    if (!target) return;
+
+    target.innerHTML = '';
+    if (!source || !source.children.length) {
+        target.innerHTML = `
+            <tr>
+                <td>-</td>
+                <td>0.00</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td style="background-color: #ebf7d3;">총계</td>
+                <td style="background-color: #ebf7d3;">0.00</td>
+                <td style="background-color: #ebf7d3;">0</td>
+            </tr>
+        `;
+        return;
+    }
+
+    Array.from(source.children).forEach((row) => {
+        target.appendChild(row.cloneNode(true));
+    });
 }
 
 //실제 진행비 중 경비 테이블
@@ -8793,7 +9041,7 @@ async function updateFileList() {
                 const formattedFilePath = file.FilePath.replace(/\\/g, '/'); // 경로를 슬래시로 변환
                 fileElement.className = 'file-item';
                 fileElement.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0px 0; width: 100%; margin : 0px;">
                     <div style="flex: 1; min-width: 0;">
                         <a href="/open_file/${file.FileID}" 
                            target="_blank" 
@@ -8801,7 +9049,7 @@ async function updateFileList() {
                             ${truncateFileName(file.OriginalFileName, 30)}
                         </a>
                     </div>
-                    <button onclick="deleteFile(${file.FileID})" class="delete-file">삭제</button>
+                    <button onclick="deleteFile(${file.FileID})" class="delete-file" aria-label="파일 삭제">X</button>
                 </div>
             `;
 
@@ -10305,14 +10553,18 @@ async function saveComment() {
             if (ta) {
                 textValue = ta.value || '';
             } else {
-                const rawHTML = commentTd ? String(commentTd.innerHTML || '') : '';
-                // <br> → \n, 엔티티 디코드
-                textValue = rawHTML
-                    .replace(/<br\s*\/?>/gi, '\n')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&nbsp;/g, ' ');
+                if (commentTd && commentTd.dataset.rawComment !== undefined) {
+                    textValue = commentTd.dataset.rawComment;
+                } else {
+                    const rawHTML = commentTd ? String(commentTd.innerHTML || '') : '';
+                    // <br> → \n, 엔티티 디코드
+                    textValue = rawHTML
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&nbsp;/g, ' ');
+                }
             }
 
             // 앞뒤 공백만 정리(줄바꿈은 유지)
@@ -10526,16 +10778,16 @@ async function updateFeetable() {
         </tr>
 
         <tr>
-            <td rowspan="3">직영 사업수행비(C)</td>
-            <td>자체인건비</td>
-            <td>${EX_budget_per.toFixed(3)}%</td>
-            <td>${EX_budget_sum.toLocaleString()}원</td>
+        <td rowspan="3">직영 사업수행비(C)</td>
+        <td class="expected-hover-target" data-hover-type="budget">자체인건비</td>
+        <td>${EX_budget_per.toFixed(3)}%</td>
+        <td>${EX_budget_sum.toLocaleString()}원</td>
         </tr>
-
+        
         <tr>
-            <td>자체 경비</td>
-            <td>${EX_record_per.toFixed(3)}%</td>
-            <td>${EX_record_sum.toLocaleString()}원</td>
+        <td class="expected-hover-target" data-hover-type="record">자체 경비</td>
+        <td>${EX_record_per.toFixed(3)}%</td>
+        <td>${EX_record_sum.toLocaleString()}원</td>
         </tr>
 
         <tr class="sub-total">
@@ -10607,6 +10859,10 @@ async function updateFeetable() {
     if (profitPer) {
         profitPer.style.color = profit_color;
         profitPer.textContent = profit_per.toFixed(3) + "%";
+    }
+
+    if (typeof window.updateDetailTopKpi === 'function') {
+        window.updateDetailTopKpi();
     }
 
     return {
@@ -10831,12 +11087,12 @@ async function updateActualFeetable() {
             </tr>
             <tr>
                 <td rowspan="3">직영 사업수행비(C)</td>
-                <td>자체 인건비</td>
+                <td class="actual-hover-target" data-hover-type="budget">자체 인건비</td>
                 <td>${Real_budget_per.toFixed(3)}%</td>
                 <td>${Real_budget_money.toLocaleString()}원</td>
             </tr>
             <tr>
-                <td>자체 경비</td>
+                <td class="actual-hover-target" data-hover-type="record">자체 경비</td>
                 <td>${Real_record_per.toFixed(3)}%</td>
                 <td>${Real_record_money.toLocaleString()}원</td>
             </tr>
@@ -11148,7 +11404,7 @@ function recordsDetail(button, dep) {
     // 이미 상세 행이 존재하면 삭제 (토글 기능)
     if (nextRow && nextRow.classList.contains("detail-row")) {
         nextRow.remove();
-        button.textContent = "▼"; // 버튼을 다시 ▼로 변경
+        button.classList.remove('is-open');
         return;
     }
     // 해당 account에 맞는 상세 데이터 필터링
@@ -11198,7 +11454,7 @@ function recordsDetail(button, dep) {
         detailHtml += `</tbody></table></td></tr>`;
 
         row.insertAdjacentHTML("afterend", detailHtml);
-        button.textContent = "▲"; // 버튼을 ▲로 변경
+        button.classList.add('is-open');
     }
 }
 
@@ -11322,6 +11578,11 @@ function saveEditTable() {
     rows.forEach(row => {
         const cells = row.querySelectorAll('td');
 
+        // 데이터가 아닌 안내/합계 행(colspan 또는 td 부족)은 편집 변환 대상에서 제외
+        if (row.querySelector('td[colspan], th[colspan]') || cells.length < 6) {
+            return;
+        }
+
         //0열: 경비항목 select 추가 (에러 방지 조건 포함)
         if (cells[0] && !cells[0].querySelector('select')) {
             const originalText = cells[0].textContent.trim();
@@ -11370,7 +11631,7 @@ function saveEditTable() {
         }
 
         // 1열: 카드/현금 select 추가
-        if (!cells[1].querySelector('select')) {
+        if (cells[1] && !cells[1].querySelector('select')) {
             const originalText = cells[1].textContent.trim();
             const select = document.createElement('select');
             ['카드', '현금'].forEach(opt => {
@@ -11684,9 +11945,12 @@ function maybeEditComment(td) {
         // 이미 편집 중이면 중복 생성 방지
         if (td.querySelector('textarea')) return;
 
-        // 기존에 td에 <br>로 저장된 줄바꿈을 \n으로 복원해서 textarea에 넣음
-        const rawHTML = td.innerHTML || '';
-        const initial = (rawHTML.replace(/<br\s*\/?>/gi, '\n') || '').trim();
+        // 기존에 저장된 rawComment 데이터를 우선 사용하고, 없으면 fallback으로 innerHTML 기반 복원
+        let initial = td.dataset.rawComment;
+        if (initial === undefined) {
+            const rawHTML = td.innerHTML || '';
+            initial = (rawHTML.replace(/<br\s*\/?>/gi, '\n') || '').trim();
+        }
 
         td.innerHTML = '';
 
@@ -11724,6 +11988,7 @@ function maybeEditComment(td) {
 function replaceTextAreaWithText(td, value) {
     // 값이 비어있으면 빈 문자열로 표시
     const safeValue = (value == null) ? '' : String(value);
+    td.dataset.rawComment = safeValue;
 
     // HTML 이스케이프 (XSS 방지)
     const escaped = safeValue

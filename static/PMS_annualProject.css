@@ -831,3 +831,41 @@ input[name="marginFilter"] {
     z-index: 9;
     pointer-events: none;
 }
+
+/* 탭 컨테이너 설정 */
+.sub-settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 15px 0;
+    border-bottom: 2px solid #e2e8f0; /* 전체 탭을 받쳐주는 하단 선 */
+    padding: 0 8px;
+}
+
+/* 탭 버튼 기본 스타일 */
+.sub-tab-button {
+    padding: 10px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent; /* 기본 상태는 투명한 선 */
+    color: #64748b; /* 비활성 상태 텍스트 색상 (슬레이트 그레이) */
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: -2px; /* 컨테이너의 하단 선과 겹치도록 위치 조정 */
+    border-radius: 8px 8px 0 0; /* 위쪽만 둥글게 */
+}
+
+/* 탭 버튼 마우스 호버 효과 */
+.sub-tab-button:hover {
+    color: #1d4f91;
+    background-color: #f1f5f9;
+}
+
+/* 탭 버튼 활성화(Active) 스타일 */
+.sub-tab-button.active {
+    color: #1d4f91; /* 메인 테마 색상 */
+    font-weight: 800;
+    border-bottom: 3px solid #1d4f91; /* 활성화 상태일 때 파란색 밑줄 표시 */
+    background-color: transparent;
+}

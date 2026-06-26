@@ -27,7 +27,20 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    fetchProjects(1);
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'weekly') {
+        if (typeof viewWeeklyReports === 'function') {
+            viewWeeklyReports();
+        }
+        // 주간보고서 목록 탭 활성화 처리가 완료된 후, 주소 보호(미들웨어 동작 모사)를 위해 루트(/) 주소로 다시 변경해 줍니다.
+        try {
+            history.replaceState({}, '', '/');
+        } catch (_) {}
+    } else {
+        fetchProjects(1);
+    }
+
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
     const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
@@ -1272,11 +1285,12 @@ function setTableHead(mode) {
     } else {
         thead.innerHTML = `
             <tr>
-                <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 15%;">사업번호</th>
-                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 55%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
+                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 39%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 22%;">발주처</th>
                 <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
                 <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
-                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
+                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 5%;">외주구분</th>
             </tr>
         `;
         updateProjectSortIndicators();
@@ -1439,6 +1453,10 @@ function parseProjectProgress(project) {
     return Number.isFinite(num) ? num : 0;
 }
 
+function getProjectOrderPlaceText(project) {
+    return String(project.orderPlace || project.OrderPlace || '').trim();
+}
+
 function compareProjectStrings(a, b) {
     return String(a || '').localeCompare(String(b || ''), 'ko-KR', { numeric: true, sensitivity: 'base' });
 }
@@ -1476,6 +1494,8 @@ function sortProjectRows(projects) {
             cmp = compareProjectStrings(a.ContractCode, b.ContractCode);
         } else if (key === 'project_name') {
             cmp = compareProjectStrings(a.ProjectName, b.ProjectName);
+        } else if (key === 'order_place') {
+            cmp = compareProjectStrings(getProjectOrderPlaceText(a), getProjectOrderPlaceText(b));
         } else if (key === 'project_status') {
             cmp = compareProjectStrings(getProjectStatusText(a), getProjectStatusText(b));
         } else if (key === 'progress') {
@@ -1498,6 +1518,7 @@ function updateProjectSortIndicators() {
     const map = {
         contract_code: document.getElementById('projectSortContractCode'),
         project_name: document.getElementById('projectSortProjectName'),
+        order_place: document.getElementById('projectSortOrderPlace'),
         project_status: document.getElementById('projectSortStatus'),
         progress: document.getElementById('projectSortProgress'),
         outsourcing: document.getElementById('projectSortOutsourcing')
@@ -2388,10 +2409,12 @@ function renderTable(projects) {
     sortedProjects.forEach(project => {
         const outsourcingText = getProjectOutsourcingText(project);
         const statusText = getProjectStatusText(project);
+        const orderPlaceText = getProjectOrderPlaceText(project) || '-';
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
             <td>${project.ProjectName || '-'}</td>
+            <td title="${escapeHtmlSafe(orderPlaceText)}">${escapeHtmlSafe(orderPlaceText)}</td>
             <td>${statusText}</td>
             <td>${project.progress ? formatProgress(project.progress) + '%' : '0%'}</td>
             <td>

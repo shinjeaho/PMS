@@ -12,3 +12,5 @@ saveItem
 cannot access local variable 'record' where it is not associated with a value
 
 pip install Flask mysql-connector-python pymysql xlsxwriter werkzeug
+
+
