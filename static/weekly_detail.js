@@ -205,28 +205,47 @@ function renderWeeklyTables(root, data) {
     return Math.max(400, (pageHeightMm - marginTopMm - marginBottomMm) * ppm);
   }
 
-  function weeklyPrepareScheduleTableForPrint(table) {
-    if (!table) return;
+  function weeklyPrepareScheduleTableForPrint(table, targetBodyHeightPx) {
+    if (!table) return Math.max(18, targetBodyHeightPx || 18);
     const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    if (tbody.dataset.weeklySchedulePrepared === '1') return;
+    if (!tbody) return Math.max(18, targetBodyHeightPx || 18);
 
     tbody.dataset.weeklySchedulePrepared = '1';
-    tbody.dataset.weeklyScheduleOrigHtml = tbody.innerHTML;
 
     const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.forEach((tr) => {
-      const deptName = tr.querySelector('td.dept-col')?.textContent || '';
-      const maxLines = weeklyGetScheduleLineLimitForDept(deptName);
-      const dayCells = Array.from(tr.querySelectorAll('td.day-col'));
-      dayCells.forEach((td) => {
-        td.innerHTML = weeklyTrimHtmlToPrintLines(
-          td.innerHTML,
-          weeklyScheduleColumnWidthPxForPrint(td),
-          maxLines
-        );
+    const dayCells = Array.from(tbody.querySelectorAll('td.day-col'));
+
+    const rowInfos = rows.map((tr) => {
+      const cells = Array.from(tr.cells || []).map((td) => {
+        td.style.height = '';
+        td.style.minHeight = '';
+        const cellStyle = window.getComputedStyle(td);
+        const boxExtra =
+          (parseFloat(cellStyle.paddingTop) || 0) +
+          (parseFloat(cellStyle.paddingBottom) || 0) +
+          (parseFloat(cellStyle.borderTopWidth) || 0) +
+          (parseFloat(cellStyle.borderBottomWidth) || 0);
+        return { td, boxExtra };
+      });
+
+      return { tr, cells };
+    });
+
+    const rowCount = Math.max(1, rowInfos.length);
+    const rowHeight = Math.max(18, targetBodyHeightPx / rowCount);
+
+    rowInfos.forEach((info) => {
+      info.tr.style.height = `${rowHeight}px`;
+      info.cells.forEach(({ td, boxExtra }) => {
+        const cellHeight = Math.max(18, rowHeight - boxExtra);
+        td.style.height = `${cellHeight}px`;
+        td.style.minHeight = `${cellHeight}px`;
       });
     });
+
+    const appliedBodyHeight = rowHeight * rowCount;
+    const fits = dayCells.every((td) => td.scrollHeight <= td.clientHeight + 1);
+    return fits ? appliedBodyHeight : appliedBodyHeight;
   }
 
   function weeklyRestoreScheduleTableAfterPrint(table) {
@@ -234,14 +253,7 @@ function renderWeeklyTables(root, data) {
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
     if (tbody.dataset.weeklySchedulePrepared !== '1') return;
-
-    const orig = tbody.dataset.weeklyScheduleOrigHtml;
-    if (orig != null) {
-      tbody.innerHTML = orig;
-    }
-
     delete tbody.dataset.weeklySchedulePrepared;
-    delete tbody.dataset.weeklyScheduleOrigHtml;
   }
 
   // 상단: 부서별 주간일정표
@@ -280,11 +292,11 @@ function renderWeeklyTables(root, data) {
     const isHoliday = isFixedHoliday(d);
     let dayLabel, dateLabel;
     if (isHoliday) {
-      dayLabel = `<span class=\"red\">${dayNames[i]}</span>`;
-      dateLabel = `<span class=\"red\">(${d.getDate()})</span>`;
+      dayLabel = `<span class="red">${dayNames[i]}</span>`;
+      dateLabel = `<span class="red">(${d.getDate()})</span>`;
     } else if (isSat) {
-      dayLabel = `<span class=\"blue\">${dayNames[i]}</span>`;
-      dateLabel = `<span class=\"blue\">(${d.getDate()})</span>`;
+      dayLabel = `<span class="blue">${dayNames[i]}</span>`;
+      dateLabel = `<span class="blue">(${d.getDate()})</span>`;
     } else {
       dayLabel = dayNames[i];
       dateLabel = `<span>(${d.getDate()})</span>`;
@@ -354,7 +366,7 @@ function renderWeeklyTables(root, data) {
   tbl2.appendChild(tbody2);
   root.appendChild(tbl2);
 
-  // 인쇄 시 표 높이를 페이지에 맞게 채우도록 행 높이 균등 분배
+  // 인쇄 시 표 높이를 페이지에 맞게 채우되, 낮은 행에만 여유 높이를 우선 분배
   function applyPrintFillHeights() {
     try {
       const ppm = pxPerMm();
@@ -363,7 +375,6 @@ function renderWeeklyTables(root, data) {
       // 이슈표는 한 부서의 내용이 페이지를 넘을 수 있으므로,
       // 강제 높이/행높이 균등 분배를 적용하지 않고 자연스럽게 페이지가 넘어가도록 둠.
       if (tbl1 && tbl1.isConnected) {
-        weeklyPrepareScheduleTableForPrint(tbl1);
         const thead = tbl1.querySelector('thead');
         const tbody = tbl1.querySelector('tbody');
         if (tbody) {
@@ -371,36 +382,20 @@ function renderWeeklyTables(root, data) {
           const tableRect = tbl1.getBoundingClientRect();
           const printablePageHeightPx = readPrintPageContentHeightPx();
           const tableTopOffsetPx = Math.max(0, tableRect.top - rootRect.top);
+          // 하단 공백을 줄이기 위해 인쇄 가능 높이를 보수적으로 덜 깎고,
+          // 브라우저 반올림 오차를 상쇄할 1px 정도만 더해 준다.
           const targetTableHeightPx = Math.max(
             120,
-            printablePageHeightPx - tableTopOffsetPx - (2 * ppm)
+            printablePageHeightPx - tableTopOffsetPx + 1
           ) || fallbackTableHeightPx;
 
-          tbl1.style.height = `${targetTableHeightPx}px`;
           const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
-          const rows = Array.from(tbody.querySelectorAll('tr'));
-          const rowCount = rows.length || 1;
-          const tbodyHeight = Math.max(18, targetTableHeightPx - theadHeight);
-          const rowHeight = Math.max(18, tbodyHeight / rowCount);
-          const sampleCell = tbody.querySelector('td');
-          let cellBoxExtra = 0;
-          if (sampleCell) {
-            const cellStyle = window.getComputedStyle(sampleCell);
-            cellBoxExtra =
-              (parseFloat(cellStyle.paddingTop) || 0) +
-              (parseFloat(cellStyle.paddingBottom) || 0) +
-              (parseFloat(cellStyle.borderTopWidth) || 0) +
-              (parseFloat(cellStyle.borderBottomWidth) || 0);
-          }
-          const cellContentHeight = Math.max(18, rowHeight - cellBoxExtra);
-          tbody.style.height = `${tbodyHeight}px`;
-          rows.forEach((tr) => {
-            tr.style.height = `${rowHeight}px`;
-            Array.from(tr.cells || []).forEach((td) => {
-              td.style.height = `${cellContentHeight}px`;
-              td.style.minHeight = `${cellContentHeight}px`;
-            });
-          });
+          const desiredTableHeightPx = Math.min(targetTableHeightPx, Math.round(175 * ppm));
+          const desiredBodyHeightPx = Math.max(18, desiredTableHeightPx - theadHeight);
+          const appliedBodyHeight = weeklyPrepareScheduleTableForPrint(tbl1, desiredBodyHeightPx);
+
+          tbody.style.height = `${appliedBodyHeight}px`;
+          tbl1.style.height = `${theadHeight + appliedBodyHeight}px`;
         }
       }
 
@@ -808,13 +803,13 @@ function weeklyPrepareIssuesTableForPrint(table) {
     if (fullRowHeight <= remainingEffective) {
        // Fits completely!
        const r = document.createElement('tr');
-       const tdDept = document.createElement('td'); tdDept.className = 'dept-col'; 
-       tdDept.innerHTML = deptHtml; // Maintain original
+       const tdDept = document.createElement('td'); tdDept.className = 'dept-col';
+       tdDept.innerHTML = deptHtml;
        r.appendChild(tdDept);
-       
+
        const tdPrev = document.createElement('td'); tdPrev.className = 'issue-col'; tdPrev.innerHTML = fullPrevHtml; r.appendChild(tdPrev);
        const tdCurr = document.createElement('td'); tdCurr.className = 'issue-col'; tdCurr.innerHTML = fullCurrHtml; r.appendChild(tdCurr);
-       
+
        newRows.push(r);
        remaining -= fullRowHeight;
        cursorY += fullRowHeight;
@@ -1592,7 +1587,7 @@ function weeklyEnsureScheduleMeasureBox() {
   // px 대신 pt/mm을 사용하면 스케일/해상도 차이에 따른 반올림 오차를 줄이는 데 유리
   box.style.fontSize = '8pt';
   box.style.lineHeight = '1.35';
-  box.style.padding = '2mm';
+  box.style.padding = '1.4mm';
   box.style.fontFamily = window.getComputedStyle(document.body).fontFamily;
   document.body.appendChild(box);
   __weeklyScheduleMeasureBox = box;
@@ -1688,6 +1683,20 @@ function weeklyTrimHtmlToPrintLines(html, widthPx, maxLines) {
 
   if (box.scrollHeight <= maxHeightPx) return html || '';
   weeklyTrimDomToHeight(box, maxHeightPx);
+  return box.innerHTML;
+}
+
+function weeklyTrimHtmlToPrintHeight(html, widthPx, maxHeightPx, maxLines) {
+  const box = weeklyEnsureScheduleMeasureBox();
+  box.style.width = `${Math.max(40, Math.floor(widthPx))}px`;
+  box.innerHTML = html || '';
+
+  const metrics = weeklyGetScheduleMeasureMetricsPx(box);
+  const lineLimitHeightPx = metrics.paddingYPx + (metrics.lineHeightPx * Math.max(1, maxLines)) + 1;
+  const targetHeightPx = Math.max(18, Math.min(maxHeightPx, lineLimitHeightPx));
+
+  if (box.scrollHeight <= targetHeightPx) return html || '';
+  weeklyTrimDomToHeight(box, targetHeightPx);
   return box.innerHTML;
 }
 

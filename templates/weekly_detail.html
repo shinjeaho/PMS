@@ -423,9 +423,8 @@
         background: #fff !important;
       }
 
-      /* 인쇄 시 표 높이를 페이지에 맞게 강제(행 높이는 JS에서 균등 분배) */
+      /* 인쇄 시 표 하단 여백만 제거하고 실제 높이는 JS가 제어 */
       table.weekly-table.print-fill {
-        height: var(--print-table-fill) !important;
         margin-bottom: 0 !important;
       }
 
@@ -567,7 +566,7 @@
       /* 인쇄 가독성: 표 폰트/패딩 최적화 */
       table.weekly-table th,
       table.weekly-table td {
-        padding: 2mm;
+        padding: 1.4mm;
         font-size: 8pt;
         line-height: 1.35;
         word-break: break-word;
@@ -611,13 +610,14 @@
       .sub-title {
         font-size: 18px;
         margin-top: 0 !important;
-        margin-bottom: 4mm !important;
+        margin-bottom: 2mm !important;
       }
 
       /* 표 기본 설정 */
       table.weekly-table {
         table-layout: fixed;
         width: 100%;
+        margin-bottom: 0 !important;
         page-break-inside: auto;
       }
 
@@ -630,12 +630,6 @@
       .weekly-issues-table.print-fill {
         height: auto !important;
         margin-bottom: 0 !important;
-      }
-
-      /* 일정표 섹션 뒤는 항상 다음 페이지에서 시작 */
-      #weeklyDetailRoot .schedule-section {
-        break-after: page;
-        page-break-after: always;
       }
 
       /* 이슈 표: 행 레벨 page-break 제거, 자연 break 허용 */
@@ -702,6 +696,8 @@
   <div class="weekly-detail-container" style="overflow-x:auto; max-width:100vw;">
     <input type="hidden" id="sessionDept"
       value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
+    <input type="hidden" id="sessionAdminAuth"
+      value="{{ session['user'].get('adminAUTH', session['user'].get('adminauth', 0)) }}">
     <div class="print-toolbar">
       <button type="button" class="green-btn" onclick="goToPreviousWeek()">◀ 전주 주간보고</button>
       <button type="button" class="green-btn" onclick="goToNextWeek()">앞주 주간보고 ▶</button>
