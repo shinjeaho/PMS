@@ -414,6 +414,15 @@
 
     @media print {
 
+      html,
+      body {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+      }
+
       /* 인쇄 시 표 높이를 페이지에 맞게 강제(행 높이는 JS에서 균등 분배) */
       table.weekly-table.print-fill {
         height: var(--print-table-fill) !important;
@@ -435,6 +444,8 @@
 
       /* 색상 유지 */
       body {
+        display: block !important;
+        align-items: stretch !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }

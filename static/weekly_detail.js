@@ -196,6 +196,15 @@ function renderWeeklyTables(root, data) {
     return 165;
   }
 
+  function readPrintPageContentHeightPx() {
+    const ppm = weeklyCssPxPerMmForPrint();
+    const style = getComputedStyle(document.documentElement);
+    const pageHeightMm = parseFloat(style.getPropertyValue('--print-page-height')) || 210;
+    const marginTopMm = parseFloat(style.getPropertyValue('--print-page-margin-top')) || 10;
+    const marginBottomMm = parseFloat(style.getPropertyValue('--print-page-margin-bottom')) || 10;
+    return Math.max(400, (pageHeightMm - marginTopMm - marginBottomMm) * ppm);
+  }
+
   // 상단: 부서별 주간일정표
   // 스케줄 섹션 래퍼
   const scheduleSection = document.createElement('div');
@@ -310,8 +319,7 @@ function renderWeeklyTables(root, data) {
   function applyPrintFillHeights() {
     try {
       const ppm = pxPerMm();
-      const targetMm = readPrintFillMm();
-      const targetTableHeightPx = targetMm * ppm;
+      const fallbackTableHeightPx = readPrintFillMm() * ppm;
 
       // 이슈표는 한 부서의 내용이 페이지를 넘을 수 있으므로,
       // 강제 높이/행높이 균등 분배를 적용하지 않고 자연스럽게 페이지가 넘어가도록 둠.
@@ -319,13 +327,39 @@ function renderWeeklyTables(root, data) {
         const thead = tbl1.querySelector('thead');
         const tbody = tbl1.querySelector('tbody');
         if (tbody) {
+          const rootRect = root.getBoundingClientRect();
+          const tableRect = tbl1.getBoundingClientRect();
+          const printablePageHeightPx = readPrintPageContentHeightPx();
+          const tableTopOffsetPx = Math.max(0, tableRect.top - rootRect.top);
+          const targetTableHeightPx = Math.max(
+            120,
+            printablePageHeightPx - tableTopOffsetPx - (2 * ppm)
+          ) || fallbackTableHeightPx;
+
           tbl1.style.height = `${targetTableHeightPx}px`;
           const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
           const rows = Array.from(tbody.querySelectorAll('tr'));
           const rowCount = rows.length || 1;
-          const rowHeight = Math.max(18, (targetTableHeightPx - theadHeight) / rowCount);
+          const tbodyHeight = Math.max(18, targetTableHeightPx - theadHeight);
+          const rowHeight = Math.max(18, tbodyHeight / rowCount);
+          const sampleCell = tbody.querySelector('td');
+          let cellBoxExtra = 0;
+          if (sampleCell) {
+            const cellStyle = window.getComputedStyle(sampleCell);
+            cellBoxExtra =
+              (parseFloat(cellStyle.paddingTop) || 0) +
+              (parseFloat(cellStyle.paddingBottom) || 0) +
+              (parseFloat(cellStyle.borderTopWidth) || 0) +
+              (parseFloat(cellStyle.borderBottomWidth) || 0);
+          }
+          const cellContentHeight = Math.max(18, rowHeight - cellBoxExtra);
+          tbody.style.height = `${tbodyHeight}px`;
           rows.forEach((tr) => {
             tr.style.height = `${rowHeight}px`;
+            Array.from(tr.cells || []).forEach((td) => {
+              td.style.height = `${cellContentHeight}px`;
+              td.style.minHeight = `${cellContentHeight}px`;
+            });
           });
         }
       }
@@ -347,8 +381,13 @@ function renderWeeklyTables(root, data) {
       tbl1.style.height = '';
       const tbody = tbl1.querySelector('tbody');
       if (tbody) {
+        tbody.style.height = '';
         Array.from(tbody.querySelectorAll('tr')).forEach((tr) => {
           tr.style.height = '';
+          Array.from(tr.cells || []).forEach((td) => {
+            td.style.height = '';
+            td.style.minHeight = '';
+          });
         });
       }
     }
