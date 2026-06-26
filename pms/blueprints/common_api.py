@@ -2145,7 +2145,7 @@ def api_yearly_projects():
         if project_type == 'yearly':
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
                 FROM Projects
                 WHERE yearProject = 1 AND ContractCode NOT LIKE '%검토%'
                 ORDER BY ContractCode DESC 
@@ -2156,7 +2156,7 @@ def api_yearly_projects():
         elif project_type == 'examine':
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
                 FROM Projects WHERE ContractCode LIKE '%검토%'
                 ORDER BY ContractCode DESC 
                 LIMIT %s OFFSET %s
@@ -2166,7 +2166,7 @@ def api_yearly_projects():
         else:
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
                 FROM Projects 
                 ORDER BY ContractCode DESC 
                 LIMIT %s OFFSET %s

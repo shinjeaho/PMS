@@ -27,20 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    if (tabParam === 'weekly') {
-        if (typeof viewWeeklyReports === 'function') {
-            viewWeeklyReports();
-        }
-        // 주간보고서 목록 탭 활성화 처리가 완료된 후, 주소 보호(미들웨어 동작 모사)를 위해 루트(/) 주소로 다시 변경해 줍니다.
-        try {
-            history.replaceState({}, '', '/');
-        } catch (_) {}
-    } else {
-        fetchProjects(1);
-    }
-
+    fetchProjects(1);
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
     const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
@@ -113,7 +100,6 @@ let meetingItemsFiltered = [];
 let meetingCurrentPage = 1;
 const meetingsPerPage = 20;
 let meetingSelectedYear = '';
-let meetingSelectedCategory = '';
 let meetingSearchText = '';
 
 let dailyReportYear = null;
@@ -1286,11 +1272,11 @@ function setTableHead(mode) {
         thead.innerHTML = `
             <tr>
                 <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
-                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 39%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
-                <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 22%;">발주처</th>
+                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 42%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th style="width: 20%;">발주처</th>
                 <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
-                <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
-                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 5%;">외주구분</th>
+                <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 8%;">진행률</th>
+                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 6%;">외주구분</th>
             </tr>
         `;
         updateProjectSortIndicators();
@@ -1453,10 +1439,6 @@ function parseProjectProgress(project) {
     return Number.isFinite(num) ? num : 0;
 }
 
-function getProjectOrderPlaceText(project) {
-    return String(project.orderPlace || project.OrderPlace || '').trim();
-}
-
 function compareProjectStrings(a, b) {
     return String(a || '').localeCompare(String(b || ''), 'ko-KR', { numeric: true, sensitivity: 'base' });
 }
@@ -1494,8 +1476,6 @@ function sortProjectRows(projects) {
             cmp = compareProjectStrings(a.ContractCode, b.ContractCode);
         } else if (key === 'project_name') {
             cmp = compareProjectStrings(a.ProjectName, b.ProjectName);
-        } else if (key === 'order_place') {
-            cmp = compareProjectStrings(getProjectOrderPlaceText(a), getProjectOrderPlaceText(b));
         } else if (key === 'project_status') {
             cmp = compareProjectStrings(getProjectStatusText(a), getProjectStatusText(b));
         } else if (key === 'progress') {
@@ -1518,7 +1498,6 @@ function updateProjectSortIndicators() {
     const map = {
         contract_code: document.getElementById('projectSortContractCode'),
         project_name: document.getElementById('projectSortProjectName'),
-        order_place: document.getElementById('projectSortOrderPlace'),
         project_status: document.getElementById('projectSortStatus'),
         progress: document.getElementById('projectSortProgress'),
         outsourcing: document.getElementById('projectSortOutsourcing')
@@ -1699,23 +1678,11 @@ function viewMeetingMinutes() {
     if (toolbar) {
         toolbar.innerHTML = `
             <div class="meeting-toolbar-row">
-                <div class="meeting-toolbar-left">
-                    <div class="meeting-toolbar-group meeting-toolbar-year">
-                        <div class="meeting-toolbar-label">연도</div>
-                        <select id="meetingYearFilter" class="settingSelect meeting-year-filter">
-                            <option value="">전체</option>
-                        </select>
-                    </div>
-                    <div class="meeting-toolbar-group meeting-toolbar-category">
-                        <div class="meeting-toolbar-label">구분</div>
-                        <select id="meetingCategoryFilter" class="settingSelect meeting-year-filter">
-                            <option value="">전체</option>
-                            <option value="사업관련">사업관련</option>
-                            <option value="공통">공통</option>
-                            <option value="주간보고">주간보고</option>
-                            <option value="TF">TF</option>
-                        </select>
-                    </div>
+                <div class="meeting-toolbar-group meeting-toolbar-year">
+                    <div class="meeting-toolbar-label">연도</div>
+                    <select id="meetingYearFilter" class="settingSelect meeting-year-filter">
+                        <option value="">전체</option>
+                    </select>
                 </div>
                 <div class="meeting-toolbar-group meeting-toolbar-search">
                     <div class="meeting-search-wrap">
@@ -1745,16 +1712,6 @@ function viewMeetingMinutes() {
                 yearFilter.value = meetingSelectedYear;
                 yearFilter.onchange = () => {
                     meetingSelectedYear = yearFilter.value || '';
-                    meetingCurrentPage = 1;
-                    applyMeetingFiltersAndRender();
-                };
-            }
-
-            const categoryFilter = document.getElementById('meetingCategoryFilter');
-            if (categoryFilter) {
-                categoryFilter.value = meetingSelectedCategory;
-                categoryFilter.onchange = () => {
-                    meetingSelectedCategory = categoryFilter.value || '';
                     meetingCurrentPage = 1;
                     applyMeetingFiltersAndRender();
                 };
@@ -1807,8 +1764,6 @@ function applyMeetingFiltersAndRender() {
     meetingItemsFiltered = meetingItemsAll.filter((item) => {
         const rowYear = String(item?.meeting_datetime || item?.created_at || '').match(/^(\d{4})/)?.[1] || '';
         if (meetingSelectedYear && rowYear !== meetingSelectedYear) return false;
-        const rowCategory = String(item?.meeting_category || '').trim();
-        if (meetingSelectedCategory && rowCategory !== meetingSelectedCategory) return false;
         if (!keyword) return true;
 
         const hay = [
@@ -2409,12 +2364,12 @@ function renderTable(projects) {
     sortedProjects.forEach(project => {
         const outsourcingText = getProjectOutsourcingText(project);
         const statusText = getProjectStatusText(project);
-        const orderPlaceText = getProjectOrderPlaceText(project) || '-';
+        const orderPlaceText = project.orderPlace || project.orderplace || '-';
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
             <td>${project.ProjectName || '-'}</td>
-            <td title="${escapeHtmlSafe(orderPlaceText)}">${escapeHtmlSafe(orderPlaceText)}</td>
+            <td>${orderPlaceText}</td>
             <td>${statusText}</td>
             <td>${project.progress ? formatProgress(project.progress) + '%' : '0%'}</td>
             <td>
@@ -5251,8 +5206,6 @@ function initMeetingUploadModal() {
     const projectInput = document.getElementById('meetingProjectNumber');
     const projectNameInput = document.getElementById('meetingProjectName');
     const meetingDateStartInput = document.getElementById('meetingDateStart');
-    const meetingCategoryInput = document.getElementById('meetingCategory');
-    const meetingCategoryCheckboxes = Array.from(modal.querySelectorAll('.meeting-category-checkbox'));
     const suggestCell = modal.querySelector('.meeting-suggest-cell');
 
     initDateYearAutoAdvance(meetingDateStartInput);
@@ -5268,44 +5221,6 @@ function initMeetingUploadModal() {
 
     let suggestTimer = null;
     let suggestAbort = null;
-
-    const syncMeetingProjectFieldState = (categoryValue) => {
-        const isProjectCategory = categoryValue === '사업관련';
-        if (projectInput) {
-            projectInput.disabled = !isProjectCategory;
-            projectInput.readOnly = !isProjectCategory;
-            projectInput.classList.toggle('is-disabled', !isProjectCategory);
-            if (!isProjectCategory) {
-                projectInput.value = '';
-            }
-        }
-        if (projectNameInput) {
-            projectNameInput.readOnly = true;
-            projectNameInput.classList.toggle('is-disabled', !isProjectCategory);
-            if (!isProjectCategory) {
-                projectNameInput.value = '';
-            }
-        }
-        if (suggestCell) {
-            suggestCell.classList.toggle('is-disabled', !isProjectCategory);
-        }
-        if (!isProjectCategory) {
-            hideProjectSuggest();
-        }
-    };
-
-    const setMeetingCategory = (value) => {
-        const resolvedValue = value || '사업관련';
-        if (meetingCategoryInput) {
-            meetingCategoryInput.value = resolvedValue;
-        }
-        meetingCategoryCheckboxes.forEach((checkbox) => {
-            const checked = checkbox.value === resolvedValue;
-            checkbox.checked = checked;
-            checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
-        });
-        syncMeetingProjectFieldState(resolvedValue);
-    };
 
     const hideProjectSuggest = () => {
         if (!suggestBox) return;
@@ -5430,14 +5345,12 @@ function initMeetingUploadModal() {
     if (projectInput) {
         projectInput.setAttribute('autocomplete', 'off');
         projectInput.addEventListener('input', () => {
-            if (projectInput.disabled) return;
             if (projectNameInput) projectNameInput.value = '';
             const q = projectInput.value || '';
             if (suggestTimer) clearTimeout(suggestTimer);
             suggestTimer = setTimeout(() => requestProjectSuggest(q), 180);
         });
         projectInput.addEventListener('keydown', (e) => {
-            if (projectInput.disabled) return;
             if (e.key === 'Escape') hideProjectSuggest();
         });
     }
@@ -5449,19 +5362,6 @@ function initMeetingUploadModal() {
         if (suggestBox.contains(target)) return;
         hideProjectSuggest();
     });
-
-    meetingCategoryCheckboxes.forEach((checkbox) => {
-        checkbox.addEventListener('change', () => {
-            if (checkbox.checked) {
-                setMeetingCategory(checkbox.value);
-                return;
-            }
-            const checkedItem = meetingCategoryCheckboxes.find((item) => item.checked);
-            setMeetingCategory(checkedItem ? checkedItem.value : '사업관련');
-        });
-    });
-
-    setMeetingCategory(meetingCategoryInput?.value || '사업관련');
 }
 
 function openMeetingUploadModal(editMeeting = null) {
@@ -5503,24 +5403,6 @@ function openMeetingUploadModal(editMeeting = null) {
     if (meetingOrganizerInput) meetingOrganizerInput.value = '';
     const meetingAttendeesInput = document.getElementById('meetingAttendees');
     if (meetingAttendeesInput) meetingAttendeesInput.value = '';
-    const meetingCategoryInput = document.getElementById('meetingCategory');
-    if (meetingCategoryInput) meetingCategoryInput.value = '사업관련';
-    const meetingCategoryCheckboxes = Array.from(document.querySelectorAll('#meetingUploadModal .meeting-category-checkbox'));
-    meetingCategoryCheckboxes.forEach((checkbox) => {
-        const checked = checkbox.value === '사업관련';
-        checkbox.checked = checked;
-        checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
-    });
-    if (projectNumberInput) {
-        projectNumberInput.disabled = false;
-        projectNumberInput.readOnly = false;
-        projectNumberInput.classList.remove('is-disabled');
-    }
-    if (projectNameInput) {
-        projectNameInput.readOnly = true;
-        projectNameInput.classList.remove('is-disabled');
-    }
-    document.querySelector('#meetingUploadModal .meeting-suggest-cell')?.classList.remove('is-disabled');
 
     meetingEditingRecordId = null;
     meetingEditExistingPdf = null;
@@ -5537,28 +5419,15 @@ function openMeetingUploadModal(editMeeting = null) {
             file_path: buildMeetingFileUrl(editMeeting),
         };
 
-        const editCategory = String(editMeeting.meeting_category || '').trim() || '사업관련';
-        if (meetingCategoryInput) meetingCategoryInput.value = editCategory;
-        meetingCategoryCheckboxes.forEach((checkbox) => {
-            const checked = checkbox.value === editCategory;
-            checkbox.checked = checked;
-            checkbox.closest('.meeting-category-option')?.classList.toggle('is-selected', checked);
-        });
-
         if (docInput) docInput.value = editMeeting.doc_number || '';
         if (createdAtInput) createdAtInput.value = editMeeting.created_at || formatDateYMD(new Date());
         if (authorInput) authorInput.value = editMeeting.author || authorName;
-        if (projectNumberInput) projectNumberInput.value = editCategory === '사업관련' ? (editMeeting.contractcode || '') : '';
-        if (projectNameInput) projectNameInput.value = editCategory === '사업관련' ? (editMeeting.project_name || '') : '';
+        if (projectNumberInput) projectNumberInput.value = editMeeting.contractcode || '';
+        if (projectNameInput) projectNameInput.value = editMeeting.project_name || '';
         if (agendaTitleInput) agendaTitleInput.value = editMeeting.title || '';
         if (meetingPlaceInput) meetingPlaceInput.value = editMeeting.meeting_place || '';
         if (meetingOrganizerInput) meetingOrganizerInput.value = editMeeting.organizer || '';
         if (meetingAttendeesInput) meetingAttendeesInput.value = editMeeting.attendees || '';
-
-        const activeCategoryCheckbox = meetingCategoryCheckboxes.find((checkbox) => checkbox.checked);
-        if (activeCategoryCheckbox) {
-            activeCategoryCheckbox.dispatchEvent(new Event('change'));
-        }
 
         const startRaw = String(editMeeting.meeting_datetime || '').trim();
         const startMatch = startRaw.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
@@ -5712,11 +5581,8 @@ function summarizeMeetingUploadError(message) {
 function uploadMeetingPdf(file) {
     const isEditMode = !!meetingEditingRecordId;
     const docNumber = document.getElementById('meetingDocNumber')?.value || '';
-    const meetingCategory = document.getElementById('meetingCategory')?.value || '사업관련';
-    const inputContractCode = (document.getElementById('meetingProjectNumber')?.value || '').trim();
-    const inputProjectName = (document.getElementById('meetingProjectName')?.value || '').trim();
-    const contractcode = meetingCategory === '사업관련' ? inputContractCode : meetingCategory;
-    const projectName = meetingCategory === '사업관련' ? inputProjectName : '';
+    const contractcode = document.getElementById('meetingProjectNumber')?.value || '';
+    const projectName = document.getElementById('meetingProjectName')?.value || '';
     const agendaTitle = document.getElementById('meetingAgendaTitle')?.value || document.getElementById('meetingTitle')?.value || '';
     const meetingDateStart = document.getElementById('meetingDateStart')?.value || '';
     const meetingTimeStartHour = document.getElementById('meetingTimeStartHour')?.value || '';
@@ -5744,12 +5610,6 @@ function uploadMeetingPdf(file) {
     const userName = document.getElementById('sessionName')?.value || '';
     const createdAt = document.getElementById('meetingCreatedAt')?.value || formatDateYMD(new Date());
     const author = document.getElementById('meetingAuthor')?.value || userName;
-
-    if (meetingCategory === '사업관련' && !String(contractcode || '').trim()) {
-        alert('사업번호를 입력하세요.');
-        return;
-    }
-
     const pdfUploadList = document.getElementById('meetingPdfUploadList');
     const attachmentUploadList = document.getElementById('meetingAttachmentUploadList');
     if (pdfUploadList) {
@@ -5762,7 +5622,6 @@ function uploadMeetingPdf(file) {
     const fd = new FormData();
     if (file) fd.append('file', file);
     if (isEditMode) fd.append('meetingId', String(meetingEditingRecordId));
-    fd.append('meetingCategory', meetingCategory);
     fd.append('docNumber', docNumber);
     fd.append('contractcode', contractcode);
     fd.append('projectName', projectName);
@@ -5996,12 +5855,6 @@ function renderMeetingAttachmentPendingFiles() {
 }
 
 function submitMeetingUpload() {
-    const meetingCategory = document.getElementById('meetingCategory')?.value || '사업관련';
-    const contractcode = (document.getElementById('meetingProjectNumber')?.value || '').trim();
-    if (meetingCategory === '사업관련' && !contractcode) {
-        alert('사업번호를 입력하세요.');
-        return;
-    }
     if (!meetingSelectedFile && !meetingEditExistingPdf) {
         alert('업로드할 PDF 파일을 선택해 주세요.');
         return;
