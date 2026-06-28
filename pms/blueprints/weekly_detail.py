@@ -481,6 +481,17 @@ def _get_session_user():
     return session.get('user') or {}
 
 
+def _session_is_admin(user: dict | None) -> bool:
+    if not isinstance(user, dict):
+        return False
+
+    raw = user.get('adminAUTH', user.get('adminauth', 0))
+    try:
+        return int(raw or 0) == 1
+    except Exception:
+        return str(raw or '').strip().lower() in {'1', 'true', 'y', 'yes'}
+
+
 def _weekly_payload_lengths(payload: dict) -> dict:
     try:
         schedule = (payload or {}).get('schedule') or {}
@@ -574,11 +585,11 @@ def api_weekly_save_split():
         week_start = _parse_week_start(week_start_str)
         department = _canon_dept((user.get('Department') or user.get('department') or '').strip())
         created_by = (user.get('Name') or user.get('name') or user.get('userID') or 'unknown')
-        is_admin_name = created_by == '관리자'
-        if not department and not is_admin_name:
+        is_admin = _session_is_admin(user)
+        if not department and not is_admin:
             return jsonify({'ok': False, 'message': '세션에 부서 정보가 없습니다. 로그아웃 후 다시 로그인 해주세요.'}), 400
 
-        if not is_admin_name:
+        if not is_admin:
             return jsonify({'ok': False, 'message': '권한이 없습니다.'}), 403
 
         if not isinstance(departments_payload, list) or not departments_payload:
@@ -639,8 +650,8 @@ def api_weekly_submit():
         week_start = _parse_week_start(week_start_str)
         department = _canon_dept((user.get('Department') or user.get('department') or '').strip())
         created_by = (user.get('Name') or user.get('name') or user.get('userID') or 'unknown')
-        is_admin_name = created_by == '관리자'
-        if not department and not is_admin_name:
+        is_admin = _session_is_admin(user)
+        if not department and not is_admin:
             return jsonify({'ok': False, 'message': '세션에 부서 정보가 없습니다. 로그아웃 후 다시 로그인 해주세요.'}), 400
 
         _log_weekly_api('WEEKLY_SUBMIT_IN', payload, user, department, created_by)
@@ -649,7 +660,7 @@ def api_weekly_submit():
         if conn is None:
             return jsonify({'ok': False, 'message': 'DB 연결 실패'}), 500
 
-        if is_admin_name and isinstance(departments_payload, list):
+        if is_admin and isinstance(departments_payload, list):
             if not departments_payload:
                 return jsonify({'ok': False, 'message': 'departments가 비어 있습니다.'}), 400
 
