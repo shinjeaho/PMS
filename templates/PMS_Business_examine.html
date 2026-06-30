@@ -51,7 +51,11 @@
                 </div>
                 <div class="topbar-right header-actions">
                     <div class="detail-top-row">
-                        <button type="button" class="btn-ghost detail-list-btn" onclick="window.location.href='/go_back'">목록으로</button>
+                        <button
+                            type="button"
+                            class="btn-ghost detail-list-btn"
+                            onclick="var rt=(document.getElementById('returnTo')&&document.getElementById('returnTo').value)||''; if(rt && rt.startsWith('/')){ window.location.href=rt; } else { var y=(document.getElementById('project-year')&&document.getElementById('project-year').value)||new Date().getFullYear(); window.location.href='/PMS_Business/'+encodeURIComponent(y); }"
+                        >목록으로</button>
                         <div class="detail-user-label" title="로그인 정보">
                             <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
                             <span class="user-sep">/</span>
@@ -75,6 +79,7 @@
     <input type="hidden" id="projectBaseCost" value="{{ examine['ProjectCost'] }}">
     <input type="hidden" id="BidPrice_NoVAT" value="{{ examine['BidPrice_NoVAT'] }}">
     <input type="hidden" id="sessionDep" value="{{ session['user']['department'] }}">
+    <input type="hidden" id="returnTo" value="{{ return_to|default('', true) }}">
 
             <main class="dashboard-content">
             <div class="content">

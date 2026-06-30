@@ -2383,10 +2383,11 @@ function renderTable(projects) {
         }
 
         row.onclick = () => {
+            const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
             if (project.ContractCode.includes("검토")) {
-                window.location.href = `/project_examine/${project.ProjectID}`;
+                window.location.href = `/project_examine/${project.ProjectID}?return_to=${returnTo}`;
             } else {
-                window.location.href = `/project_detail/${project.ProjectID}`;
+                window.location.href = `/project_detail/${project.ProjectID}?return_to=${returnTo}`;
             }
         };
         tableBody.appendChild(row);
