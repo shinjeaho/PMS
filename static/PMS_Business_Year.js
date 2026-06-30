@@ -2844,10 +2844,8 @@ function initWeeklyInput() {
     const dept = getSessionDepartment();
     const isAdmin = isWeeklyAdminByAccess();
 
-    // 기본 주차: 일반 사용자는 차주, 관리자는 금주
-    weeklyCurrentMonday = isAdmin
-        ? getNearestMonday(new Date())
-        : addDays(getNearestMonday(new Date()), 7);
+    // 기본 주차: 권한과 무관하게 차주
+    weeklyCurrentMonday = addDays(getNearestMonday(new Date()), 7);
 
     weeklyInputSetAdminMode(isAdmin);
     renderWeeklyTitle(weeklyCurrentMonday);
