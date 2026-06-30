@@ -1311,7 +1311,7 @@ function setTableHead(mode) {
             <tr>
                 <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
                 <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 42%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
-                <th style="width: 20%;">발주처</th>
+                <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 20%;">발주처</th>
                 <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
                 <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 8%;">진행률</th>
                 <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 6%;">외주구분</th>
@@ -1514,6 +1514,8 @@ function sortProjectRows(projects) {
             cmp = compareProjectStrings(a.ContractCode, b.ContractCode);
         } else if (key === 'project_name') {
             cmp = compareProjectStrings(a.ProjectName, b.ProjectName);
+        } else if (key === 'order_place') {
+            cmp = compareProjectStrings(a.OrderPlace, b.OrderPlace);
         } else if (key === 'project_status') {
             cmp = compareProjectStrings(getProjectStatusText(a), getProjectStatusText(b));
         } else if (key === 'progress') {
@@ -1536,6 +1538,7 @@ function updateProjectSortIndicators() {
     const map = {
         contract_code: document.getElementById('projectSortContractCode'),
         project_name: document.getElementById('projectSortProjectName'),
+        order_place: document.getElementById('projectSortOrderPlace'),
         project_status: document.getElementById('projectSortStatus'),
         progress: document.getElementById('projectSortProgress'),
         outsourcing: document.getElementById('projectSortOutsourcing')
@@ -1544,18 +1547,23 @@ function updateProjectSortIndicators() {
     Object.entries(map).forEach(([key, th]) => {
         if (!th) return;
         const span = ensureSortIndicator(th);
+        let marker = '▲';
+        let active = false;
 
         if (projectSortState.key !== key) {
-            span.textContent = '';
-            return;
-        }
+            span.textContent = marker;
+            span.style.opacity = '0';
+        } else {
+            active = true;
+            if (key === 'project_name' && projectSortState.nameMode === 'issue') {
+                marker = '◆';
+            } else {
+                marker = dirToArrow(projectSortState.dir) || marker;
+            }
 
-        if (key === 'project_name' && projectSortState.nameMode === 'issue') {
-            span.textContent = '◆';
-            return;
+            span.textContent = marker;
+            span.style.opacity = '1';
         }
-
-        span.textContent = dirToArrow(projectSortState.dir);
     });
 }
 
