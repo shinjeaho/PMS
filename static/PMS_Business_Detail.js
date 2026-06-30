@@ -10507,7 +10507,11 @@ function reloadWithCurrentState() {
         return;
     }
 
-    const url = `/project_detail/${projectId}`;
+    let url = `/project_detail/${projectId}`;
+    const returnTo = document.getElementById('returnTo')?.value || '';
+    if (returnTo && returnTo.startsWith('/')) {
+        url += `?return_to=${encodeURIComponent(returnTo)}`;
+    }
     window.location.href = url;
 }
 

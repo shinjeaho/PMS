@@ -45,6 +45,10 @@
         <input type="hidden" id="sessionDept"
             value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
         <input type="hidden" id="projectYEAR" value="{{ selected_year }}">
+        <input type="hidden" id="requestedPage" value="{{ requested_page|default(1) }}">
+        <input type="hidden" id="requestedView" value="{{ requested_view|default('', true) }}">
+        <input type="hidden" id="requestedStatus" value="{{ requested_status|default('', true) }}">
+        <input type="hidden" id="requestedTab" value="{{ requested_tab|default('', true) }}">
     </header>
     <nav class="navbar">
         <ul>
@@ -503,8 +507,8 @@
                 </table>
             </div>
             <div class="modal-footer">
-                <button type="button" class="modal_save-btn" id="splitWeeklyBtn" onclick="saveWeeklySplit()"
-                    style="display:none;">분할 저장</button>
+                <!-- <button type="button" class="modal_save-btn" id="splitWeeklyBtn" onclick="saveWeeklySplit()"
+                    style="display:none;">분할 저장</button> -->
                 <button type="button" class="modal_save-btn" id="submitWeeklyBtn" onclick="submitWeekly()"
                     disabled>제출</button>
             </div>

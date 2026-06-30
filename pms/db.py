@@ -29,8 +29,8 @@ def get_db_config(profile: str | None = None) -> DBConfig:
         'default': DBConfig(
             host='localhost',
             user='root',
-            password='0000',
-            database='PMS',
+            password='tkadls142!',
+            database='pms',
         ),
         # 60번용(legacy note: 할 일.txt)
         'server60': DBConfig(

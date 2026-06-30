@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearTitle = document.getElementById('projectYEAR').value;
     const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
     const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
+    const requestedPage = Math.max(1, Number(document.getElementById('requestedPage')?.value || 1) || 1);
+    const requestedTab = String(document.getElementById('requestedTab')?.value || '').trim().toLowerCase();
 
     if (meetingAuth) {
         const meetingLi = document.getElementById('meeting-li');
@@ -27,7 +29,15 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    fetchProjects(1);
+    if (requestedTab === 'weekly' && reportAuth) {
+        viewWeeklyReports();
+    } else if (requestedTab === 'meeting' && meetingAuth) {
+        viewMeetingMinutes();
+    } else if (requestedTab === 'daily' && reportAuth) {
+        viewDailyReports();
+    } else {
+        fetchProjects(requestedPage);
+    }
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
     const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
@@ -137,6 +147,28 @@ function initResetPasswordConfirmModal() {
         if (!users.length) return;
         submitResetPassword(users);
     });
+}
+
+function buildBusinessReturnPath() {
+    const year = document.getElementById('projectYEAR')?.value || new Date().getFullYear();
+    const page = Math.max(1, Number(currentPage) || 1);
+    const params = new URLSearchParams();
+
+    if (currentView === 'yearly') {
+        params.set('view', 'yearly');
+        params.set('page', String(page));
+    } else if (currentView === 'examine') {
+        params.set('view', 'examine');
+        params.set('page', String(page));
+    } else if (currentView === 'status' && currentStatus) {
+        params.set('status', String(currentStatus));
+        params.set('page', String(page));
+    } else {
+        params.set('page', String(page));
+    }
+
+    const qs = params.toString();
+    return `/PMS_Business/${encodeURIComponent(year)}${qs ? `?${qs}` : ''}`;
 }
 
 function initDeleteStaffConfirmModal() {
@@ -1144,6 +1176,8 @@ function fetchProjects(page = 1) {
     fetch(url)
         .then(response => response.json())
         .then(data => {
+            currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
+            totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
             renderTable(data.projects || []);
             renderPagination(data.current_page || 1, data.total_pages || 1);
             const titleEl = document.getElementById('yearTitle');
@@ -1167,6 +1201,8 @@ function viewYearlyProjects(page = 1) {
     fetch(`/api/yearly_projects?type=yearly&page=${page}`)
         .then(response => response.json())
         .then(data => {
+            currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
+            totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
             renderTable(data.projects);
             renderPagination(data.current_page, data.total_pages, "yearly"); //타입 추가!
             document.getElementById('yearTitle').textContent = "연차사업 모아보기";
@@ -1187,6 +1223,8 @@ function viewExamineProjects(page = 1) {
     fetch(`/api/yearly_projects?type=examine&page=${page}`)
         .then(response => response.json())
         .then(data => {
+            currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
+            totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
             renderTable(data.projects);
             renderPagination(data.current_page, data.total_pages, "examine"); //타입 추가!
             document.getElementById('yearTitle').textContent = "검토사업 모아보기";
@@ -2310,6 +2348,8 @@ function handleSearch(page = 1) {
     fetch(searchUrl)
         .then(response => response.json())
         .then(data => {
+            currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
+            totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
             renderTable(data.projects);
             renderPagination(data.current_page, data.total_pages, "search"); //"search" 추가
             document.getElementById("pagination").style.display = "block";
@@ -2383,11 +2423,11 @@ function renderTable(projects) {
         }
 
         row.onclick = () => {
-            const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+            const returnTo = buildBusinessReturnPath();
             if (project.ContractCode.includes("검토")) {
-                window.location.href = `/project_examine/${project.ProjectID}?return_to=${returnTo}`;
+                window.location.href = `/project_examine/${project.ProjectID}?return_to=${encodeURIComponent(returnTo)}`;
             } else {
-                window.location.href = `/project_detail/${project.ProjectID}?return_to=${returnTo}`;
+                window.location.href = `/project_detail/${project.ProjectID}?return_to=${encodeURIComponent(returnTo)}`;
             }
         };
         tableBody.appendChild(row);
@@ -4772,6 +4812,8 @@ function viewStatusProjects(elementOrStatus, page = 1) {
     fetch(`/api/status_projects?status=${status}&page=${page}`)
         .then(res => res.json())
         .then(data => {
+            currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
+            totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
             renderTable(data.projects);
             document.getElementById("yearTitle").textContent = `${statusKor(status)} 사업 모아보기`;
             renderPagination(data.current_page, data.total_pages, 'status');
