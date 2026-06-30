@@ -4007,7 +4007,7 @@ body.detail-dashboard .detail-topbar {
     z-index: 900;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     background: var(--white);
     border: 0;
@@ -4284,9 +4284,6 @@ body.detail-dashboard .content {
 }
 
 body.detail-dashboard .topbar-left {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
     flex: 1;
     min-width: 0;
 }
@@ -4341,7 +4338,6 @@ body.detail-dashboard .topbar-right {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    justify-content: center;
     gap: 6px;
     flex-shrink: 0;
 }
@@ -4368,6 +4364,16 @@ body.detail-dashboard .detail-user-label {
 
 body.detail-dashboard .detail-user-label .user-sep {
     color: #94a3b8;
+}
+
+body.detail-dashboard .detail-top-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+body.detail-dashboard .detail-list-btn {
+    white-space: nowrap;
 }
 
 body.detail-dashboard .detail-header-action-row {
@@ -5201,11 +5207,5 @@ body.detail-dashboard #Budget .sub-tabcontent .ex_tablinks.active {
     border-color: #bfdbfe;
     color: #2563eb;
     border-bottom: 1px solid #bfdbfe;
-}
-
-
-body.detail-dashboard #EX_fee_table td.expected-hover-target {
-    cursor: help;
-    font-weight: 500;
 }
 

@@ -1,4 +1,22 @@
 document.addEventListener('DOMContentLoaded', async function () {
+    const ensureMainTabVisible = () => {
+        const tabContents = Array.from(document.getElementsByClassName('tabcontent'));
+        const hasVisibleTab = tabContents.some((tab) => {
+            const inlineDisplay = (tab.style.display || '').trim().toLowerCase();
+            if (inlineDisplay === 'block') return true;
+            return window.getComputedStyle(tab).display !== 'none';
+        });
+
+        if (hasVisibleTab) return;
+
+        const defaultMainTab = document.querySelector('.tablinks');
+        const detailsTab = document.getElementById('Details');
+
+        document.querySelectorAll('.tablinks').forEach((btn) => btn.classList.remove('active'));
+        if (defaultMainTab) defaultMainTab.classList.add('active');
+        if (detailsTab) detailsTab.style.display = 'block';
+    };
+
     try {
 
          // 저장 버튼 새로고침 여부 확인
@@ -21,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
         
         setupEvent();  // 이벤트 먼저 연결
+        setupExamineInputStatusTooltip();
         await loadLayoutFromServer(); // 상태 적용 (div 표시/숨김까지 완료)
         // examine, outsource 등 첫 번째 탭 강제로 열기
         const defaultMainTab = document.querySelector('.tablinks');
@@ -42,13 +61,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         updateFileList();
     } catch (error) {
         console.error('[ERROR] Error during initialization:', error);
+    } finally {
+        ensureMainTabVisible();
     }
 
     const sessionDep = document.getElementById('sessionDep').value;
     if (sessionDep === '공공사업부' || sessionDep === '개발') {
-        document.getElementById('department_BTN').style.display = 'block';
+        document.getElementById('department_BTN').style.display = 'flex';
     } else {
-        document.getElementById('every_BTN').style.display = 'block';
+        document.getElementById('every_BTN').style.display = 'flex';
     }
 
     setAddBTN(); // 초기 상태에 따라 +, - 버튼 설정
@@ -133,6 +154,139 @@ function setupEvent() {
         removeLastRow('note_tbody');
     });
 
+}
+
+function setupExamineInputStatusTooltip() {
+    if (window.__examineInputStatusTooltipBound) return;
+    window.__examineInputStatusTooltipBound = true;
+
+    document.addEventListener('mouseover', handleExamineInputStatusTooltipOver);
+    document.addEventListener('mousemove', handleExamineInputStatusTooltipMove);
+    document.addEventListener('mouseout', handleExamineInputStatusTooltipOut);
+}
+
+function handleExamineInputStatusTooltipOver(event) {
+    const target = event.target.closest('#EX_fee_table td.expected-hover-target, #out_fee_table td.expected-hover-target');
+    if (!target) return;
+
+    showExamineInputStatusTooltip(target, event.clientX, event.clientY);
+}
+
+function handleExamineInputStatusTooltipMove(event) {
+    if (!window.__examineInputStatusTooltipCurrentTarget) return;
+    positionExamineInputStatusTooltip(event.clientX, event.clientY);
+}
+
+function handleExamineInputStatusTooltipOut(event) {
+    const target = event.target.closest('#EX_fee_table td.expected-hover-target, #out_fee_table td.expected-hover-target');
+    if (!target) return;
+
+    const related = event.relatedTarget;
+    if (related && target.contains(related)) return;
+
+    hideExamineInputStatusTooltip();
+}
+
+function ensureExamineInputStatusTooltipElement() {
+    let tooltip = document.getElementById('examineInputStatusTooltip');
+    if (tooltip) return tooltip;
+
+    tooltip = document.createElement('div');
+    tooltip.id = 'examineInputStatusTooltip';
+    tooltip.className = 'actual-input-status-tooltip';
+    document.body.appendChild(tooltip);
+    return tooltip;
+}
+
+function showExamineInputStatusTooltip(target, clientX, clientY) {
+    const tooltip = ensureExamineInputStatusTooltipElement();
+    const hoverType = target.dataset.hoverType === 'record' ? 'record' : 'budget';
+    const scope = target.dataset.hoverScope === 'outsource' ? 'outsource' : 'direct';
+
+    tooltip.innerHTML = buildExamineInputStatusTooltipHtml(hoverType, scope);
+    tooltip.classList.add('is-visible');
+    window.__examineInputStatusTooltipCurrentTarget = target;
+    positionExamineInputStatusTooltip(clientX, clientY);
+}
+
+function hideExamineInputStatusTooltip() {
+    const tooltip = document.getElementById('examineInputStatusTooltip');
+    if (!tooltip) return;
+
+    tooltip.classList.remove('is-visible');
+    window.__examineInputStatusTooltipCurrentTarget = null;
+}
+
+function positionExamineInputStatusTooltip(clientX, clientY) {
+    const tooltip = document.getElementById('examineInputStatusTooltip');
+    if (!tooltip || !tooltip.classList.contains('is-visible')) return;
+
+    const offset = 14;
+    const rect = tooltip.getBoundingClientRect();
+    let left = clientX + offset;
+    let top = clientY + offset;
+
+    if (left + rect.width > window.innerWidth - 12) {
+        left = clientX - rect.width - offset;
+    }
+    if (top + rect.height > window.innerHeight - 12) {
+        top = clientY - rect.height - offset;
+    }
+
+    left = Math.max(12, left);
+    top = Math.max(12, top);
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+}
+
+function buildExamineInputStatusTooltipHtml(type, scope) {
+    const isOutsource = scope === 'outsource';
+    const sourceId = isOutsource
+        ? (type === 'record' ? 'out_record_result_tbody' : 'out_budget_result_tbody')
+        : (type === 'record' ? 'record_result_tbody' : 'budget_result_tbody');
+    const labelPrefix = isOutsource ? '외주' : '직영';
+    const label = type === 'record' ? `${labelPrefix} 경비` : `${labelPrefix} 인건비`;
+    const headers = type === 'record'
+        ? ['경비', '금액']
+        : ['직급', '인원', '투입일자', '투입인력', '합계'];
+
+    const sourceTbody = document.getElementById(sourceId);
+    const rows = sourceTbody ? Array.from(sourceTbody.querySelectorAll('tr')) : [];
+
+    let rowHtml = '';
+    if (rows.length === 0) {
+        rowHtml = `<tr><td colspan="${headers.length}" class="empty">데이터가 없습니다.</td></tr>`;
+    } else {
+        rowHtml = rows.map((row) => {
+            const cells = Array.from(row.cells).slice(0, headers.length);
+            const tds = headers.map((_, idx) => {
+                const value = cells[idx] ? escapeExamineTooltipHtml((cells[idx].textContent || '').trim()) : '';
+                return `<td>${value}</td>`;
+            }).join('');
+            return `<tr>${tds}</tr>`;
+        }).join('');
+    }
+
+    const headerHtml = headers.map((h) => `<th>${h}</th>`).join('');
+    return `
+        <div class="actual-input-status-tooltip-title">투입현황 · ${label}</div>
+        <table class="actual-input-status-tooltip-table">
+            <thead>
+                <tr>${headerHtml}</tr>
+            </thead>
+            <tbody>${rowHtml}</tbody>
+        </table>
+    `;
+}
+
+function escapeExamineTooltipHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // 직영 검토 상태
@@ -1615,13 +1769,13 @@ async function updateFeetable() {
 
         <tr>
             <td rowspan="3">직영 사업수행비(C)</td>
-            <td>자체인건비</td>
+            <td class="expected-hover-target" data-hover-type="budget" data-hover-scope="direct">자체인건비</td>
             <td>${EX_budget_per.toFixed(3)}%</td>
             <td>${EX_budget_sum.toLocaleString()}원</td>
         </tr>
 
         <tr>
-            <td>자체 경비</td>
+            <td class="expected-hover-target" data-hover-type="record" data-hover-scope="direct">자체 경비</td>
             <td>${EX_record_per.toFixed(3)}%</td>
             <td>${EX_record_sum.toLocaleString()}원</td>
         </tr>
@@ -1671,6 +1825,10 @@ async function updateFeetable() {
     if (profitPer) {
         profitPer.style.color = profit_color;
         profitPer.textContent = profit_per.toFixed(3) + "%";
+    }
+
+    if (typeof window.bindFinanceHover === 'function') {
+        window.bindFinanceHover();
     }
 }
 
@@ -1778,13 +1936,13 @@ async function out_updateFeetable() {
 
         <tr>
             <td rowspan="3">직영 사업수행비(C)</td>
-            <td>자체인건비</td>
+            <td class="expected-hover-target" data-hover-type="budget" data-hover-scope="outsource">자체인건비</td>
             <td>${EX_budget_per.toFixed(3)}%</td>
             <td>${EX_budget_sum.toLocaleString()}원</td>
         </tr>
 
         <tr>
-            <td>자체 경비</td>
+            <td class="expected-hover-target" data-hover-type="record" data-hover-scope="outsource">자체 경비</td>
             <td>${EX_record_per.toFixed(3)}%</td>
             <td>${EX_record_sum.toLocaleString()}원</td>
         </tr>
@@ -1846,6 +2004,10 @@ async function out_updateFeetable() {
     if (profitPer) {
         profitPer.style.color = profit_color;
         profitPer.textContent = profit_per.toFixed(3) + "%";
+    }
+
+    if (typeof window.bindFinanceHover === 'function') {
+        window.bindFinanceHover();
     }
 }
 
@@ -2145,7 +2307,7 @@ async function updateFileList() {
                             ${truncateFileName(file.OriginalFileName, 30)}
                         </a>
                     </div>
-                    <button onclick="deleteFile(${file.FileID})" class="delete-file">삭제</button>
+                    <button onclick="deleteFile(${file.FileID})" class="delete-file">X</button>
                 </div>
             `;
 

@@ -5,24 +5,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Overview & Budget</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_examine.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Detail.css') }}">
     <script src="{{ url_for('static', filename='PMS_Business_examine.js') }}" defer></script>
 </head>
 
-<body>
-    <!-- 헤더 -->
-    <header style="display: flex; align-items: center; position: relative;">
-        <button onclick="window.location.href='/'" class="back-button" style="position: absolute; left: 20px;">
-            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로" style="width: 150px; height: 80px;">
-        </button>
-        <h1 style="flex: 1; text-align: center;" id="projectName"></h1>
-    </header>
+<body class="detail-dashboard">
+    <div class="app-layout">
+        <aside class="sidebar detail-sidebar" aria-label="검토 페이지 메뉴">
+            <div class="sidebar-brand">
+                <button type="button" class="back-button sidebar-home-link" onclick="window.location.href='/'" aria-label="홈으로 이동">
+                    <img src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
+                </button>
+            </div>
 
-    <!-- 탭 -->
-    <div class="tabs">
-        <button class="tablinks" onclick="openTab(event, 'Details')">상세 정보</button>
-        <button class="tablinks" onclick="openTab(event, 'Budget')">예상 진행비</button>
-    </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" onclick="openTab(event, 'Details'); return false;"><span class="nav-icon">⊞</span><span class="nav-label">상세 정보</span></a>
+                <a href="#" class="nav-item" onclick="openTab(event, 'Budget'); return false;"><span class="nav-icon">◎</span><span class="nav-label">예상 진행비</span></a>
+            </nav>
+
+            <div class="sidebar-footer"></div>
+        </aside>
+
+        <div class="page-wrapper">
+            <header class="topbar detail-topbar">
+                <div class="topbar-left">
+                    <div class="topbar-title-wrap">
+                        <button onclick="window.location.href='/'" class="back-button" aria-label="홈으로 이동">
+                            <img src="{{ url_for('static', filename='img/home.png') }}" alt="뒤로">
+                        </button>
+                        <div class="topbar-title" id="projectName"></div>
+                    </div>
+                    <div class="topbar-meta">
+                        <span>{{ examine['ContractCode'] }}</span>
+                        <span class="topbar-sep">·</span>
+                        <span>발주처: {{ examine['orderPlace'] }}</span>
+                        <span class="topbar-sep">·</span>
+                        <span>담당: {{ examine['Manager'] }}</span>
+                        <span class="topbar-sep">·</span>
+                        <span>지분율: {{ examine['ContributionRate'] }}%</span>
+                    </div>
+                </div>
+                <div class="topbar-right header-actions">
+                    <div class="detail-top-row">
+                        <button type="button" class="btn-ghost detail-list-btn" onclick="window.location.href='/go_back'">목록으로</button>
+                        <div class="detail-user-label" title="로그인 정보">
+                            <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
+                            <span class="user-sep">/</span>
+                            <span class="user-pos">{{ session['user'].get('position', session['user'].get('Position', '-')) or '-' }}</span>
+                            <span class="user-sep">/</span>
+                            <span class="user-name">{{ session['user']['name'] }}</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="tabs detail-tabs">
+                <button class="tablinks" onclick="openTab(event, 'Details')">상세 정보</button>
+                <button class="tablinks" onclick="openTab(event, 'Budget')">예상 진행비</button>
+            </div>
     <!-- JS 넘김 데이터 -->
     <input type="hidden" id="headerName" value="{{ examine['ProjectName'] }}">
     <input type="hidden" id="project-year" value="{{ examine['StartDate'].strftime('%Y') }}">
@@ -32,33 +76,65 @@
     <input type="hidden" id="BidPrice_NoVAT" value="{{ examine['BidPrice_NoVAT'] }}">
     <input type="hidden" id="sessionDep" value="{{ session['user']['department'] }}">
 
-    <div class="content">
+            <main class="dashboard-content">
+            <div class="content">
         <!-- 상세 정보 탭 -->
         <div id="Details" class="tabcontent">
-            <div class="view-mode">
-                <div class="flex-container">
-                    <div class="main-info" id="main-info">
+            {% set ex_status_raw = (examine.get('project_status', '검토') or '검토') | string | trim %}
+            {% set ex_status_label = ex_status_raw if ex_status_raw else '검토' %}
+            {% set ex_status_class = 'status-done' if '준공' in ex_status_label else ('status-stop' if '중지' in ex_status_label else 'status-progress') %}
+            {% set ex_bid_no_vat = (examine.get('BidPrice_NoVAT', 0) or 0) | float %}
+            {% set ex_rate = (examine.get('ContributionRate', 0) or 0) | float %}
+            {% set ex_share_value = (ex_bid_no_vat * ex_rate / 100.0) %}
 
-                        <div class="edit-button-group">
+            <div class="details-kpi-row kpi-strip">
+                <div class="details-kpi-card kpi-card blue kpi-blue">
+                    <div class="kpi-label">투찰금액(VAT 포함)</div>
+                    <div class="kpi-amount">{{ examine['BidPrice'] | format_currency }}<span>원</span></div>
+                    <div class="kpi-sub">투찰(VAT제외): {{ examine['BidPrice_NoVAT'] | format_currency }}원</div>
+                </div>
+                <div class="details-kpi-card kpi-card teal kpi-teal">
+                    <div class="kpi-label">당사 지분 ({{ examine['ContributionRate'] }}%)</div>
+                    <div class="kpi-amount">{{ ex_share_value | int | format_currency }}<span>원</span></div>
+                    <div class="kpi-sub">지분기준 산출값</div>
+                </div>
+                <div class="details-kpi-card kpi-card amber kpi-amber">
+                    <div class="kpi-label">발주처</div>
+                    <div class="kpi-amount">{{ examine['orderPlace'] or '-' }}</div>
+                    <div class="kpi-sub">발주처 정보</div>
+                </div>
+                <div class="details-kpi-card kpi-card red kpi-red">
+                    {% set ex_start_display = (examine['StartDate'].strftime('%Y-%m-%d') if examine['StartDate'] and examine['StartDate'].strftime is defined else (examine['StartDate'] or '-')) %}
+                    {% set ex_end_display = (examine['EndDate'].strftime('%Y-%m-%d') if examine['EndDate'] and examine['EndDate'].strftime is defined else (examine['EndDate'] or '-')) %}
+                    <div class="kpi-label">사업기간</div>
+                    <div class="kpi-amount" id="exProjectPeriodText" style="font-size: 20px;" data-start="{{ ex_start_display }}" data-end="{{ ex_end_display }}">{{ ex_start_display }} ~ {{ ex_end_display }}</div>
+                    <div class="kpi-sub" id="exProjectPeriodSub">계약일 ~ 종료일</div>
+                </div>
+            </div>
+
+            <div id="every_BTN" class="button_group action-bar" style="display: none;">
+                <button class="btn-blue" onclick="goToCloneProject()">수행사업 전환</button>
+                <button class="btn-teal" onclick="toggleEdit()">수정</button>
+            </div>
+
+            <div id="department_BTN" class="button_group action-bar" style="display: none;">
+                <button class="btn-blue" onclick="goToCloneProject()">수행사업 전환</button>
+                <button class="btn-teal" onclick="toggleEdit()">수정</button>
+                <button class="btn-red" onclick="deleteProject()">삭제</button>
+            </div>
+
+            <div class="view-mode details-structure-v2">
+                <div class="details-grid-main">
+                    <div class="main-info details-grid-content" id="main-info">
+                        <section class="detail-section-card card-overview col-2">
+
+                        <div class="edit-button-group overview-header-row">
                             <h2 style="margin: 0;">사업 개요</h2>
-
-                            <div id="every_BTN" style="display: none;">
-                                <button class="edit-button" onclick="toggleEdit()">수정</button>
-                                <button id="clone-project-btn" class="edit-button" onclick="goToCloneProject()">수행사업
-                                    전환</button>
-                            </div>
-
-                            <div id="department_BTN" style="display: none;">
-                                <button class="delete-button" onclick="deleteProject()">삭제</button>
-                                <button class="edit-button" onclick="toggleEdit()">수정</button>
-                                <button id="clone-project-btn" class="edit-button" onclick="goToCloneProject()">수행사업
-                                    전환</button>
-                            </div>
                         </div>
                         <hr style="width: 100%;">
                         <!--프로젝트 개요 영역 -->
-                        <div style="display: flex; gap: 20px; justify-content: space-between;">
-                            <div style="width: 50%;">
+                        <div class="project-summary-wrap">
+                            <div class="project-summary-table-wrap">
                                 <table class="custom-table">
                                     <thead>
                                         <tr>
@@ -121,11 +197,7 @@
                                             <td>지분율</td>
                                             <td id="ContributionRate">{{ examine['ContributionRate'] }}%</td>
                                         </tr>
-                                        <tr>
-
-
-                                        </tr>
-                                        <tr>
+                                        <tr class="project-file-raw-row">
                                             <td>관련 파일</td>
                                             <td id="file_list" style="text-align: left;">
                                                 <div class="file-upload-container"
@@ -154,9 +226,9 @@
                                             </td>
                                         </tr>
 
-                                        <tr>
+                                        <tr class="project-reference-raw-row">
                                             <td>참조사업</td>
-                                            <td style="text-align: left;">
+                                            <td id="projectReferenceRaw" style="text-align: left;">
                                                 {% for i in range(1, 6) %}
                                                 {% set code = examine['referenceProject' + i|string] %}
                                                 {% if code and reference_projects.get(code) %}
@@ -171,148 +243,222 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div style="width: 50%;">
-                                <table class="custom-table">
-                                    <thead>
-                                        <th style="width: 30%;">구분</th>
-                                        <th>내용</th>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>프로젝트 개요</td>
-                                            <td style="text-align: left; overflow-y: auto; display: block;">
-                                                {{ examine['ProjectDetails'].replace('\n','<br>')|safe }}</td>
-                                        </tr>
-
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
-                        <div>
-                            <div class="edit-button-group" style="margin-bottom: 0px;">
-                                <h2 style="margin: 0;">검토사안</h2>
-                                <div
-                                    style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 10px;">
-                                    <button class="btn btn-primary" onclick="saveNote()">저장</button>
-                                    <button id="addNoteRow" class="add-row-btn addRowBTN"
-                                        data-target="Dep_fir_Budget_tbody">+</button>
-                                    <button id="removeNoteRow" class="remove-row-btn removeRowBTN"
-                                        data-target="Dep_fir_Budget_tbody">-</button>
-                                </div>
-                            </div>
-                            <hr>
-                            <table class="custom-table" style="width: 100%;">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 20%;">부서명</td>
-                                        <th>내 용</td>
-                                    </tr>
-                                </thead>
-                                <tbody id="note_tbody">
-                                    {% if note and note|length > 0 %}
-                                    {% for row in note %}
-                                    <tr>
-                                        <td class="note" onclick="inputText(this, 'note')">{{ row['department'] }}</td>
-                                        <td class="note" onclick="inputText(this, 'note')">{{ row['note'] }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% else %}
-                                    <script>
-                                        document.addEventListener('DOMContentLoaded', function () {
-                                            addRows('note_tbody', 1);
-                                        });
-                                    </script>
-                                    {% endif %}
-                                </tbody>
-                            </table>
+                        </section>
+                    </div>
+                    <div class="right-column details-grid-content" id="right-column">
+                        <section class="detail-section-card card-files">
+                            <h2>관련파일</h2>
+                            <hr style="margin-bottom: 14px;">
+                            <div id="separatedFileArea"></div>
+                        </section>
+                    </div>
+                </div>
+
+                <section class="detail-section-card card-project-overview col-3">
+                    <h2>사업 개요</h2>
+                    <hr style="margin-bottom: 14px;">
+                    <div id="projectDetailsRaw" style="display: none;">{{ examine['ProjectDetails'].replace('\n','<br>')|safe }}</div>
+                    <div id="projectOverviewCards" class="project-overview-cards"></div>
+                </section>
+
+                <section class="detail-section-card card-note">
+                    <div class="edit-button-group" style="margin-bottom: 0px;">
+                        <h2 style="margin: 0;">검토사안</h2>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 10px;">
+                            <button class="btn btn-primary" onclick="saveNote()">저장</button>
+                            <button id="addNoteRow" class="add-row-btn addRowBTN" data-target="note_tbody">+</button>
+                            <button id="removeNoteRow" class="remove-row-btn removeRowBTN" data-target="note_tbody">-</button>
                         </div>
                     </div>
-                    <div class="right-column" id="right-column" style="display: flex; justify-content: space-between;">
-                        <div class="right-top " style="max-width: 48%;">
+                    <hr>
+                    <table class="custom-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%;">부서명</th>
+                                <th>내 용</th>
+                            </tr>
+                        </thead>
+                        <tbody id="note_tbody">
+                            {% if note and note|length > 0 %}
+                            {% for row in note %}
+                            <tr>
+                                <td class="note" onclick="inputText(this, 'note')">{{ row['department'] }}</td>
+                                <td class="note" onclick="inputText(this, 'note')">{{ row['note'] }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <script>
+                                document.addEventListener('DOMContentLoaded', function () {
+                                    addRows('note_tbody', 1);
+                                });
+                            </script>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </section>
+
+                <div class="grid-label section-finance-label">재무 관리</div>
+
+                <div class="detail-subgrid-2 details-grid-flat">
+                    <section class="right-top detail-section-card card-expected">
+                        <div class="section-title-row">
                             <h2>직영 예상 사업수행비 현황</h2>
-                            <!-- 사전비용 -->
-                            <input type="hidden" id="AcademicResearchRate"
-                                value="{{ examine['AcademicResearchRate'] }}">
-                            <!-- 운영비용 -->
-                            <input type="hidden" id="OperationalRate" value="{{ examine['OperationalRate'] }}">
-                            <!-- 공정비용 -->
-                            <input type="hidden" id="EquipmentRate" value="{{ examine['EquipmentRate'] }}">
-                            <hr style="margin-bottom: 20px;">
+                            <div class="section-title-actions">
+                                <button type="button" class="info-button section-standard-btn section-input-status-btn" onclick="openExamineInputStatus('expected')">투입현황</button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="AcademicResearchRate" value="{{ examine['AcademicResearchRate'] }}">
+                        <input type="hidden" id="OperationalRate" value="{{ examine['OperationalRate'] }}">
+                        <input type="hidden" id="EquipmentRate" value="{{ examine['EquipmentRate'] }}">
+                        <hr style="margin-bottom: 20px;">
 
-                            <table class="custom-table" id="EX_fee_table">
+                        <table class="custom-table" id="EX_fee_table">
+                            <thead></thead>
+                            <tbody id="EX_fee_tbody"></tbody>
+                        </table>
+
+                        <div class="get_flex-container input-status-source">
+                            <table class="custom-table no_wrap" style="margin-bottom: 50px; display: none;">
                                 <thead>
+                                    <tr>
+                                        <th style="width: 150px;">직급</th>
+                                        <th style="width: 100px;">인원</th>
+                                        <th style="width: 120px;">투입일자</th>
+                                        <th style="width: 120px;">투입인력</th>
+                                        <th style="width: 200px;">합계</th>
+                                    </tr>
                                 </thead>
-                                <tbody id="EX_fee_tbody">
-                                </tbody>
+                                <tbody id="budget_result_tbody"></tbody>
                             </table>
+                            <table class="custom-table" style="margin-bottom: 50px; display: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 100px;">경비</th>
+                                        <th style="width: 150px;">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="record_result_tbody"></tbody>
+                            </table>
+                        </div>
+                    </section>
 
-                            <!-- 예상진행비 요약 합산 테이블 -->
-                            <div class="get_flex-container">
-                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 150px;">직급</th>
-                                            <th style="width: 100px;">인원</th>
-                                            <th style="width: 120px;">투입일자</th>
-                                            <th style="width: 120px;">투입인력</th>
-                                            <th style="width: 200px;">합계</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="budget_result_tbody">
-                                    </tbody>
-                                </table>
-                                <table class="custom-table" style="margin-bottom: 50px;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 100px;">경비</th>
-                                            <th style="width: 150px;">금액</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="record_result_tbody">
-                                    </tbody>
-                                </table>
+                    <section class="right-bottom detail-section-card card-actual">
+                        <div class="section-title-row">
+                            <h2>외주 예상 사업수행비 현황</h2>
+                            <div class="section-title-actions">
+                                <button type="button" class="info-button section-standard-btn section-input-status-btn" onclick="openExamineInputStatus('outsource')">투입현황</button>
                             </div>
                         </div>
 
-
-
-                        <div class="right-bottom" style="max-width: 48%;">
-                            <h2>외주 예상 사업수행비 현황</h2>
-
-                            <hr style="margin-bottom: 20px;">
-                            <table class="custom-table" id="out_fee_table">
+                        <hr style="margin-bottom: 20px;">
+                        <table class="custom-table" id="out_fee_table">
+                            <thead></thead>
+                            <tbody id="out_fee_tbody"></tbody>
+                        </table>
+                        <div class="get_flex-container input-status-source">
+                            <table class="custom-table no_wrap" style="margin-bottom: 50px; display: none;">
                                 <thead>
-
+                                    <tr>
+                                        <th style="width: 150px;">직급</th>
+                                        <th style="width: 100px;">인원</th>
+                                        <th style="width: 120px;">투입일자</th>
+                                        <th style="width: 120px;">투입인력</th>
+                                        <th style="width: 200px;">합계</th>
+                                    </tr>
                                 </thead>
-                                <tbody id="out_fee_tbody">
-
-                                </tbody>
+                                <tbody id="out_budget_result_tbody"></tbody>
                             </table>
-                            <div class="get_flex-container">
-                                <table class="custom-table no_wrap" style="margin-bottom: 50px;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 150px;">직급</th>
-                                            <th style="width: 100px;">인원</th>
-                                            <th style="width: 120px;">투입일자</th>
-                                            <th style="width: 120px;">투입인력</th>
-                                            <th style="width: 200px;">합계</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="out_budget_result_tbody">
-                                    </tbody>
-                                </table>
-                                <table class="custom-table" style="margin-bottom: 50px;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 100px;">경비</th>
-                                            <th style="width: 150px;">금액</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="out_record_result_tbody">
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table class="custom-table" style="margin-bottom: 50px; display: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 100px;">경비</th>
+                                        <th style="width: 150px;">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="out_record_result_tbody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="modal_examineInputStatus" class="modal" onclick="if(event.target===this) closeExamineInputStatusModal()">
+                <div class="modal-content input-status-modal-content expected-input-status-modal-content">
+                    <span class="modal_close" onclick="closeExamineInputStatusModal()">&times;</span>
+                    <h2 id="examineInputStatusTitle" style="margin-bottom: 0;">예상 진행비 투입현황</h2>
+                    <hr class="input-status-title-hr">
+                    <div class="modal-body">
+                        <div class="input-status-dual-grid">
+                            <section class="input-status-panel">
+                                <div class="input-status-panel-title">직영 예상진행비</div>
+                                <div class="input-status-stack">
+                                    <div class="input-status-label">인건비</div>
+                                    <table class="custom-table no_wrap">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 150px;">직급</th>
+                                                <th style="width: 100px;">인원</th>
+                                                <th style="width: 120px;">투입일자</th>
+                                                <th style="width: 120px;">투입인력</th>
+                                                <th style="width: 200px;">합계</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="examine_direct_input_status_budget_tbody"></tbody>
+                                    </table>
+
+                                    <hr class="input-status-divider">
+                                    <div class="input-status-label">경비</div>
+                                    <table class="custom-table input-status-expense-table">
+                                        <colgroup>
+                                            <col style="width: 150px;">
+                                            <col>
+                                        </colgroup>
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 150px;">경비</th>
+                                                <th style="width: 150px;">금액</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="examine_direct_input_status_record_tbody"></tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            <section class="input-status-panel">
+                                <div class="input-status-panel-title">외주 예상진행비</div>
+                                <div class="input-status-stack">
+                                    <div class="input-status-label">인건비</div>
+                                    <table class="custom-table no_wrap">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 150px;">직급</th>
+                                                <th style="width: 100px;">인원</th>
+                                                <th style="width: 120px;">투입일자</th>
+                                                <th style="width: 120px;">투입인력</th>
+                                                <th style="width: 200px;">합계</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="examine_out_input_status_budget_tbody"></tbody>
+                                    </table>
+
+                                    <hr class="input-status-divider">
+                                    <div class="input-status-label">경비</div>
+                                    <table class="custom-table input-status-expense-table">
+                                        <colgroup>
+                                            <col style="width: 150px;">
+                                            <col>
+                                        </colgroup>
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 150px;">경비</th>
+                                                <th style="width: 150px;">금액</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="examine_out_input_status_record_tbody"></tbody>
+                                    </table>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </div>
@@ -1051,9 +1197,9 @@
             </div>
 
         </div>
-    </div>
-
-    </div>
+            </div>
+            </main>
+        </div>
     </div>
 
 
@@ -1143,10 +1289,188 @@
 </body>
 <script>
 
+    function renderExamineProjectPeriod() {
+        const periodEl = document.getElementById('exProjectPeriodText');
+        if (!periodEl) return;
+
+        const startRaw = (periodEl.dataset.start || '').trim();
+        const endRaw = (periodEl.dataset.end || '').trim();
+        if (!startRaw || !endRaw || startRaw === '-' || endRaw === '-') return;
+
+        const parseDate = (value) => {
+            const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return null;
+            const y = Number(m[1]);
+            const mo = Number(m[2]) - 1;
+            const d = Number(m[3]);
+            const dt = new Date(y, mo, d);
+            return Number.isNaN(dt.getTime()) ? null : dt;
+        };
+
+        const startDate = parseDate(startRaw);
+        const endDate = parseDate(endRaw);
+        if (!startDate || !endDate) return;
+
+        const diffDays = Math.floor((endDate - startDate) / 86400000) + 1;
+        if (diffDays > 0) {
+            periodEl.textContent = `${startRaw} ~ ${endRaw} (${diffDays}일)`;
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
-        document.getElementsByClassName("tablinks")[0].click();
-        document.getElementsByClassName("ex_tablinks")[0].click();
+        const mainTab = document.getElementsByClassName("tablinks")[0];
+        if (mainTab) mainTab.click();
+
+        const exTab = document.getElementsByClassName("ex_tablinks")[0];
+        if (exTab) exTab.click();
+        renderExamineProjectPeriod();
+
+        const fileSource = document.querySelector('.project-file-raw-row #file_list');
+        const fileTarget = document.getElementById('separatedFileArea');
+        const fileRow = document.querySelector('.project-file-raw-row');
+        if (fileSource && fileTarget) {
+            while (fileSource.firstChild) {
+                fileTarget.appendChild(fileSource.firstChild);
+            }
+        }
+        if (fileRow) fileRow.style.display = 'none';
+
+        const refRow = document.querySelector('.project-reference-raw-row');
+        if (refRow) refRow.style.display = 'none';
+
+        buildProjectOverviewCards();
+
+        bindFinanceHover();
     });
+
+    function buildProjectOverviewCards() {
+        const source = document.getElementById('projectDetailsRaw');
+        const target = document.getElementById('projectOverviewCards');
+        if (!source || !target) return;
+
+        const htmlText = (source.innerHTML || '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/&nbsp;/gi, ' ');
+
+        const parser = document.createElement('div');
+        parser.innerHTML = htmlText;
+
+        const normalized = (parser.textContent || '')
+            .replace(/\r/g, '\n')
+            .replace(/(^|[^\d])(\d{1,2}\.)\s*(?=[가-힣A-Za-z(])/g, (_, prefix, num) => `${prefix}\n${num} `)
+            .replace(/^\s*\n/, '');
+
+        const lines = normalized
+            .split('\n')
+            .map(v => v.trim())
+            .filter(Boolean);
+
+        const sections = [];
+        let current = null;
+
+        lines.forEach((line) => {
+            const titleMatch = line.match(/^(\d+\.)\s*(.+)$/);
+            if (titleMatch) {
+                current = { title: `${titleMatch[1]} ${titleMatch[2]}`, body: [] };
+                sections.push(current);
+                return;
+            }
+
+            if (!current) return;
+            const bulletMatch = line.match(/^[-•]\s*(.+)$/);
+            if (bulletMatch) {
+                current.body.push(bulletMatch[1].trim());
+            } else if (current.body.length > 0) {
+                current.body[current.body.length - 1] += ` ${line}`;
+            } else {
+                current.body.push(line);
+            }
+        });
+
+        if (!sections.length) {
+            target.innerHTML = `<div class="overview-card"><h3>개요</h3><p>${lines.join('<br>') || '-'}</p></div>`;
+            return;
+        }
+
+        target.innerHTML = sections.map((section) => {
+            const content = section.body.length ? section.body.map(v => `<li>${v}</li>`).join('') : '<li>-</li>';
+            return `
+                <article class="overview-card">
+                    <h3>${section.title}</h3>
+                    <ul>${content}</ul>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function cloneRowsToExamineModal(sourceTbodyId, targetTbodyId) {
+        const source = document.getElementById(sourceTbodyId);
+        const target = document.getElementById(targetTbodyId);
+        if (!target) return;
+
+        target.innerHTML = '';
+        if (!source || !source.children.length) {
+            const emptyRow = document.createElement('tr');
+            const emptyCell = document.createElement('td');
+            emptyCell.colSpan = 8;
+            emptyCell.textContent = '데이터가 없습니다.';
+            emptyCell.style.textAlign = 'center';
+            emptyCell.style.color = '#64748b';
+            emptyRow.appendChild(emptyCell);
+            target.appendChild(emptyRow);
+            return;
+        }
+
+        Array.from(source.children).forEach((row) => {
+            target.appendChild(row.cloneNode(true));
+        });
+    }
+
+    function openExamineInputStatus(type) {
+        const title = document.getElementById('examineInputStatusTitle');
+        if (title) {
+            title.textContent = '예상 진행비 투입현황';
+        }
+
+        cloneRowsToExamineModal('budget_result_tbody', 'examine_direct_input_status_budget_tbody');
+        cloneRowsToExamineModal('record_result_tbody', 'examine_direct_input_status_record_tbody');
+        cloneRowsToExamineModal('out_budget_result_tbody', 'examine_out_input_status_budget_tbody');
+        cloneRowsToExamineModal('out_record_result_tbody', 'examine_out_input_status_record_tbody');
+
+        const modal = document.getElementById('modal_examineInputStatus');
+        if (modal) {
+            modal.classList.add('show');
+            document.body.classList.add('modal-open');
+        }
+    }
+
+    function closeExamineInputStatusModal() {
+        const modal = document.getElementById('modal_examineInputStatus');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        const openedModals = document.querySelectorAll('.modal.show');
+        if (!openedModals.length) {
+            document.body.classList.remove('modal-open');
+        }
+    }
+
+    function bindFinanceHover() {
+        const bindOne = (tableId) => {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach((row) => {
+                const text = (row.textContent || '').replace(/\s+/g, '');
+                if (text.includes('자체인건비')) row.classList.add('hover-budget-row');
+                if (text.includes('자체경비')) row.classList.add('hover-expense-row');
+            });
+        };
+        bindOne('EX_fee_table');
+        bindOne('out_fee_table');
+    }
+
+    window.bindFinanceHover = bindFinanceHover;
 
     const firstRecords = JSON.parse('{{ first_records | tojson | safe }}');
     const secondRecords = JSON.parse('{{ second_records | tojson | safe }}');

@@ -1,4 +1,4 @@
-/* layout button style */
+﻿/* layout button style */
 #edit-buttons {
     display: none;
     gap: 10px;
@@ -30,7 +30,7 @@
     color: #fff;
 }
 
-/* 기존 스타일 유지 */
+/* 湲곗〈 ?ㅽ????좎? */
 body {
     font-family: 'Arial', sans-serif;
     background: #f4f4f4;
@@ -41,7 +41,7 @@ body {
 
 body::-webkit-scrollbar {
     display: none;
-    /* 웹킷 기반 브라우저에서 스크롤바를 숨깁니다. */
+    /* ?뱁궥 湲곕컲 釉뚮씪?곗??먯꽌 ?ㅽ겕濡ㅻ컮瑜??④퉩?덈떎. */
 }
 
 header {
@@ -55,7 +55,7 @@ header {
 .tabs {
     display: flex;
     justify-content: flex-start;
-    /* 버튼들 간의 공간 분배 */
+    /* 踰꾪듉??媛꾩쓽 怨듦컙 遺꾨같 */
     background-color: #f1f1f1;
 }
 
@@ -65,7 +65,7 @@ header {
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
+
     background-color: inherit;
     margin-right: 5px;
     border-bottom: 3px solid transparent;
@@ -73,19 +73,18 @@ header {
 
 .quantity-btn-container {
     display: flex;
-    margin-left: auto;  /* 오른쪽 끝으로 이동 */
+    margin-left: auto;  /* ?ㅻⅨ履??앹쑝濡??대룞 */
 }
 
 .quantity-btn {
-    margin-left: 5px; /* 두 버튼 사이 간격 */
+    margin-left: 5px; /* ??踰꾪듉 ?ъ씠 媛꾧꺽 */
     margin-right: 0;
     border: none;
     outline: none;
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
-    /* background-color: inherit; */
+
     border-bottom: 3px solid transparent;
 }
 
@@ -142,7 +141,7 @@ header {
     margin-bottom: 12px;
 }
 
-/* 라이트 컬럼 스타일 */
+/* ?쇱씠??而щ읆 ?ㅽ???*/
 .right-column {
     background: #FFFFFF;
     padding: 20px;
@@ -163,7 +162,7 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 #Department_first:not(.div_active),
 #Department_second:not(.div_active),
@@ -181,7 +180,7 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 
 #outsource_dept {
@@ -193,12 +192,12 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 
 #Department_first table {
     width: 100%;
-    /* 시연시 테이블 형태 시 수정 */
+    /* ?쒖뿰???뚯씠釉??뺥깭 ???섏젙 */
     /* table-layout: fixed;  */
     white-space: nowrap;
 }
@@ -206,9 +205,9 @@ header {
 
 #Department_first.full-width {
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     flex: 1;
 }
 
@@ -221,21 +220,21 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 
 #Department_second table {
     width: 100%;
-    /* 시연시 테이블 형태 시 수정 */
+    /* ?쒖뿰???뚯씠釉??뺥깭 ???섏젙 */
     /* table-layout: fixed;  */
     white-space: nowrap;
 }
 
 #Department_second.full-width {
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     flex: 1;
 }
 
@@ -248,12 +247,12 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 
 #clone_Department_first table {
     width: 100%;
-    /* 시연시 테이블 형태 시 수정 */
+    /* ?쒖뿰???뚯씠釉??뺥깭 ???섏젙 */
     /* table-layout: fixed;  */
     white-space: nowrap;
 }
@@ -261,9 +260,9 @@ header {
 
 #clone_Department_first.full-width {
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     flex: 1;
 }
 
@@ -276,21 +275,21 @@ header {
     position: relative;
     display: block;
     max-width: 100%;
-    /* 부모 div의 최대 너비를 설정 */
+    /* 遺紐?div??理쒕? ?덈퉬瑜??ㅼ젙 */
 }
 
 #clone_Department_second table {
     width: 100%;
-    /* 시연시 테이블 형태 시 수정 */
+    /* ?쒖뿰???뚯씠釉??뺥깭 ???섏젙 */
     /* table-layout: fixed;  */
     white-space: nowrap;
 }
 
 #clone_Department_second.full-width {
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     flex: 1;
 }
 
@@ -318,9 +317,9 @@ header {
     position: relative;
     display: block;
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
 }
 
 #Graph_DIV {
@@ -333,9 +332,9 @@ header {
     position: relative;
     display: block;
     min-width: 48%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     min-height: 800px;
 }
 
@@ -360,7 +359,7 @@ header {
 }
 
 
-/* 라이트 컬럼 스타일 */
+/* ?쇱씠??而щ읆 ?ㅽ???*/
 #right-column-get {
     background: #FFFFFF;
     padding: 20px;
@@ -373,13 +372,13 @@ header {
 
 #right-column-get.full-width {
     width: 100%;
-    /* 부모의 너비에 맞추기 */
+    /* 遺紐⑥쓽 ?덈퉬??留욎텛湲?*/
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
     flex: 1;
 }
 
-/* 기본 테이블 스타일 */
+/* 湲곕낯 ?뚯씠釉??ㅽ???*/
 .custom-table {
     width: 100%;
     max-width: 100%;
@@ -388,7 +387,7 @@ header {
 
 }
 
-/* 스타일 시트에 추가 */
+/* ?ㅽ????쒗듃??異붽? */
 td.multiline {
     white-space: pre-line;
 }
@@ -399,11 +398,11 @@ td.multiline {
     padding: 8px;
     text-align: center;
     white-space: nowrap;
-    /* 줄넘김을 방지하는 스타일 */
+    /* 以꾨꽆源??諛⑹??섎뒗 ?ㅽ???*/
 }
 
 #project_receipt_tbody tr {
-    height: 40px; /* 기존 선금 행의 높이와 동일한 크기로 설정 */
+    height: 40px; /* 湲곗〈 ?좉툑 ?됱쓽 ?믪씠? ?숈씪???ш린濡??ㅼ젙 */
 }
 
 .custom-table th {
@@ -419,7 +418,7 @@ td.multiline {
     background-color: #f9f9f9;
 }
 
-/* 테이블 헤더 색상 및 글꼴 굵기 */
+/* ?뚯씠釉??ㅻ뜑 ?됱긽 諛?湲瑗?援듦린 */
 .custom-table thead th {
     background-color: #e9ecea;
     color: black;
@@ -427,28 +426,28 @@ td.multiline {
 
 .no_wrap{
     white-space: nowrap;
-    /* 줄넘김을 방지하는 스타일 */
+    /* 以꾨꽆源??諛⑹??섎뒗 ?ㅽ???*/
 }
 
 .table-container {
-    width: 100%; /* 부모 크기에 맞춤 */
-    overflow-x: auto; /* 가로 스크롤 활성화 */
-    white-space: nowrap; /* 테이블이 한 줄로 유지됨 */
+    width: 100%; /* 遺紐??ш린??留욎땄 */
+    overflow-x: auto; /* 媛濡??ㅽ겕濡??쒖꽦??*/
+    white-space: nowrap; /* ?뚯씠釉붿씠 ??以꾨줈 ?좎???*/
 }
 
 
 .wrap-text {
-    word-break: break-all;  /* 너무 긴 단어(숫자)도 줄바꿈 */
-    overflow-wrap: break-word;  /* 강제 줄바꿈 */
-    white-space: normal;  /* 자동 줄바꿈 활성화 */
-    max-width: 150px;  /* 셀의 최대 너비 설정 */
+    word-break: break-all;  /* ?덈Т 湲??⑥뼱(?レ옄)??以꾨컮轅?*/
+    overflow-wrap: break-word;  /* 媛뺤젣 以꾨컮轅?*/
+    white-space: normal;  /* ?먮룞 以꾨컮轅??쒖꽦??*/
+    max-width: 150px;  /* ???理쒕? ?덈퉬 ?ㅼ젙 */
 }
 
 h2 {
     margin-top: 20px;
 }
 
-/* 탭 스타일 */
+/* ???ㅽ???*/
 .tabs {
     overflow: hidden;
     background-color: #f1f1f1;
@@ -463,7 +462,7 @@ h2 {
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
+
     border: 1px solid #949494;
     /* border-radius: 10px; */
     border-bottom: none;
@@ -491,7 +490,7 @@ h2 {
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
+
     border: 1px solid #949494;
     /* border-radius: 10px; */
     border-bottom: none;
@@ -511,7 +510,7 @@ h2 {
     border: 1px solid #ccc;
     border-top: none;
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
 }
 
 .ex_tabcontent {
@@ -520,10 +519,10 @@ h2 {
     border: 1px solid #ccc;
     border-top: none;
     box-sizing: border-box;
-    /* padding을 포함한 너비 계산 */
+    /* padding???ы븿???덈퉬 怨꾩궛 */
 }
 
-/* 버튼 스타일 */
+/* 踰꾪듉 ?ㅽ???*/
 #class_edit {
     padding: 8px 16px;
     background-color: #007bff;
@@ -598,7 +597,7 @@ h2 {
     background-color: #91b997;
 }
 
-/* 월별 버튼 컨테이너 스타일 수정 */
+/* ?붾퀎 踰꾪듉 而⑦뀒?대꼫 ?ㅽ????섏젙 */
 .month-buttons {
     display: flex;
     gap: 8px;
@@ -610,7 +609,7 @@ h2 {
     justify-content: center;
 }
 
-/* 월별 버튼 스타일 수정 */
+/* ?붾퀎 踰꾪듉 ?ㅽ????섏젙 */
 .month-btn {
     padding: 8px 20px;
     border: 1px solid #e9ecef;
@@ -618,7 +617,7 @@ h2 {
     background: white;
     color: #495057;
     cursor: pointer;
-    font-size: 14px;
+
     font-weight: 500;
     transition: all 0.2s ease;
     min-width: 80px;
@@ -636,7 +635,7 @@ h2 {
     border-color: #339af0;
     box-shadow: 0 2px 4px rgba(51, 154, 240, 0.2);
 }
-/* 폼 스타일 */
+/* ???ㅽ???*/
 form label {
     display: block;
     margin: 10px 0 5px;
@@ -698,7 +697,7 @@ form button[type="button"]:hover {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+
 }
 
 .edit-button:hover {
@@ -760,7 +759,7 @@ button[type="submit"]:hover {
     background-color: white;
 }
 
-/* 테이블 내 링크 스타일 */
+/* ?뚯씠釉???留곹겕 ?ㅽ???*/
 td a {
     color: #007bff;
     text-decoration: none;
@@ -784,13 +783,13 @@ td a:hover {
     margin-bottom: 10px;
 }
 
-/* 버튼 스타일 */
+/* 踰꾪듉 ?ㅽ???*/
 .button-container {
 
     height: 50px;
     width: 200px;
     margin-top: 20px;
-    /* 필요시 조정 */
+    /* ?꾩슂??議곗젙 */
 }
 
 .button-container button {
@@ -877,15 +876,15 @@ td a:hover {
     border: none;
     outline: none;
     text-align: center;
-    /* 텍스트 가로 정렬 */
+    /* ?띿뒪??媛濡??뺣젹 */
     line-height: normal;
-    /* 텍스트 세로 정렬 */
+    /* ?띿뒪???몃줈 ?뺣젹 */
     vertical-align: middle;
-    /* 텍스트 세로 정렬 */
+    /* ?띿뒪???몃줈 ?뺣젹 */
 }
 
 /* ============================================================ */
-/* 공통 스타일 */
+/* 怨듯넻 ?ㅽ???*/
 .header-container {
     display: flex;
     align-items: center;
@@ -896,14 +895,14 @@ td a:hover {
 .header-text {
     margin: 0;
     padding: 0;
-    font-size: 24px;
+
     height: 30px;
     line-height: 30px;
 }
 
 .header-input {
     display: none;
-    font-size: 24px;
+
 }
 
 .editing .header-text {
@@ -915,30 +914,30 @@ td a:hover {
 }
 
 .specific-table th:nth-child(1),
-/* 항목 */
+/* ??ぉ */
 .specific-table th:nth-child(2),
-/* 인원수 */
+/* ?몄썝??*/
 .specific-table th:nth-child(3)
 
-/* 횟수 */
+/* ?잛닔 */
     {
     width: 8%;
 }
 
 .specific-table th:nth-child(4),
-/* 단가 */
+/* ?④? */
 .specific-table th:nth-child(5)
 
-/* 금액 */
+/* 湲덉븸 */
     {
     width: 15%;
 }
 
 .specific-table th:nth-child(6),
-/* 내용 */
+/* ?댁슜 */
 .specific-table th:nth-child(7)
 
-/* 그룹 */
+/* 洹몃９ */
     {
     width: 20%;
 }
@@ -952,30 +951,30 @@ input[type=number]::-webkit-outer-spin-button {
 
 .half-width {
     width: 50%;
-    /* 셀의 너비를 50%로 설정 */
+    /* ????덈퉬瑜?50%濡??ㅼ젙 */
     text-align: center;
-    /* 가운데 정렬 */
+    /* 媛?대뜲 ?뺣젹 */
 
 }
 
 input[readonly] {
     background-color: #e9ecef;
-    /* 읽기 전용 필드의 배경색 변경 */
+    /* ?쎄린 ?꾩슜 ?꾨뱶??諛곌꼍??蹂寃?*/
     color: #495057;
-    /* 텍스트 색상 변경 */
+    /* ?띿뒪???됱긽 蹂寃?*/
     cursor: not-allowed;
-    /* 마우스 오버 시 커서 변경 */
+    /* 留덉슦???ㅻ쾭 ??而ㅼ꽌 蹂寃?*/
 }
 
-/* 서브탭 공통 스타일 */
-/* 부서 탭 버튼 스타일 */
+/* ?쒕툕??怨듯넻 ?ㅽ???*/
+/* 遺????踰꾪듉 ?ㅽ???*/
 .sub_tablinks {
     border: none;
     outline: none;
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
+
     background-color: inherit;
     border-bottom: 3px solid transparent;
 }
@@ -987,7 +986,7 @@ input[readonly] {
     cursor: pointer;
     padding: 14px 16px;
     transition: 0.3s;
-    font-size: 17px;
+
     border-bottom: 3px solid transparent;
 }
 
@@ -995,7 +994,7 @@ input[readonly] {
     background-color: #ddd;
 }
 
-/* 클릭한 버튼이 눌린 상태를 유지하기 위한 스타일 */
+/* ?대┃??踰꾪듉???뚮┛ ?곹깭瑜??좎??섍린 ?꾪븳 ?ㅽ???*/
 .sub-tab button.active {
     background-color: #ccc;
     border-bottom: 3px solid #007bff;
@@ -1020,33 +1019,33 @@ input[readonly] {
     margin-right: 30px;
 }
 
-/* 기본 select 스타일 */
+/* 湲곕낯 select ?ㅽ???*/
 select {
     appearance: none;
-    /* 기본 브라우저 스타일 제거 */
+    /* 湲곕낯 釉뚮씪?곗? ?ㅽ????쒓굅 */
     -webkit-appearance: none;
     -moz-appearance: none;
     border: none;
     background-color: transparent;
-    font-size: 16px;
+
     text-align: center;
     padding: 0;
-    /* 오른쪽에 여백을 줄이기 위해 패딩 조정 */
+    /* ?ㅻⅨ履쎌뿉 ?щ갚??以꾩씠湲??꾪빐 ?⑤뵫 議곗젙 */
     width: 100%;
     background-image: url('data:image/svg+xml;charset=US-ASCII,<svg%20xmlns="http://www.w3.org/2000/svg"%20viewBox="0%200%204%205"><path%20fill="none"%20stroke="%23000"%20stroke-width="1"%20d="M0%200L2%202L4%200"/></svg>');
     background-repeat: no-repeat;
     background-position: right 5px center;
-    /* 화살표 위치를 텍스트 가까이 조정 */
+    /* ?붿궡???꾩튂瑜??띿뒪??媛源뚯씠 議곗젙 */
     background-size: 8px 10px;
     height: 30px;
-    /* 높이는 size 속성에 따라 자동 설정 */
+    /* ?믪씠??size ?띿꽦???곕씪 ?먮룞 ?ㅼ젙 */
     overflow-y: auto;
-    /* 세로 스크롤바 표시 */
+    /* ?몃줈 ?ㅽ겕濡ㅻ컮 ?쒖떆 */
 }
 
 select option:nth-child(even) {
     background-color: #f2f2f2;
-    /* 회색 배경 */
+    /* ?뚯깋 諛곌꼍 */
 }
 
 .header-select {
@@ -1054,7 +1053,7 @@ select option:nth-child(even) {
     -webkit-appearance: none;
     -moz-appearance: none;
     background-color: transparent;
-    font-size: 16px;
+
     text-align: center;
     padding: 0;
     width: 100%;
@@ -1064,7 +1063,7 @@ select option:nth-child(even) {
     background-size: 8px 10px;
     height: 30px;
     overflow-y: auto;
-    border: 1px solid #ced4da !important; /* !important를 사용하여 우선순위 강제 적용 */
+    border: 1px solid #ced4da !important; /* !important瑜??ъ슜?섏뿬 ?곗꽑?쒖쐞 媛뺤젣 ?곸슜 */
     border-radius: 4px;
 }
 
@@ -1072,12 +1071,12 @@ select option:nth-child(even) {
     background-color: #f2f2f2;
 }
 
-/* hover 효과도 추가 */
+/* hover ?④낵??異붽? */
 .header-select:hover {
     border-color: #adb5bd !important;
 }
 
-/* focus 효과도 추가 */
+/* focus ?④낵??異붽? */
 .header-select:focus {
     border-color: #80bdff !important;
     outline: 0;
@@ -1087,18 +1086,18 @@ select option:nth-child(even) {
 .header-text {
     text-align: center;
     position: relative;
-    /* 상대적 위치 지정 */
+    /* ?곷????꾩튂 吏??*/
 }
 
 .button-wrapper {
     position: absolute;
-    /* 절대 위치 */
+    /* ?덈? ?꾩튂 */
     right: 10px;
-    /* 오른쪽 정렬 */
+    /* ?ㅻⅨ履??뺣젹 */
     top: 50%;
-    /* 가운데 정렬을 위한 top 50% */
+    /* 媛?대뜲 ?뺣젹???꾪븳 top 50% */
     transform: translateY(-50%);
-    /* 세로 가운데 정렬 */
+    /* ?몃줈 媛?대뜲 ?뺣젹 */
 }
 
 .header_section {
@@ -1116,7 +1115,7 @@ select option:nth-child(even) {
     padding: 5px 10px;
     margin-left: 5px;
     cursor: pointer;
-    font-size: 16px;
+
 }
 
 .remove-row-btn {
@@ -1138,7 +1137,7 @@ select option:nth-child(even) {
     opacity: 0.8;
 }
 
-/* 모달 창 배경 스타일 */
+/* 紐⑤떖 李?諛곌꼍 ?ㅽ???*/
 .modal {
     display: none;
     position: fixed;
@@ -1152,13 +1151,13 @@ select option:nth-child(even) {
     background-color: rgba(0, 0, 0, 0.4);
 }
 
-/* 모달이 열리면 body 스크롤 막기 */
+/* 紐⑤떖???대━硫?body ?ㅽ겕濡?留됯린 */
 body.modal-open {
     overflow: hidden;
 }
 
 .modal-content {
-    position: relative; /* 닫기 버튼을 모달 창 내에서 정렬 */
+    position: relative; /* ?リ린 踰꾪듉??紐⑤떖 李??댁뿉???뺣젹 */
     display: flex;
     flex-direction: column;
     height: 700px;
@@ -1172,7 +1171,7 @@ body.modal-open {
     border-radius: 10px;
 }
 
-/* 모달 바디 스크롤 */
+/* 紐⑤떖 諛붾뵒 ?ㅽ겕濡?*/
 .modal-body {
     flex-grow: 1;
     overflow-y: auto;
@@ -1182,7 +1181,7 @@ body.modal-open {
 .modal-body::-webkit-scrollbar {
     display: none;
 }
-/* 고정된 저장 버튼 */
+/* 怨좎젙?????踰꾪듉 */
 .modal-footer {
     display: flex;
     justify-content: center;
@@ -1192,13 +1191,13 @@ body.modal-open {
     bottom: 0;
 }
 
-/* 닫기 버튼 스타일 */
+/* ?リ린 踰꾪듉 ?ㅽ???*/
 .modal_close {
     position: absolute;
-    top: 10px; /* 모달 창의 위쪽에서 10px 떨어지도록 */
-    right: 10px; /* 모달 창의 오른쪽에서 10px 떨어지도록 */
+    top: 10px; /* 紐⑤떖 李쎌쓽 ?꾩そ?먯꽌 10px ?⑥뼱吏?꾨줉 */
+    right: 10px; /* 紐⑤떖 李쎌쓽 ?ㅻⅨ履쎌뿉??10px ?⑥뼱吏?꾨줉 */
     color: #aaa;
-    font-size: 28px;
+
     font-weight: bold;
     cursor: pointer;
 }
@@ -1210,7 +1209,7 @@ body.modal-open {
     cursor: pointer;
 }
 
-/* 모달 내부의 섹션 스타일 */
+/* 紐⑤떖 ?대????뱀뀡 ?ㅽ???*/
 .modal_section {
     margin-top: 20px;
 }
@@ -1221,7 +1220,7 @@ body.modal-open {
     font-weight: bold;
 }
 
-/* 커스텀 select 박스 스타일 */
+/* 而ㅼ뒪? select 諛뺤뒪 ?ㅽ???*/
 .modal_custom-select {
     width: 100%;
     height: 40px;
@@ -1229,10 +1228,10 @@ body.modal-open {
     margin-bottom: 15px;
     border: 1px solid #ccc;
     border-radius: 4px;
-    font-size: 16px;
+
 }
 
-/* 부서 A, B 관련 섹션 스타일 */
+/* 遺??A, B 愿???뱀뀡 ?ㅽ???*/
 .modal_form-section {
     /* display: flex;
     justify-content: space-between;
@@ -1246,7 +1245,7 @@ body.modal-open {
     max-width: 100%;
     margin-right: 10px;
     margin: 0;
-    font-size: 18px;
+
     font-weight: bold;
     white-space: nowrap;
     overflow: hidden;
@@ -1258,23 +1257,23 @@ body.modal-open {
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    /* 전체 너비 사용 */
+    /* ?꾩껜 ?덈퉬 ?ъ슜 */
 }
 
 .modal_button-group {
     display: flex;
     gap: 10px;
-    /* 버튼 간격 조절 */
+    /* 踰꾪듉 媛꾧꺽 議곗젅 */
 }
 
-/* 버튼 스타일 */
+/* 踰꾪듉 ?ㅽ???*/
 .modal_button {
     padding: 10px 20px;
     background-color: #007bff;
     color: white;
     border: none;
     cursor: pointer;
-    font-size: 16px;
+
     margin-left: 10px;
 }
 
@@ -1288,7 +1287,7 @@ body.modal-open {
     cursor: pointer;
     text-align: center;
     margin-top: 20px;
-    font-size: 18px;
+
     border-radius: 5px;
 }
 
@@ -1296,7 +1295,7 @@ body.modal-open {
     background-color: #0056b3;
 }
 
-/* 버튼 hover 효과 */
+/* 踰꾪듉 hover ?④낵 */
 .modal_button:hover,
 .modal_save-btn:hover {
     background-color: #0056b3;
@@ -1324,23 +1323,23 @@ body.modal-open {
 }
 
 #pieChart1{
-    width: 300px;  /* 또는 원하는 크기 */
+    width: 300px;  /* ?먮뒗 ?먰븯???ш린 */
     height: 300px;
     margin-left: 50px;
 }
 
 #pieChart2 {
     margin-right: 50px;
-    width: 300px;  /* 또는 원하는 크기 */
+    width: 300px;  /* ?먮뒗 ?먰븯???ш린 */
     height: 300px;
 }
 
 #barChart {
-    max-width: 800px;  /* 또는 원하는 크기 */
+    max-width: 800px;  /* ?먮뒗 ?먰븯???ш린 */
     margin: 0 auto;
 }
 
-/* 파일관련 */
+/* ?뚯씪愿??*/
 .file-upload-container {
     margin: 10px 0;
 }
@@ -1368,7 +1367,7 @@ body.modal-open {
     cursor: pointer;
     float: right;
     margin-left: auto;
-    min-width: 50px;    /* 버튼 최소 너비 설정 */
+    min-width: 50px;    /* 踰꾪듉 理쒖냼 ?덈퉬 ?ㅼ젙 */
 }
 
 .delete-file:hover {
@@ -1413,12 +1412,12 @@ body.modal-open {
 
 .file-info {
     color: #666;
-    font-size: 0.9em;
+
     margin: 0 10px;
 }
 
 
-/* 기본 테이블 스타일 */
+/* 湲곕낯 ?뚯씠釉??ㅽ???*/
 .log-table {
     width: 100%;
     border-collapse: collapse;
@@ -1432,7 +1431,7 @@ body.modal-open {
     padding: 8px;
     text-align: center;
     white-space: nowrap;
-    /* 줄넘김을 방지하는 스타일 */
+    /* 以꾨꽆源??諛⑹??섎뒗 ?ㅽ???*/
 }
 
 .log-table th {
@@ -1448,7 +1447,7 @@ body.modal-open {
     background-color: #f9f9f9;
 }
 
-/* 테이블 헤더 색상 및 글꼴 굵기 */
+/* ?뚯씠釉??ㅻ뜑 ?됱긽 諛?湲瑗?援듦린 */
 .log-table thead th {
     background-color: #e9ecea;
     color: black;
@@ -1511,32 +1510,32 @@ body.modal-open {
     display: block;
 }
 
-/* VAT 컨테이너 스타일 */
+/* VAT 而⑦뀒?대꼫 ?ㅽ???*/
 .vat-container {
     display: flex;
-    gap: 20px; /* 항목 간 간격 */
-    justify-content: space-between; /* 양쪽 정렬 */
-    align-items: flex-start; /* 세로 정렬 */
-    width: 100%; /* 전체 너비 사용 */
+    gap: 20px; /* ??ぉ 媛?媛꾧꺽 */
+    justify-content: space-between; /* ?묒そ ?뺣젹 */
+    align-items: flex-start; /* ?몃줈 ?뺣젹 */
+    width: 100%; /* ?꾩껜 ?덈퉬 ?ъ슜 */
 }
 
-/* VAT 항목 스타일 */
+/* VAT ??ぉ ?ㅽ???*/
 .vat-item {
-    flex: 1; /* 각 항목이 동일한 비율로 공간을 차지 */
-    text-align: left; /* 텍스트 왼쪽 정렬 */
+    flex: 1; /* 媛???ぉ???숈씪??鍮꾩쑉濡?怨듦컙??李⑥? */
+    text-align: left; /* ?띿뒪???쇱そ ?뺣젹 */
 }
 
-/* VAT 입력 필드 스타일 */
+/* VAT ?낅젰 ?꾨뱶 ?ㅽ???*/
 .vat-item input {
-    width: 100%; /* 항목 내부에서 입력 필드가 가득 차도록 */
-    padding: 8px; /* 입력 필드 패딩 */
-    font-size: 14px; /* 글자 크기 */
-    box-sizing: border-box; /* 패딩 포함한 크기 설정 */
+    width: 100%; /* ??ぉ ?대??먯꽌 ?낅젰 ?꾨뱶媛 媛??李⑤룄濡?*/
+    padding: 8px; /* ?낅젰 ?꾨뱶 ?⑤뵫 */
+
+    box-sizing: border-box; /* ?⑤뵫 ?ы븿???ш린 ?ㅼ젙 */
 }
 
-/* 전체 진행률 디자인 */
+/* ?꾩껜 吏꾪뻾瑜??붿옄??*/
 #progress_bar {
-    width: 500px; /* 고정 너비 */
+    width: 500px; /* 怨좎젙 ?덈퉬 */
     height: 30px;
     border: 1px solid black;
     border-radius: 10px;
@@ -1545,8 +1544,8 @@ body.modal-open {
     align-items: center;
     font-weight: bold;
     position: relative;
-    overflow: hidden; /* 내부 요소가 넘치지 않도록 */
-    background: transparent; /* 기본 배경은 투명 */
+    overflow: hidden; /* ?대? ?붿냼媛 ?섏튂吏 ?딅룄濡?*/
+    background: transparent; /* 湲곕낯 諛곌꼍? ?щ챸 */
 }
 
 #progress_bar::before {
@@ -1554,16 +1553,16 @@ body.modal-open {
     position: absolute;
     top: 0;
     left: 0;
-    width: var(--progress-width, 0%); /* 동적으로 변경될 너비 */
+    width: var(--progress-width, 0%); /* ?숈쟻?쇰줈 蹂寃쎈맆 ?덈퉬 */
     height: 100%;
-    background: linear-gradient(to right, rgb(248, 115, 115), rgb(104, 247, 104)); /* 빨간색에서 초록색 그라데이션 */
-    z-index: -1; /* 텍스트 위에 배치 */
-    transition: width 0.5s ease-in-out; /* 부드러운 애니메이션 */
+    background: linear-gradient(to right, rgb(248, 115, 115), rgb(104, 247, 104)); /* 鍮④컙?됱뿉??珥덈줉??洹몃씪?곗씠??*/
+    z-index: -1; /* ?띿뒪???꾩뿉 諛곗튂 */
+    transition: width 0.5s ease-in-out; /* 遺?쒕윭???좊땲硫붿씠??*/
 }
 
 #progress_text {
-    z-index: 0; /* 텍스트를 가장 위로 */
-    color: black; /* 텍스트 색상 */
+    z-index: 0; /* ?띿뒪?몃? 媛???꾨줈 */
+    color: black; /* ?띿뒪???됱긽 */
 }
 
 .no-style-button {
@@ -1575,35 +1574,35 @@ body.modal-open {
     padding: 0;
     margin: 0;
     text-decoration: none;
-    font-size: 20px;
+
 }
 
-/* 모달 내 테이블 스타일 */
+/* 紐⑤떖 ???뚯씠釉??ㅽ???*/
 .modify-table {
     width: 100%;
     border-collapse: collapse;
 }
 
-/* tbody가 일정 높이를 넘으면 내부 스크롤 생성 (단, 스크롤바는 숨김) */
+/* tbody媛 ?쇱젙 ?믪씠瑜??섏쑝硫??대? ?ㅽ겕濡??앹꽦 (?? ?ㅽ겕濡ㅻ컮???④?) */
 .modify-table tbody {
     /* display: block; */
-    max-height: 300px; /* 필요에 따라 조정 */
-    overflow-y: auto;  /* 세로 스크롤 활성화 */
-    scrollbar-width: none; /* Firefox 스크롤바 숨김 */
+    max-height: 300px; /* ?꾩슂???곕씪 議곗젙 */
+    overflow-y: auto;  /* ?몃줈 ?ㅽ겕濡??쒖꽦??*/
+    scrollbar-width: none; /* Firefox ?ㅽ겕濡ㅻ컮 ?④? */
 }
 
 .modify-table tbody::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Edge 등 웹킷 브라우저에서 스크롤바 숨김 */
+    display: none; /* Chrome, Safari, Edge ???뱁궥 釉뚮씪?곗??먯꽌 ?ㅽ겕濡ㅻ컮 ?④? */
 }
 
-/* tbody의 행이 너비를 유지하도록 설정 */
+/* tbody???됱씠 ?덈퉬瑜??좎??섎룄濡??ㅼ젙 */
 .modify-table tbody tr {
     /* display: table; */
     width: 100%;
     table-layout: fixed;
 }
 
-/* thead는 스크롤 없이 고정 */
+/* thead???ㅽ겕濡??놁씠 怨좎젙 */
 .modify-table thead {
     /* display: table; */
     width: 100%;
@@ -1618,7 +1617,7 @@ body.modal-open {
   margin: 0;
 }
 
-/* 파일관련 */
+/* ?뚯씪愿??*/
 .file-upload-container {
     margin: 10px 0;
 }
@@ -1646,7 +1645,7 @@ body.modal-open {
     cursor: pointer;
     float: right;
     margin-left: auto;
-    min-width: 50px;    /* 버튼 최소 너비 설정 */
+    min-width: 50px;    /* 踰꾪듉 理쒖냼 ?덈퉬 ?ㅼ젙 */
 }
 
 .delete-file:hover {
@@ -1691,11 +1690,11 @@ body.modal-open {
 
 .file-info {
     color: #666;
-    font-size: 0.9em;
+
     margin: 0 10px;
 }
 
-/* 제경비 비율 스타일 */
+/* ?쒓꼍鍮?鍮꾩쑉 ?ㅽ???*/
 .expense-rates {
     margin: 20px 0;
     padding: 15px;
@@ -1725,14 +1724,14 @@ body.modal-open {
 .rate-item .rate-value {
     color: #2b6cb0;
     font-weight: 600;
-    font-size: 1.1em;
+
 }
 
 #department_BTN {
     display: flex;
     justify-content: flex-end;
     gap: 16px;
-    flex-wrap: nowrap; /* 줄바꿈 방지 */
+    flex-wrap: nowrap; /* 以꾨컮轅?諛⑹? */
 }
 
 #every_BTN{
@@ -1747,9 +1746,239 @@ body.modal-open {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+
 }
 
 .delete-button:hover {
     background-color: #c82333;
+}
+
+#Details .details-structure-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+#Details .details-grid-main {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 18px;
+    align-items: start;
+}
+
+#Details .overview-header-row {
+    align-items: center;
+}
+
+#Details .overview-action-slot {
+    margin-left: auto;
+    align-items: center;
+}
+
+#Details .project-summary-wrap {
+    display: block;
+    width: 100%;
+}
+
+#Details .project-summary-table-wrap {
+    width: 100%;
+}
+
+#Details .project-summary-table-wrap .custom-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+#Details .main-info,
+#Details .right-column {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    margin: 0;
+}
+
+#Details .right-column {
+    display: block;
+}
+
+#Details .detail-section-card {
+    background: #ffffff;
+    border: 1px solid #d9dee6;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+#Details .card-project-overview .overview-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+}
+
+#Details .card-project-overview .project-overview-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 10px;
+}
+
+#Details .card-project-overview .overview-card h3 {
+    margin: 0;
+    padding: 10px 14px;
+    background: #1e293b;
+    color: #ffffff;
+
+    font-weight: 700;
+}
+
+#Details .card-project-overview .overview-card p {
+    margin: 0;
+    padding: 10px 14px 12px;
+    color: #334155;
+
+    white-space: pre-line;
+    line-height: 1.55;
+}
+
+#Details .card-project-overview .overview-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 10px 14px 12px;
+    color: #334155;
+
+    line-height: 1.55;
+}
+
+#Details .card-project-overview .overview-card ul li {
+    position: relative;
+    margin: 0 0 3px;
+    padding-left: 12px;
+}
+
+#Details .card-project-overview .overview-card ul li::before {
+    content: '\25CF';
+    position: absolute;
+    left: 0;
+    top: 0.9em;
+    transform: translateY(-50%);
+
+    color: #475569;
+}
+
+#Details .section-finance-label {
+
+    font-weight: 700;
+    color: #1f3d5b;
+    margin-top: 4px;
+}
+
+#Details .details-grid-flat {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+#Details .details-grid-flat .right-top,
+#Details .details-grid-flat .right-bottom {
+    flex: 1 1 50% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0;
+}
+
+#Details .section-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+#Details .section-title-row h2 {
+    margin: 0;
+}
+
+#Details .section-standard-btn {
+    border: 1px solid #8aa7c6;
+    background: #edf4ff;
+    color: #1a4c7a;
+    border-radius: 8px;
+    padding: 6px 12px;
+
+    font-weight: 600;
+}
+
+#Details .section-standard-btn:hover {
+    background: #dcecff;
+}
+
+#EX_fee_table tbody tr.hover-budget-row:hover,
+#out_fee_table tbody tr.hover-budget-row:hover {
+    background-color: #eef8ff;
+}
+
+#EX_fee_table tbody tr.hover-expense-row:hover,
+#out_fee_table tbody tr.hover-expense-row:hover {
+    background-color: #fff5e8;
+}
+
+#EX_fee_table td.expected-hover-target,
+#out_fee_table td.expected-hover-target {
+    cursor: help;
+}
+
+/* Examine ?≪뀡 踰꾪듉??Detail怨??숈씪???몃줈/?고듃 ?ㅽ럺?쇰줈 怨좎젙 */
+body.detail-dashboard #Details #every_BTN.button_group.action-bar .btn-blue,
+body.detail-dashboard #Details #every_BTN.button_group.action-bar .btn-teal,
+body.detail-dashboard #Details #every_BTN.button_group.action-bar .btn-red,
+body.detail-dashboard #Details #department_BTN.button_group.action-bar .btn-blue,
+body.detail-dashboard #Details #department_BTN.button_group.action-bar .btn-teal,
+body.detail-dashboard #Details #department_BTN.button_group.action-bar .btn-red {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 6px;
+
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Examine 탭은 항상 좌측에 붙여서 표시 */
+body.detail-dashboard .detail-tabs {
+    display: flex;
+    justify-content: flex-start !important;
+    align-items: center;
+    gap: 8px;
+}
+
+body.detail-dashboard .detail-tabs .tablinks {
+    float: none;
+    margin: 0 !important;
+}
+
+@media (max-width: 1200px) {
+    #Details .details-grid-main {
+        grid-template-columns: 1fr;
+    }
+
+    #Details .details-grid-flat {
+        flex-direction: column !important;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 1400px) and (min-width: 1201px) {
+    body.detail-dashboard #Details .details-grid-flat .card-expected,
+    body.detail-dashboard #Details .details-grid-flat .card-actual,
+    body.detail-dashboard #Details .details-grid-flat .right-top,
+    body.detail-dashboard #Details .details-grid-flat .right-bottom {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
 }

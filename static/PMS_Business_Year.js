@@ -10,6 +10,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const yearTitle = document.getElementById('projectYEAR').value;
     const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
     const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
+    const requestedTab = (document.getElementById('initialTab')?.value || '').toLowerCase();
+    const requestedView = (document.getElementById('initialView')?.value || '').toLowerCase();
+    const requestedStatus = (document.getElementById('initialStatus')?.value || '').toLowerCase();
+    const requestedPageRaw = Number(document.getElementById('initialPage')?.value || '1');
+    const requestedPage = Number.isFinite(requestedPageRaw) && requestedPageRaw > 0 ? requestedPageRaw : 1;
+    const openWeeklyByQuery = requestedTab === 'weekly' || requestedTab === 'weekly_reports';
 
     if (meetingAuth) {
         const meetingLi = document.getElementById('meeting-li');
@@ -27,7 +33,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    fetchProjects(1);
+    if (openWeeklyByQuery && reportAuth && typeof viewWeeklyReports === 'function') {
+        viewWeeklyReports();
+    } else if (requestedView === 'yearly') {
+        viewYearlyProjects(requestedPage);
+    } else if (requestedView === 'examine') {
+        viewExamineProjects(requestedPage);
+    } else if (requestedView === 'status' && requestedStatus) {
+        viewStatusProjects(requestedStatus, requestedPage);
+    } else {
+        fetchProjects(requestedPage);
+    }
     let userName = document.getElementById('sessionName').value;
     let userAuth = document.getElementById('sessionAuth').value;
     const sessionAdminAuth = Number(document.getElementById('sessionAdminAuth')?.value || 0) === 1;
@@ -86,6 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
 const projectsPerPage = 20;
 let currentPage = 1;
 let totalPages = 1;
+let currentListPage = 1;
 let searchTerm = "";
 let searchYear = "";
 let currentView = "";
@@ -1133,6 +1150,9 @@ function closeDailyWriteModal() {
 
 //기본 프로젝트 목록 가져오기
 function fetchProjects(page = 1) {
+    currentListPage = Number(page) || 1;
+    currentView = '';
+    setTableHead('default');
     _dailyHideSection();
     const scope = document.getElementById('searchScope')?.value || 'year';
     const year = document.getElementById("projectYEAR")?.value || '';
@@ -1161,6 +1181,7 @@ function fetchProjects(page = 1) {
 }
 //연차사업 모아보기 (페이지네이션 포함)
 function viewYearlyProjects(page = 1) {
+    currentListPage = Number(page) || 1;
     _dailyHideSection();
     currentView = "yearly";
     setTableHead('yearly');
@@ -1181,6 +1202,7 @@ function viewYearlyProjects(page = 1) {
 
 //검토사업 모아보기 (페이지네이션 포함)
 function viewExamineProjects(page = 1) {
+    currentListPage = Number(page) || 1;
     _dailyHideSection();
     currentView = "examine";
     setTableHead('examine');
@@ -1654,9 +1676,12 @@ function viewWeeklyReports() {
     if (weeklyBtn) weeklyBtn.style.display = 'inline-flex';
     _ensureSearchVisible(false);
 
-    // 기본값: 현재 연도 기준
-    const nowYear = new Date().getFullYear();
-    _weeklyLoadAndRenderReports({ year: nowYear });
+    // 기본값: 현재 페이지의 연도 기준(없으면 현재 연도)
+    const pageYear = Number(document.getElementById('projectYEAR')?.value);
+    const defaultYear = Number.isFinite(pageYear) && pageYear > 0
+        ? pageYear
+        : new Date().getFullYear();
+    _weeklyLoadAndRenderReports({ year: defaultYear });
 }
 
 // 회의록 목록 보기(목록 화면 자체가 전환됨)
@@ -2289,6 +2314,7 @@ function getMonthWeekIndexFromMonday(monday) {
 
 //검색 기능 (연도별 보기 & 모아보기 검색 구분)
 function handleSearch(page = 1) {
+    currentListPage = Number(page) || 1;
     searchTerm = document.getElementById('search').value.trim();
     searchYear = document.getElementById("projectYEAR")?.value || "";
     const searchScope = document.getElementById('searchScope')?.value || 'year';
@@ -2383,10 +2409,22 @@ function renderTable(projects) {
         }
 
         row.onclick = () => {
+            const year = document.getElementById('projectYEAR')?.value || new Date().getFullYear();
+            const page = Number.isFinite(Number(currentListPage)) && Number(currentListPage) > 0 ? Number(currentListPage) : 1;
+            const params = new URLSearchParams();
+            if (currentView === 'yearly' || currentView === 'examine') {
+                params.set('view', currentView);
+            } else if (currentView === 'status' && currentStatus) {
+                params.set('view', 'status');
+                params.set('status', currentStatus);
+            }
+            params.set('page', String(page));
+            const qs = params.toString();
+            const returnTo = `/PMS_Business/${encodeURIComponent(year)}${qs ? `?${qs}` : ''}`;
             if (project.ContractCode.includes("검토")) {
-                window.location.href = `/project_examine/${project.ProjectID}`;
+                window.location.href = `/project_examine/${project.ProjectID}?return_to=${encodeURIComponent(returnTo)}`;
             } else {
-                window.location.href = `/project_detail/${project.ProjectID}`;
+                window.location.href = `/project_detail/${project.ProjectID}?return_to=${encodeURIComponent(returnTo)}`;
             }
         };
         tableBody.appendChild(row);
@@ -2803,10 +2841,8 @@ function initWeeklyInput() {
     const dept = getSessionDepartment();
     const isAdmin = isWeeklyAdminByAccess();
 
-    // 기본 주차: 일반 사용자는 차주, 관리자는 금주
-    weeklyCurrentMonday = isAdmin
-        ? getNearestMonday(new Date())
-        : addDays(getNearestMonday(new Date()), 7);
+    // 기본 주차: 관리자/일반 사용자 모두 차주로 통일
+    weeklyCurrentMonday = addDays(getNearestMonday(new Date()), 7);
 
     weeklyInputSetAdminMode(isAdmin);
     renderWeeklyTitle(weeklyCurrentMonday);
@@ -4756,6 +4792,7 @@ let currentStatus = "";  // 전역 상태 변수
 
 // viewStatusProjects 함수
 function viewStatusProjects(elementOrStatus, page = 1) {
+    currentListPage = Number(page) || 1;
     currentView = "status";
     setTableHead(currentView);
 

@@ -3,6 +3,8 @@ async function weeklyLoadAndRenderDetail() {
   const weekStart = root?.dataset?.weekStart;
   if (!root || !weekStart) return;
 
+  updateNextWeekButtonVisibility(weekStart);
+
   try {
     const res = await fetch(`/api/weekly_detail?week_start=${encodeURIComponent(weekStart)}`);
     const data = await res.json();
@@ -1083,15 +1085,35 @@ function goToNextWeek() {
             const exists = weeks.some(w => w.week_start === nextWeekStart);
             if (exists) {
                 window.location.href = `/weekly_report/${nextWeekStart}`;
-            } else {
-                alert('마지막 주간보고 입니다.');
             }
         })
         .catch(err => {
             console.error('Next week validation failed:', err);
-            alert('마지막 주간보고 입니다.');
         });
 }
+
+  function updateNextWeekButtonVisibility(currentWeekStart) {
+    const nextBtn = document.getElementById('goToNextWeekBtn');
+    if (!nextBtn || !currentWeekStart) return;
+
+    fetch('/api/weekly_reports')
+      .then(res => res.json())
+      .then(data => {
+        const weeks = Array.isArray(data?.weeks) ? data.weeks : [];
+        const latestWeekStart = weeks
+          .map(w => String(w?.week_start || ''))
+          .filter(Boolean)
+          .sort()
+          .pop();
+
+        if (!latestWeekStart) return;
+
+        nextBtn.style.display = (currentWeekStart === latestWeekStart) ? 'none' : '';
+      })
+      .catch(err => {
+        console.error('Next button visibility check failed:', err);
+      });
+  }
 
 /**
  * 목록으로 이동 (PMS_Business_Year의 주간보고 탭)
@@ -1109,7 +1131,6 @@ function goToList() {
     
     try {
         sessionStorage.setItem('activeTab', 'weekly');
-        sessionStorage.setItem('addressLockDisabled', 'true');
     } catch (_) {}
     
     window.location.href = `/PMS_Business/${year}?tab=weekly`;

@@ -40,6 +40,10 @@
         <input type="hidden" id="sessionAdminAuth" value="{{ session['user'].get('adminAUTH', session['user'].get('adminauth', 0)) }}">
         <input type="hidden" id="sessionDept" value="{{ session['user'].get('Department', session['user'].get('department', '')) }}">
         <input type="hidden" id="projectYEAR" value="{{ selected_year }}">
+        <input type="hidden" id="initialPage" value="{{ requested_page }}">
+        <input type="hidden" id="initialView" value="{{ requested_view }}">
+        <input type="hidden" id="initialStatus" value="{{ requested_status }}">
+        <input type="hidden" id="initialTab" value="{{ requested_tab }}">
     </header>
     <nav class="navbar">
         <ul>
@@ -471,7 +475,6 @@
                 <input type="hidden" id="meetingDocNumber">
                 <input type="hidden" id="meetingCreatedAt">
                 <input type="hidden" id="meetingAuthor">
-                <input type="hidden" id="meetingCategory" value="사업관련">
                 <table class="meeting-form-table">
                     <colgroup>
                         <col style="width: 12%;">
@@ -480,33 +483,6 @@
                         <col style="width: 38%;">
                     </colgroup>
                     <tbody>
-                        <tr>
-                            <th>구분</th>
-                            <td colspan="3">
-                                {% set meeting_user_name = session['user'].get('name', '') %}
-                                {% set can_use_meeting_special_categories = meeting_user_name in ['우승범', '나준영', '최도현', '개발'] %}
-                                <div class="meeting-category-group" id="meetingCategoryGroup">
-                                    <label class="meeting-category-option is-selected">
-                                        <input type="checkbox" class="meeting-category-checkbox" value="사업관련" checked>
-                                        <span>사업관련</span>
-                                    </label>
-                                    <label class="meeting-category-option">
-                                        <input type="checkbox" class="meeting-category-checkbox" value="공통">
-                                        <span>공통</span>
-                                    </label>
-                                    {% if can_use_meeting_special_categories %}
-                                    <label class="meeting-category-option">
-                                        <input type="checkbox" class="meeting-category-checkbox" value="주간보고">
-                                        <span>주간보고</span>
-                                    </label>
-                                    <label class="meeting-category-option">
-                                        <input type="checkbox" class="meeting-category-checkbox" value="TF">
-                                        <span>TF</span>
-                                    </label>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
                         <tr>
                             <th>관련사업번호</th>
                             <td class="meeting-suggest-cell">
@@ -748,12 +724,12 @@
             <table class="projectList">
                 <thead>
                     <tr>
-                        <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 15%;">사업번호</th>
-                        <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 35%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
-                        <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 20%;">발주처</th>
+                        <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
+                        <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 42%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                        <th style="width: 20%;">발주처</th>
                         <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
-                        <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 10%;">진행률</th>
-                        <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
+                        <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 8%;">진행률</th>
+                        <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 6%;">외주구분</th>
                     </tr>
                 </thead>
                 <tbody id="projectList_tbody"></tbody>

@@ -678,7 +678,7 @@
 <body>
   {% set login_user = session.get('user', {}) %}
   <header class="page-header annual-topbar">
-    <button type="button" onclick="window.location.href='/'" class="back-button annual-home-btn">
+    <button type="button" onclick="try{sessionStorage.setItem('addressLockDisabled','true');}catch(_){ } window.location.href='/go_back'" class="back-button annual-home-btn">
       <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
     </button>
     <h1 id="projectName">{{ week_title }} 주간보고</h1>
@@ -700,7 +700,7 @@
       value="{{ session['user'].get('adminAUTH', session['user'].get('adminauth', 0)) }}">
     <div class="print-toolbar">
       <button type="button" class="green-btn" onclick="goToPreviousWeek()">◀ 전주 주간보고</button>
-      <button type="button" class="green-btn" onclick="goToNextWeek()">앞주 주간보고 ▶</button>
+      <button type="button" class="green-btn" id="goToNextWeekBtn" onclick="goToNextWeek()">앞주 주간보고 ▶</button>
       <button type="button" class="green-btn" onclick="goToList()">목록으로</button>
 
       <button type="button" class="print-btn" onclick="window.print()">인쇄</button>

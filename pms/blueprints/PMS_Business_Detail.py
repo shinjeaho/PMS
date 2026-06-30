@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from urllib.parse import urlparse
 
 import pymysql
 from flask import Blueprint, jsonify, render_template, request
@@ -15,6 +16,22 @@ bp = Blueprint('business_detail', __name__)
 
 @bp.route('/project_detail/<int:project_id>', methods=['GET'])
 def project_detail(project_id: int):
+    raw_return_to = request.args.get('return_to', '')
+    return_to = ''
+    if raw_return_to:
+        try:
+            parsed_return_to = urlparse(raw_return_to)
+            if not parsed_return_to.scheme and not parsed_return_to.netloc:
+                normalized = parsed_return_to.path or '/'
+                if not normalized.startswith('/'):
+                    normalized = '/' + normalized
+                if normalized.startswith('/PMS_Business/'):
+                    if parsed_return_to.query:
+                        normalized += '?' + parsed_return_to.query
+                    return_to = normalized
+        except Exception:
+            return_to = ''
+
     db = create_connection()
     cursor = db.cursor()
 
@@ -384,6 +401,7 @@ def project_detail(project_id: int):
     return render_template(
         'PMS_Business_Detail.html',
         project=project_dict,
+        return_to=return_to,
         project_files=project_files,
         first_dept=first_dept,
         second_dept=second_dept,

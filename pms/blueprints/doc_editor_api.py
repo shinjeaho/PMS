@@ -186,7 +186,7 @@ def _get_session_user_name() -> str:
 
 
 def _can_view_special_meeting_categories() -> bool:
-    return _get_session_user_name() in {'우승범', '나준영', '최도현', '개발'}
+    return _get_session_user_name() in {'이주현', '나준영', '최도현', '개발'}
 
 
 def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
