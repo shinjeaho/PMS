@@ -103,17 +103,17 @@
                     <div class="kpi-amount">{{ ex_share_value | int | format_currency }}<span>원</span></div>
                     <div class="kpi-sub">지분기준 산출값</div>
                 </div>
-                <div class="details-kpi-card kpi-card amber kpi-amber">
-                    <div class="kpi-label">발주처</div>
-                    <div class="kpi-amount">{{ examine['orderPlace'] or '-' }}</div>
-                    <div class="kpi-sub">발주처 정보</div>
-                </div>
                 <div class="details-kpi-card kpi-card red kpi-red">
                     {% set ex_start_display = (examine['StartDate'].strftime('%Y-%m-%d') if examine['StartDate'] and examine['StartDate'].strftime is defined else (examine['StartDate'] or '-')) %}
                     {% set ex_end_display = (examine['EndDate'].strftime('%Y-%m-%d') if examine['EndDate'] and examine['EndDate'].strftime is defined else (examine['EndDate'] or '-')) %}
                     <div class="kpi-label">사업기간</div>
                     <div class="kpi-amount" id="exProjectPeriodText" style="font-size: 20px;" data-start="{{ ex_start_display }}" data-end="{{ ex_end_display }}">{{ ex_start_display }} ~ {{ ex_end_display }}</div>
                     <div class="kpi-sub" id="exProjectPeriodSub">계약일 ~ 종료일</div>
+                </div>
+                <div class="details-kpi-card kpi-card amber kpi-amber">
+                    <div class="kpi-label">발주처</div>
+                    <div class="kpi-amount" style="font-size: 18px;">{{ examine['orderPlace'] or '-' }}</div>
+                    <!-- <div class="kpi-sub">발주처 정보</div> -->
                 </div>
             </div>
 
