@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
     const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
     const requestedPage = Math.max(1, Number(document.getElementById('requestedPage')?.value || 1) || 1);
+    const requestedView = String(document.getElementById('requestedView')?.value || '').trim().toLowerCase();
     const requestedTab = String(document.getElementById('requestedTab')?.value || '').trim().toLowerCase();
 
     if (meetingAuth) {
@@ -35,6 +36,8 @@ document.addEventListener('DOMContentLoaded', function () {
         viewMeetingMinutes();
     } else if (requestedTab === 'daily' && reportAuth) {
         viewDailyReports();
+    } else if (requestedView === 'examine') {
+        viewExamineProjects(requestedPage);
     } else {
         fetchProjects(requestedPage);
     }

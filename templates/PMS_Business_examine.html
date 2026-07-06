@@ -54,7 +54,7 @@
                         <button
                             type="button"
                             class="btn-ghost detail-list-btn"
-                            onclick="var rt=(document.getElementById('returnTo')&&document.getElementById('returnTo').value)||''; if(rt && rt.startsWith('/')){ window.location.href=rt; } else { var y=(document.getElementById('project-year')&&document.getElementById('project-year').value)||new Date().getFullYear(); window.location.href='/PMS_Business/'+encodeURIComponent(y); }"
+                            onclick="var rt=(document.getElementById('returnTo')&&document.getElementById('returnTo').value)||''; var y=(document.getElementById('project-year')&&document.getElementById('project-year').value)||new Date().getFullYear(); var fallback='/PMS_Business/'+encodeURIComponent(y)+'?view=examine&page=1'; if(rt && rt.startsWith('/PMS_Business/') && rt !== '/'){ window.location.href=rt; } else { window.location.href=fallback; }"
                         >목록으로</button>
                         <div class="detail-user-label" title="로그인 정보">
                             <span class="user-dept">{{ session['user'].get('Department', session['user'].get('department', '')) }}</span>
@@ -477,14 +477,14 @@
                     <button class="ex_tablinks" onclick="EX_openTab(event, 'examine')">직영검토</button>
                     <button class="ex_tablinks" onclick="EX_openTab(event, 'outsouce_examine')">외주검토</button>
                 </div>
-                <button id="class_edit" onclick="toggleLayout()">사업부 수정</button>
-                <button class="class_save" id="layout_save" onclick="saveExamine()">내용 저장</button>
+                <button id="class_edit" onclick="toggleLayout()" style="top:-50px">사업부 수정</button>
+                <button class="class_save" id="layout_save" style="top:-50px"onclick="saveExamine()">내용 저장</button>
 
-                <button class="cancle_btn" id="cancel_dept" style="display: none; right: 200px;"
+                <button class="cancle_btn" id="cancel_dept" style="top:-40px; display: none; right: 150px;"
                     onclick="cancelEdit()">취소</button>
-                <button class="class_save" id="add_dept" style="display: none; right: 80px;"
+                <button class="class_save" id="add_dept" style="display: none;top:-50px; right: 80px;"
                     onclick="addLayout()">추가</button>
-                <button class="class_save" id="save_dept" style="display: none;"
+                <button class="class_save" id="save_dept" style="display: none;top:-50px;"
                     onclick="saveDepartmentLayout()">저장</button>
             </div>
 

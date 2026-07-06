@@ -3896,6 +3896,14 @@ body.detail-dashboard {
     padding: 0;
 }
 
+/* 상세 페이지 버튼 글꼴을 회의록 작성 버튼과 동일하게 고정 */
+body.detail-dashboard button,
+body.detail-dashboard input[type="button"],
+body.detail-dashboard input[type="submit"],
+body.detail-dashboard input[type="reset"] {
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+}
+
 body.detail-dashboard .app-layout {
     min-height: 100vh;
 }
@@ -5029,6 +5037,29 @@ body.detail-dashboard #Dep_fir_Money .sub-tab button.active {
     border-color: #bfdbfe;
     color: #2563eb;
     border-bottom: 1px solid #bfdbfe;
+}
+
+/* 요청 버튼군: 회의록 작성 버튼과 동일 글꼴 강제 */
+body.detail-dashboard #change_save,
+body.detail-dashboard #externalModal,
+body.detail-dashboard #class_edit,
+body.detail-dashboard #layout_save,
+body.detail-dashboard #cancel_dept,
+body.detail-dashboard #add_dept,
+body.detail-dashboard #save_dept,
+body.detail-dashboard #view_quantity_log,
+body.detail-dashboard #excel_download,
+body.detail-dashboard #useMoney_Save,
+body.detail-dashboard .class_save,
+body.detail-dashboard .cancle_btn,
+body.detail-dashboard .add-row-btn,
+body.detail-dashboard .remove-row-btn,
+body.detail-dashboard .view-log-btn,
+body.detail-dashboard .button-wrapper button {
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
 }
 
 /* Final table unification: match Details-tab table tone across detail page */

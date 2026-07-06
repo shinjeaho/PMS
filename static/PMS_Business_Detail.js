@@ -3584,7 +3584,7 @@ function addRows(tableID, rowCount, BTN = false) {
 
         // 마지막 변경 번호 찾기
         for (let row of rows) {
-            const text = row.cells[0]?.textContent.trim();
+            const text = row.cells[1]?.textContent.trim();
 
             if (text && text !== '당초') {
                 const match = text.match(/(\d+)차 변경/);
@@ -7227,7 +7227,14 @@ function createProjectChangeTable() {
             `;
             }).join('');
 
-            const nextChangeNumber = changes.length;
+            const maxDivisionNo = changes.reduce((maxNo, change) => {
+                const divisionText = String(change.division || change.Division || '').trim();
+                const match = divisionText.match(/(\d+)\s*차\s*변경/);
+                if (!match) return maxNo;
+                const n = parseInt(match[1], 10);
+                return Number.isFinite(n) ? Math.max(maxNo, n) : maxNo;
+            }, 0);
+            const nextChangeNumber = maxDivisionNo + 1;
             const nextChangeRow = `
         <tr>
             <td><input type="checkbox" class="row-check table-checkbox-col" /></td>
