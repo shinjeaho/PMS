@@ -425,9 +425,79 @@ function buildActualInputStatusTooltipHtml(type, isExpected = false) {
     const sourceTbody = document.getElementById(sourceId);
     const rows = sourceTbody ? Array.from(sourceTbody.querySelectorAll('tr')) : [];
 
+    // 상세 정보의 전체 실제 인건비 tooltip은 부서와 무관하게 직급 기준으로 합산 표시
+    const shouldAggregateActualBudgetByPosition = !isExpected && type === 'budget';
+    const parseNumber = (value) => Number(String(value || '').replace(/[^\d.-]/g, '')) || 0;
+    const isTotalLabel = (value) => String(value || '').replace(/\s+/g, '') === '총계';
+
     let rowHtml = '';
     if (rows.length === 0) {
         rowHtml = `<tr><td colspan="${headers.length}" class="empty">데이터가 없습니다.</td></tr>`;
+    } else if (shouldAggregateActualBudgetByPosition) {
+        const orderMap = new Map([
+            ['이사', 1],
+            ['부장', 2],
+            ['차장', 3],
+            ['과장', 4],
+            ['대리', 5],
+            ['주임', 6],
+            ['사원', 7],
+            ['계약직', 8],
+            ['외부인력', 9],
+        ]);
+
+        const grouped = new Map();
+        rows.forEach((row) => {
+            const cells = Array.from(row.cells);
+            if (cells.length < 3) return;
+
+            const position = (cells[0].textContent || '').trim();
+            if (!position || isTotalLabel(position)) return;
+
+            const mt = parseNumber(cells[1].textContent || '0');
+            const amount = parseNumber(cells[2].textContent || '0');
+
+            if (!grouped.has(position)) {
+                grouped.set(position, { mt: 0, amount: 0 });
+            }
+
+            const entry = grouped.get(position);
+            entry.mt += mt;
+            entry.amount += amount;
+        });
+
+        const sortedEntries = Array.from(grouped.entries()).sort((a, b) => {
+            const aOrder = orderMap.get(a[0]) || 99;
+            const bOrder = orderMap.get(b[0]) || 99;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+            return a[0].localeCompare(b[0], 'ko-KR');
+        });
+
+        if (!sortedEntries.length) {
+            rowHtml = `<tr><td colspan="${headers.length}" class="empty">데이터가 없습니다.</td></tr>`;
+        } else {
+            let totalMT = 0;
+            let totalAmount = 0;
+
+            const bodyRows = sortedEntries.map(([position, values]) => {
+                totalMT += values.mt;
+                totalAmount += values.amount;
+                return `
+                    <tr>
+                        <td>${escapeActualTooltipHtml(position)}</td>
+                        <td>${values.mt.toFixed(2)}</td>
+                        <td>${Math.round(values.amount).toLocaleString()}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            rowHtml = `${bodyRows}
+                <tr>
+                    <td>총계</td>
+                    <td>${totalMT.toFixed(2)}</td>
+                    <td>${Math.round(totalAmount).toLocaleString()}</td>
+                </tr>`;
+        }
     } else {
         rowHtml = rows.map((row) => {
             const cells = Array.from(row.cells).slice(0, headers.length);
@@ -4625,7 +4695,7 @@ function fetchDepartmentData(department, modalID) {
     if (Department_Budget_Header) {
         Department_Budget_Header.textContent = `${department} 인건비`;
     }
-    syncDepartmentBudgetPreviewTable();
+    syncDepartmentBudgetPreviewTable(department);
 
     // 비용 계산 호출
     fetchExpenseDepartmentData(department, modalID);
@@ -8733,8 +8803,6 @@ function updateRealLaborCost() {
                     <td style="background-color: #ebf7d3;" id = "Real_budgetSum">${totalAmount.toLocaleString()}</td>
                 `;
                 realBudgetResultTbody.appendChild(totalRow);
-                syncDepartmentBudgetPreviewTable();
-
                 return totalAmount; // 결과값 반환
             } else {
                 realBudgetResultTbody.innerHTML = `
@@ -8749,7 +8817,6 @@ function updateRealLaborCost() {
                         <td style="background-color: #ebf7d3;" id = "Real_budgetSum">0</td>
                     </tr>
                 `;
-                syncDepartmentBudgetPreviewTable();
                 return 0;
             }
         })
@@ -8759,31 +8826,128 @@ function updateRealLaborCost() {
         });
 }
 
-function syncDepartmentBudgetPreviewTable() {
-    const source = document.getElementById('Real_budget_result_tbody');
+function renderDepartmentBudgetPreviewEmpty(target) {
+    if (!target) return;
+
+    target.innerHTML = `
+        <tr>
+            <td>-</td>
+            <td>0.00</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td style="background-color: #ebf7d3;">총계</td>
+            <td style="background-color: #ebf7d3;">0.00</td>
+            <td style="background-color: #ebf7d3;">0</td>
+        </tr>
+    `;
+}
+
+function syncDepartmentBudgetPreviewTable(department) {
     const target = document.getElementById('Dep_fir_department_budget_tbody');
     if (!target) return;
 
-    target.innerHTML = '';
-    if (!source || !source.children.length) {
-        target.innerHTML = `
-            <tr>
-                <td>-</td>
-                <td>0.00</td>
-                <td>0</td>
-            </tr>
-            <tr>
-                <td style="background-color: #ebf7d3;">총계</td>
-                <td style="background-color: #ebf7d3;">0.00</td>
-                <td style="background-color: #ebf7d3;">0</td>
-            </tr>
-        `;
+    const normalizedDepartment = String(department || '').trim();
+    if (!normalizedDepartment || normalizedDepartment === '외주') {
+        renderDepartmentBudgetPreviewEmpty(target);
         return;
     }
 
-    Array.from(source.children).forEach((row) => {
-        target.appendChild(row.cloneNode(true));
-    });
+    const contractCode = document.getElementById('project-contractCode')?.value;
+    const year = getCurrentYear();
+    if (!contractCode || !year) {
+        renderDepartmentBudgetPreviewEmpty(target);
+        return;
+    }
+
+    target.innerHTML = '';
+
+    const queryDepartment = encodeURIComponent(normalizedDepartment);
+    fetch(`/get_real_labor_cost?contract_code=${contractCode}&year=${year}&department=${queryDepartment}`)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            const rows = Array.isArray(data) ? data : [];
+
+            if (!rows.length) {
+                renderDepartmentBudgetPreviewEmpty(target);
+                return;
+            }
+
+            const orderMap = new Map([
+                ['이사', 1],
+                ['부장', 2],
+                ['차장', 3],
+                ['과장', 4],
+                ['대리', 5],
+                ['주임', 6],
+                ['사원', 7],
+                ['계약직', 8],
+                ['외부인력', 9],
+            ]);
+
+            const grouped = new Map();
+            rows.forEach((info) => {
+                const position = String(info.position || '-').trim() || '-';
+                if (!grouped.has(position)) {
+                    grouped.set(position, { mt: 0, amount: 0 });
+                }
+
+                const entry = grouped.get(position);
+                const dayMT = (Number(info.total_day_time) || 0) / 8;
+                const nightMT = (Number(info.total_night_time) || 0) / 8;
+                const holidayMT = (Number(info.total_holiday_time) || 0) / 8;
+                const mt = dayMT + nightMT + holidayMT;
+
+                const isResearch = normalizedDepartment.replace(/\s+/g, '') === '연구소';
+                const dailyRate = Number(info.daily_rate) || 0;
+                const dayAmount = dayMT * dailyRate * 1;
+                const nightAmount = nightMT * dailyRate * 2;
+                const holidayAmount = holidayMT * dailyRate * 1.5;
+                const amount = isResearch ? 0 : Math.round(dayAmount + nightAmount + holidayAmount);
+
+                entry.mt += mt;
+                entry.amount += amount;
+            });
+
+            const sortedEntries = Array.from(grouped.entries()).sort((a, b) => {
+                const aOrder = orderMap.get(a[0]) || 99;
+                const bOrder = orderMap.get(b[0]) || 99;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return a[0].localeCompare(b[0], 'ko-KR');
+            });
+
+            let totalMT = 0;
+            let totalAmount = 0;
+            sortedEntries.forEach(([position, values]) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${position}</td>
+                    <td>${values.mt.toFixed(2)}</td>
+                    <td>${values.amount.toLocaleString()}</td>
+                `;
+                target.appendChild(row);
+
+                totalMT += values.mt;
+                totalAmount += values.amount;
+            });
+
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+                <td style="background-color: #ebf7d3;">총계</td>
+                <td style="background-color: #ebf7d3;">${totalMT.toFixed(2)}</td>
+                <td style="background-color: #ebf7d3;">${totalAmount.toLocaleString()}</td>
+            `;
+            target.appendChild(totalRow);
+        })
+        .catch((error) => {
+            console.error('Error fetching department labor cost data:', error);
+            renderDepartmentBudgetPreviewEmpty(target);
+        });
 }
 
 //실제 진행비 중 경비 테이블

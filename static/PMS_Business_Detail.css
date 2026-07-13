@@ -3794,7 +3794,7 @@ body.detail-dashboard {
 #Details .card-reference #separatedReferenceArea a {
     color: #1d4ed8;
     text-decoration: none;
-    font-size: 12px;
+    font-size: 15px;
     line-height: 1.6;
 }
 
@@ -4717,17 +4717,38 @@ body.detail-dashboard #Details .card-overview {
 
 body.detail-dashboard #Details .card-progress {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 2;
 }
 
 body.detail-dashboard #Details .card-reference {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
 }
 
 body.detail-dashboard #Details .card-files {
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 1;
+}
+
+/* 상세(Detail) 영역 숫자폭 고정: 같은 자릿수 값이 시각적으로 틀어져 보이지 않게 처리 */
+body.detail-dashboard #Details .details-kpi-card .kpi-amount,
+body.detail-dashboard #Details .details-kpi-card .kpi-sub,
+body.detail-dashboard #Details .details-structure-v2 .custom-table thead th,
+body.detail-dashboard #Details .details-structure-v2 .custom-table tbody td,
+body.detail-dashboard #Details .card-overview .custom-table tbody td:nth-child(2) {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* 관련파일 박스 내부 콘텐츠를 상단부터 쌓이도록 고정 */
+body.detail-dashboard #Details .card-files #drop-zone {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+body.detail-dashboard #Details .card-files #uploaded-files {
+    margin-top: 6px;
 }
 
 body.detail-dashboard #Details .card-project-overview {

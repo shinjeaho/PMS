@@ -2003,6 +2003,7 @@ def get_latest_receipt(contract_code):
 def get_real_labor_cost():
     contract_code = request.args.get('contract_code')
     year = request.args.get('year')
+    department = (request.args.get('department') or '').strip()
 
     db = create_connection()
     cursor = db.cursor(dictionary=True)
@@ -2030,8 +2031,7 @@ def get_real_labor_cost():
         else:
             avg_daily_rate = 0
 
-        cursor.execute(
-            """
+        query = """
             SELECT 
                 ta.position,
                 ta.department,
@@ -2047,6 +2047,14 @@ def get_real_labor_cost():
             LEFT JOIN expenses e ON ta.position = e.Position
             WHERE ta.ContractCode = %s
             AND (e.Year = %s OR ta.position = '외부인력')  -- 외부인력은 expenses 연도 조건 무시
+        """
+        params = [avg_daily_rate, contract_code, year]
+
+        if department and department != '외주':
+            query += " AND ta.department = %s"
+            params.append(department)
+
+        query += """
             GROUP BY ta.position, ta.department, e.Days
             ORDER BY 
                 CASE ta.position
@@ -2061,9 +2069,9 @@ def get_real_labor_cost():
                     WHEN '외부인력' THEN 9
                     ELSE 10
                 END
-        """,
-            (avg_daily_rate, contract_code, year),
-        )
+        """
+
+        cursor.execute(query, tuple(params))
 
         labor_data = cursor.fetchall()
 
