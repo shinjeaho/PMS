@@ -8,11 +8,13 @@ document.addEventListener('DOMContentLoaded', function () {
     initDailyReportModal();
     initDailyWriteModal();
     const yearTitle = document.getElementById('projectYEAR').value;
+    const sessionName = String(document.getElementById('sessionName')?.value || '').trim();
     const reportAuth = Number(document.getElementById('sessionReportAuth')?.value || 0) === 1;
     const meetingAuth = Number(document.getElementById('sessionMeetingAuth')?.value || 0) === 1;
     const requestedPage = Math.max(1, Number(document.getElementById('requestedPage')?.value || 1) || 1);
     const requestedView = String(document.getElementById('requestedView')?.value || '').trim().toLowerCase();
     const requestedTab = String(document.getElementById('requestedTab')?.value || '').trim().toLowerCase();
+    const annualMoneyAllowedUsers = new Set(['최태혁', '김정욱', '나준영', '최도현', '개발', '안성호']);
 
     if (meetingAuth) {
         const meetingLi = document.getElementById('meeting-li');
@@ -51,7 +53,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (integrationLi) integrationLi.style.display = "list-item";
         document.getElementById("annualBTN").style.display = "list-item";
         const annualMoneyBtn = document.getElementById("annualMoneyBTN");
-        if (annualMoneyBtn) annualMoneyBtn.style.display = "list-item";
+        if (annualMoneyBtn) {
+            annualMoneyBtn.style.display = annualMoneyAllowedUsers.has(sessionName) ? "list-item" : "none";
+        }
         const annualManagmentBtn = document.getElementById("annualManagmentBTN");
         if (annualManagmentBtn) annualManagmentBtn.style.display = "list-item";
         document.getElementById("stopProject").style.display = "list-item";
