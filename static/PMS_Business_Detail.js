@@ -11947,13 +11947,14 @@ function createEmptyTaskRow() {
     tdCheck.appendChild(checkbox);
     tr.appendChild(tdCheck);
 
-    // 항목, 수량, 단위 열
-    for (let i = 0; i < 3; i++) {
+    // 항목, 수량, 단위, 보할(%) 열
+    for (let i = 0; i < 4; i++) {
         const td = document.createElement('td');
         td.className = 'edit_cell';
         td.style.height = '13px';
         td.onclick = function () {
-            TextChange(this, i !== 1);  // 수량 칸은 숫자만 허용 시 true
+            // 수량(i=1), 보할(i=3)은 숫자 입력; 항목(i=0), 단위(i=2)는 텍스트 입력
+            TextChange(this, !(i === 1 || i === 3));
         };
         tr.appendChild(td);
     }

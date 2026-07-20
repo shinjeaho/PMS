@@ -204,7 +204,10 @@ function renderWeeklyTables(root, data) {
     const pageHeightMm = parseFloat(style.getPropertyValue('--print-page-height')) || 210;
     const marginTopMm = parseFloat(style.getPropertyValue('--print-page-margin-top')) || 10;
     const marginBottomMm = parseFloat(style.getPropertyValue('--print-page-margin-bottom')) || 10;
-    return Math.max(400, (pageHeightMm - marginTopMm - marginBottomMm) * ppm);
+    const headerHeightMm = parseFloat(style.getPropertyValue('--print-page-header-height')) || 0;
+    const safetyMm = 2;
+    const contentMm = pageHeightMm - marginTopMm - marginBottomMm - headerHeightMm - safetyMm;
+    return Math.max(400, contentMm * ppm);
   }
 
   function weeklyPrepareScheduleTableForPrint(table, targetBodyHeightPx) {
@@ -392,7 +395,7 @@ function renderWeeklyTables(root, data) {
           ) || fallbackTableHeightPx;
 
           const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
-          const desiredTableHeightPx = Math.min(targetTableHeightPx, Math.round(175 * ppm));
+          const desiredTableHeightPx = targetTableHeightPx;
           const desiredBodyHeightPx = Math.max(18, desiredTableHeightPx - theadHeight);
           const appliedBodyHeight = weeklyPrepareScheduleTableForPrint(tbl1, desiredBodyHeightPx);
 
@@ -438,31 +441,49 @@ function renderWeeklyTables(root, data) {
     }
   }
 
-  if (!window.__weeklyPrintFillBound__) {
-    window.__weeklyPrintFillBound__ = true;
-    
-    const handleBeforePrint = () => {
-      applyPrintFillHeights();
-    };
-
-    const handleAfterPrint = () => {
-      clearPrintFillHeights();
-    };
-
-    window.addEventListener('beforeprint', handleBeforePrint);
-    window.addEventListener('afterprint', handleAfterPrint);
-
-    const mq = window.matchMedia ? window.matchMedia('print') : null;
-    if (mq && mq.addEventListener) {
-      mq.addEventListener('change', (e) => {
-        if (e.matches) {
-          handleBeforePrint();
-        } else {
-          handleAfterPrint();
-        }
-      });
+  // renderWeeklyTables가 다시 호출될 수 있으므로,
+  // 인쇄 핸들러는 매번 최신 tbl1/tbl2를 참조하도록 재바인딩한다.
+  try {
+    const prev = window.__weeklyPrintHandlers__;
+    if (prev && prev.before) window.removeEventListener('beforeprint', prev.before);
+    if (prev && prev.after) window.removeEventListener('afterprint', prev.after);
+    if (prev && prev.mq && prev.mqHandler && prev.mq.removeEventListener) {
+      prev.mq.removeEventListener('change', prev.mqHandler);
     }
+  } catch (e) {
+    console.warn('weekly print handler cleanup failed:', e);
   }
+
+  const handleBeforePrint = () => {
+    applyPrintFillHeights();
+  };
+
+  const handleAfterPrint = () => {
+    clearPrintFillHeights();
+  };
+
+  window.addEventListener('beforeprint', handleBeforePrint);
+  window.addEventListener('afterprint', handleAfterPrint);
+
+  const mq = window.matchMedia ? window.matchMedia('print') : null;
+  let mqHandler = null;
+  if (mq && mq.addEventListener) {
+    mqHandler = (e) => {
+      if (e.matches) {
+        handleBeforePrint();
+      } else {
+        handleAfterPrint();
+      }
+    };
+    mq.addEventListener('change', mqHandler);
+  }
+
+  window.__weeklyPrintHandlers__ = {
+    before: handleBeforePrint,
+    after: handleAfterPrint,
+    mq,
+    mqHandler,
+  };
 } // end of renderWeeklyTables
 
 // ====== 인쇄 시 이슈표: 페이지 넘김 시 부서명 반복(행 분할) ======
