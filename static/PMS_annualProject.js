@@ -65,6 +65,7 @@ let total = {
     actual_labor: 0,
     actual_expense: 0,
     actual_other: 0,
+    actual_add_proposal: 0,
     actual_performance: 0,
     actual_profit: 0,
     advanceTotal: 0,
@@ -76,6 +77,12 @@ let marginFilterStates = {
     EX: 'all',
     AC: 'all'
 };
+
+function normalizeSmallBalance(value, threshold = 100) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.abs(n) <= threshold ? 0 : n;
+}
 
 function cal_annualProject() {
     const table = document.getElementById("annualProject_tbody");
@@ -101,6 +108,7 @@ function cal_annualProject() {
         actual_labor: 0,
         actual_expense: 0,
         actual_other: 0,
+        actual_add_proposal: 0,
         actual_performance: 0,
         actual_profit: 0,
         advanceTotal: 0,
@@ -202,6 +210,7 @@ function cal_annualProject() {
         total.actual_labor += project.actual_labor || 0;
         total.actual_expense += project.actual_expense || 0;
         total.actual_other += project.actual_other || 0;
+        total.actual_add_proposal += project.actual_add_proposal || 0;
         total.actual_performance += project.actual_performance || 0;
         total.actual_profit += actual_profit;
         total.advanceTotal += advanceTotal;
@@ -210,7 +219,8 @@ function cal_annualProject() {
         total.completionTotal += completionTotal;
         // 외주비 지급/잔금 합계 (잔금 = 실제진행비의 외주경비 - 지급금액; 단, 화면 표시는 양수값)
         const paid = Number(project.outsourcing_paid || 0); // Cost_NoVAT 합계
-        const balance = Number(project.actual_other || 0) - paid; // 남은 집행 예정액(+), 초과지급 시 음수
+        const balanceRaw = Number(project.actual_other || 0) - paid; // 남은 집행 예정액(+), 초과지급 시 음수
+        const balance = normalizeSmallBalance(balanceRaw);
         total.outsourcing_paid = (total.outsourcing_paid || 0) + paid;
         total.outsourcing_balance = (total.outsourcing_balance || 0) + balance;
 
@@ -254,6 +264,7 @@ function cal_annualProject() {
             actual_labor: project.actual_labor,
             actual_expense: project.actual_expense,
             actual_other: project.actual_other,
+            actual_add_proposal: project.actual_add_proposal || 0,
             actual_performance: project.actual_performance,
             outsourcing_paid: paid,
             outsourcing_balance: Math.abs(balance) // 화면 표시는 양수
@@ -328,6 +339,7 @@ function renderAnnualProjectTable(dataList) {
           <td>${project.actual_labor.toLocaleString()}</td>
           <td>${project.actual_expense.toLocaleString()}</td>
           <td>${project.actual_other.toLocaleString()}</td>
+          <td>${(project.actual_add_proposal || 0).toLocaleString()}</td>
           <td>${project.actual_performance.toLocaleString()}</td>
           <td style="color: ${actColor};" class="actual_margin">${project.actual_profit.toLocaleString()}</td>
           <td style="color: ${actColor};" class="actual_margin">${project.actual_margin}%</td>
@@ -346,6 +358,8 @@ function renderAnnualProjectTable(dataList) {
         }
         table.appendChild(row);
     });
+
+    total.outsourcing_balance = normalizeSmallBalance(total.outsourcing_balance || 0);
 
     const estMargin = total.contractCostShare === 0 ? 0 : (total.estimated_profit / total.contractCostShare * 100).toFixed(3);
     const actMargin = total.realCostShare === 0 ? 0 : (total.actual_profit / total.realCostShare * 100).toFixed(3);
@@ -377,6 +391,7 @@ function renderAnnualProjectTable(dataList) {
         <td id="sum_actual_labor">${total.actual_labor.toLocaleString()}</td>
         <td id="sum_actual_expense">${total.actual_expense.toLocaleString()}</td>
         <td id="sum_actual_other">${total.actual_other.toLocaleString()}</td>
+        <td id="sum_actual_add_proposal">${(total.actual_add_proposal || 0).toLocaleString()}</td>
         <td id="sum_actual_performance">${total.actual_performance.toLocaleString()}</td>
         <td id="sum_actual_profit" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${total.actual_profit.toLocaleString()}</td>
         <td id="sum_actual_margin" style="color:${getTextColorByProfit(total.actual_profit, actMargin)};">${actMargin}%</td>

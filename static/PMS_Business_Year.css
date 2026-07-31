@@ -920,6 +920,46 @@ main {
     color: #1f2937;
 }
 
+.monthly-dept-tabs{
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.monthly-view-dept-tabs{
+    margin-bottom: 8px;
+}
+
+.monthly-dept-tab{
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #cfd8e3;
+    border-radius: 999px;
+    background: #f8fbff;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.monthly-dept-tab:hover{
+    background: #eef5ff;
+}
+
+.monthly-dept-tab.is-active{
+    border-color: #2d70b8;
+    background: #eaf3ff;
+    color: #184b7a;
+}
+
+.monthly-dept-tab:disabled{
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #dbe3ee;
+    cursor: not-allowed;
+}
+
 .meeting-form-input.is-disabled{
     background: #f8fafc;
     color: #94a3b8;
@@ -1891,6 +1931,7 @@ body.modal-open {
 #weeklyInputModal #weeklyIssuesTable tbody td {
     text-align: left;
     vertical-align: top;
+    padding: 6px;
 }
 
 /* 부서 열: 중앙 정렬 + 폭 120px 고정 */

@@ -424,10 +424,10 @@ h1#projectName {
 }
 
 /* 그룹 경계선(좌측 굵은 선)은 thead 에만 적용: tbody에서는 제거 */
-/* 그룹 시작 열 인덱스 수정: 예상(12), 실제(21), 수령내역(30) */
+/* 그룹 시작 열 인덱스 수정: 예상(12), 실제(21), 수령내역(31) */
 .custom-table thead tr:nth-child(2) th:nth-child(12) { border-left: 3px solid #999; }
 .custom-table thead tr:nth-child(2) th:nth-child(21) { border-left: 3px solid #999; }
-.custom-table thead tr:nth-child(2) th:nth-child(30) { border-left: 3px solid #999; }
+.custom-table thead tr:nth-child(2) th:nth-child(31) { border-left: 3px solid #999; }
 
 a {
     color: black;
@@ -589,7 +589,7 @@ input[name="marginFilter"] {
     box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
 }
 
-/* 오른쪽 굵은 경계선 지정: 사업명(3), 사업비(총괄,VAT제외)(11), 손익비율 예상(20), 손익비율 실제(29) */
+/* 오른쪽 굵은 경계선 지정: 사업명(3), 사업비(총괄,VAT제외)(11), 손익비율 예상(20), 손익비율 실제(30) */
 .custom-table thead tr:nth-child(2) th:nth-child(3),
 .custom-table tbody td:nth-child(3) {
     border-right: 2px solid #999;
@@ -605,8 +605,8 @@ input[name="marginFilter"] {
     border-right: 2px solid #999;
 }
 
-.custom-table thead tr:nth-child(2) th:nth-child(29),
-.custom-table tbody td:nth-child(29) {
+.custom-table thead tr:nth-child(2) th:nth-child(30),
+.custom-table tbody td:nth-child(30) {
     border-right: 2px solid #999;
 }
 

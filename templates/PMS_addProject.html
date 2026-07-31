@@ -10,6 +10,8 @@
 
 <body>
     <div class="basic-info-container">
+        <button type="button" class="addproject-back-button" aria-label="이전 화면으로 이동"
+            onclick="goBackFromAddProject()">X</button>
         <h2>
             {% if is_edit %}
             프로젝트 수정
@@ -19,7 +21,8 @@
             프로젝트 추가
             {% endif %}
         </h2>
-        <input type="hidden" id="mode" value="{{ mode }}">
+        <input type="hidden" id="projectId" value="{{ project_id|default('', true) }}">
+        <input type="hidden" id="returnTo" value="{{ return_to|default('', true) }}">
         <form method="POST" action="{{ url_for('project_form.post_add_or_edit_project') }}" id="addProjectForm">
 
             <div class="flex-container">

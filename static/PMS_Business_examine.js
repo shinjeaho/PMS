@@ -122,8 +122,18 @@ function setAddBTN() {
 
 
 function setupEvent() {
-    const projectName = document.getElementById('headerName').value;
-    document.getElementById('projectName').textContent = truncateText(projectName, 30)
+    const projectName = document.getElementById('headerName')?.value || '';
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    const trimmedProjectName = projectName.trim();
+    const trimmedContractCode = contractCode.trim();
+    const titleText = trimmedContractCode
+        ? `[${trimmedContractCode}] ${trimmedProjectName}`.trim()
+        : trimmedProjectName;
+
+    const titleEl = document.getElementById('projectName');
+    if (titleEl) titleEl.textContent = titleText;
+    document.title = titleText || document.title;
+
     const tablinks = document.querySelectorAll('.tablinks');
 
     document.querySelectorAll('.addRowBTN').forEach(button => {
@@ -1763,7 +1773,7 @@ async function updateFeetable() {
         </tr>
         <tr class="sub-total">
             <td style="background-color: #bae4ea;">소계</td>
-            <td style="background-color: #bae4ea;">${company_Money_Per}%</td>
+            <td style="background-color: #bae4ea;">${company_Money_Per.toFixed(3)}%</td>
             <td style="background-color: #bae4ea;">${company_Money.toLocaleString()}원</td>
         </tr>
 
@@ -1930,7 +1940,7 @@ async function out_updateFeetable() {
         </tr>
         <tr class="sub-total">
             <td style="background-color: #bae4ea;">소계</td>
-            <td style="background-color: #bae4ea;">${company_Money_Per}%</td>
+            <td style="background-color: #bae4ea;">${company_Money_Per.toFixed(3)}%</td>
             <td style="background-color: #bae4ea;">${company_Money.toLocaleString()}원</td>
         </tr>
 

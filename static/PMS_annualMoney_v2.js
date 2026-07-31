@@ -58,6 +58,20 @@ function toNoVat(value) {
     return Math.round(toNumber(value) / 1.1);
 }
 
+function normalizeSmallBalance(value, threshold = 100) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return 0;
+    return Math.abs(numericValue) <= threshold ? 0 : numericValue;
+}
+
+function normalizeBalancePair(balanceObj) {
+    return {
+        ...balanceObj,
+        receiptBalance: normalizeSmallBalance(balanceObj?.receiptBalance),
+        outsourcingBalance: normalizeSmallBalance(balanceObj?.outsourcingBalance),
+    };
+}
+
 function isTotalContractCode(contractCode) {
     return /-00$/.test(String(contractCode || '').trim());
 }
@@ -204,7 +218,7 @@ function getAnnualMoneyVatView(project, quarterOverride = null) {
 
     const shareBase = include ? shareInclude : shareExclude;
     const receiptCumulative = advanceBeforeTotal + advanceTotal + progressBeforeTotal + progressTotal + completionBeforeTotal + completionTotal;
-    const receiptBalance = shareBase - receiptCumulative;
+    const receiptBalance = normalizeSmallBalance(shareBase - receiptCumulative);
 
     const outsourcingPaidPrevious = include
         ? toVat(paidBeforeRaw)
@@ -216,9 +230,9 @@ function getAnnualMoneyVatView(project, quarterOverride = null) {
     const outsourcingBalanceNoVat = q
         ? (toNumber(project.actual_other) - (paidBeforeRaw + paidRaw))
         : toNumber(project.outsourcing_balance);
-    const outsourcingBalance = Math.abs(include
+    const outsourcingBalance = Math.abs(normalizeSmallBalance(include
         ? toVat(outsourcingBalanceNoVat)
-        : outsourcingBalanceNoVat);
+        : outsourcingBalanceNoVat));
 
     return {
         projectCostInclude,
@@ -327,10 +341,24 @@ function cal_annualProject() {
         const changeProjectCost = Number(project.ChangeProjectCost) || 0; // VAT 포함
         const changeProjectCost_NoVAT = Math.round(changeProjectCost / 1.1) || 0; // VAT 제외(1.1로 역산)
 
+        const baseProjectCost = Number(project.ProjectCost) || 0;
+        const baseProjectCostNoVAT = Number(project.ProjectCost_NoVAT) || 0;
+        const hasValidChangeCost = changeProjectCost > 0;
+
+        let displayProjectCost = hasValidChangeCost ? changeProjectCost : baseProjectCost;
+        let displayProjectCostNoVAT = hasValidChangeCost ? changeProjectCost_NoVAT : baseProjectCostNoVAT;
+
+        if (displayProjectCostNoVAT <= 0 && displayProjectCost > 0) {
+            displayProjectCostNoVAT = Math.round(displayProjectCost / 1.1);
+        }
+        if (displayProjectCost <= 0 && displayProjectCostNoVAT > 0) {
+            displayProjectCost = Math.round(displayProjectCostNoVAT * 1.1);
+        }
+
         //사업비 VAT 제외
-        let contractCostShare = Math.round(project.ProjectCost_NoVAT * (project.ContributionRate / 100));
+        let contractCostShare = Math.round(displayProjectCostNoVAT * (project.ContributionRate / 100));
         //사업비 VAT 포함
-        let contractCostShareVAT = Math.round(project.ProjectCost * (project.ContributionRate / 100));
+        let contractCostShareVAT = Math.round(displayProjectCost * (project.ContributionRate / 100));
         //제경비
         const EX_company_money = Math.round(contractCostShare * (project.AcademicResearchRate / 100)) +
             Math.round(contractCostShare * (project.OperationalRate / 100)) +
@@ -341,8 +369,8 @@ function cal_annualProject() {
         const estimated_margin = contractCostShare === 0 ? 0 : ((estimated_profit / contractCostShare) * 100).toFixed(3);
 
             //실제비용
-        let realCostShare_VAT = Math.round(project.ChangeProjectCost * (project.ContributionRate / 100));
-        let realCostShare = Math.round((project.ChangeProjectCost / 1.1) * (project.ContributionRate / 100));
+        let realCostShare_VAT = Math.round(displayProjectCost * (project.ContributionRate / 100));
+        let realCostShare = Math.round(displayProjectCostNoVAT * (project.ContributionRate / 100));
         if (realCostShare <= 0) {
             realCostShare = contractCostShare;
         }
@@ -405,9 +433,9 @@ function cal_annualProject() {
         const receiptBalance = contractCostShare - receiptCumulative;
 
 
-        // 총괄 사업비 합계는 변경사업비 기준으로 집계
-        total.ProjectCost_NoVAT += changeProjectCost_NoVAT;
-        total.ProjectCost += changeProjectCost;
+        // 사업비 합계는 변경사업비가 유효하면 우선, 아니면 원본 사업비 사용
+        total.ProjectCost_NoVAT += displayProjectCostNoVAT;
+        total.ProjectCost += displayProjectCost;
         total.contractCostShare += contractCostShare;
         total.contractCostShareVAT += contractCostShareVAT;
         total.EX_money += EX_company_money;
@@ -443,10 +471,9 @@ function cal_annualProject() {
 
         processedProjects.push({
             ...project,
-            // 화면/엑셀 일관성을 위해 렌더링에서는 ProjectCost 필드를 사용하므로,
-            // 여기에서 변경사업비 값으로 재정의한다.
-            ProjectCost: changeProjectCost,
-            ProjectCost_NoVAT: changeProjectCost_NoVAT,
+            // 화면/엑셀 표시는 유효한 변경사업비가 있으면 우선 적용하고, 없으면 원본 사업비 사용
+            ProjectCost: displayProjectCost,
+            ProjectCost_NoVAT: displayProjectCostNoVAT,
             contractCostShare,
             contractCostShareVAT,
             estimated_profit,
@@ -539,13 +566,6 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
     const completionTotal = Number(safe.completionTotal || 0);
     const receiptBalance = Number(safe.receiptBalance || 0);
     const receiptTotal = advanceTotal + progressTotal + completionTotal;
-    const receivedBeforeTotal = Number(
-        safe.receivedBeforeTotal
-        || (Number(safe.advanceBeforeTotal || 0) + Number(safe.progressBeforeTotal || 0))
-        || 0
-    );
-
-    const outsourcingPaidPrevious = Number(safe.outsourcingPaidPrevious || 0);
     const outsourcingPaid = Number(safe.outsourcingPaid || 0);
     const outsourcingBalance = Number(safe.outsourcingBalance || 0);
 
@@ -571,6 +591,15 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
 
         const sections = precomputedSections || splitAnnualMoneySections(Array.isArray(list) ? list : []);
         const balanceBuckets = buildAnnualMoneyStatsBuckets(sections);
+        const statsProjects = getAnnualMoneyStatsProjects(sections);
+        const receivedBeforeDisplay = statsProjects.reduce((sum, project) => {
+            const vatView = getAnnualMoneyVatView(project);
+            return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal;
+        }, 0);
+        const outsourcingPaidPreviousDisplay = statsProjects.reduce((sum, project) => {
+            const vatView = getAnnualMoneyVatView(project);
+            return sum + vatView.outsourcingPaidPrevious;
+        }, 0);
 
         const quarterReceiptTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
         const quarterPayTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -588,8 +617,8 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
         setText('statsAllAdvanceTotal', moneyText(advanceTotal));
         setText('statsAllProgressTotal', moneyText(progressTotal));
         setText('statsAllCompletionTotal', moneyText(completionTotal));
-        setText('statsAllReceivedBeforeTotal', moneyText(receivedBeforeTotal));
-        setText('statsAllPayPrevious', moneyText(outsourcingPaidPrevious));
+        setText('statsAllReceivedBeforeTotal', moneyText(receivedBeforeDisplay));
+        setText('statsAllPayPrevious', moneyText(outsourcingPaidPreviousDisplay));
         setText('statsAllReceiptTotal', moneyText(allReceiptTotal));
         setText('statsAllPayGrandTotal', moneyText(allPayTotal));
         setText('statsAllReceiptBalanceCurrent', moneyText(balanceBuckets.current.receiptBalance));
@@ -717,7 +746,7 @@ function renderAnnualMoneyComparePieGraph({ receiptTotal, payTotal }) {
 
 function aggregateAnnualMoneyDisplaySummary(list = []) {
     const source = Array.isArray(list) ? list : [];
-    return source.reduce((acc, project) => {
+    const summary = source.reduce((acc, project) => {
         const v = getAnnualMoneyVatView(project);
         acc.ProjectCost += v.projectCostInclude;
         acc.ProjectCost_NoVAT += v.projectCostExclude;
@@ -750,6 +779,8 @@ function aggregateAnnualMoneyDisplaySummary(list = []) {
         outsourcingPaid: 0,
         outsourcingBalance: 0,
     });
+
+    return normalizeBalancePair(summary);
 }
 
 function aggregateAnnualMoneySummary(list = []) {
@@ -889,11 +920,7 @@ function renderAnnualProjectTable(dataList) {
     refreshAnnualMoneyValidationGreenFamilyKeys(processedProjects);
     const list = applySort(dataList);
     const sections = splitAnnualMoneySections(list);
-    const statsSourceList = [
-        ...sections.currentEvent,
-        ...sections.longTerm,
-        ...sections.stop,
-    ];
+    const statsSourceList = getAnnualMoneyStatsProjects(sections);
     const summary = aggregateAnnualMoneyDisplaySummary(statsSourceList);
 
     renderAnnualMoneySectionTable('annualMoneyCurrentSection', sections.currentEvent, {
@@ -926,7 +953,7 @@ function getYearFromDateValue(value) {
     return parsed.getFullYear();
 }
 
-function isAnnualMoneyStopProject(project) {
+function isAnnualMoneyStopProject(project, selectedYear = null) {
     return String(project?.project_status || '').trim() === '용역중지';
 }
 
@@ -935,7 +962,7 @@ function hasAnnualMoneyEvent(project) {
 }
 
 function isAnnualMoneyCurrentEventProject(project, selectedYear) {
-    if (isAnnualMoneyStopProject(project) || isTotalContractCode(project?.ContractCode)) return false;
+    if (isAnnualMoneyStopProject(project, selectedYear) || isTotalContractCode(project?.ContractCode)) return false;
     const endYear = getYearFromDateValue(project?.EndDate);
     
     // 1. 준공 연도가 당해년도인 경우 포함
@@ -966,13 +993,13 @@ function isAnnualMoneyCurrentEventProject(project, selectedYear) {
 }
 
 function isAnnualMoneyLongTermProject(project, selectedYear) {
-    if (isAnnualMoneyStopProject(project) || isTotalContractCode(project?.ContractCode)) return false;
+    if (isAnnualMoneyStopProject(project, selectedYear) || isTotalContractCode(project?.ContractCode)) return false;
     const endYear = getYearFromDateValue(project?.EndDate);
     return endYear !== null && endYear > selectedYear;
 }
 
 function isAnnualMoneyLongTermMarkedProject(project, selectedYear) {
-    if (isAnnualMoneyStopProject(project) || isTotalContractCode(project?.ContractCode)) return false;
+    if (isAnnualMoneyStopProject(project, selectedYear) || isTotalContractCode(project?.ContractCode)) return false;
     const startYear = getYearFromDateValue(project?.StartDate);
     const endYear = getYearFromDateValue(project?.EndDate);
     if (endYear !== null && endYear > selectedYear) {
@@ -1008,7 +1035,7 @@ function isAnnualMoneyVisibleProject(project, selectedYear) {
     if (isTotalContractCode(project?.ContractCode)) {
         return isAnnualMoneyProgressProject(project);
     }
-    if (isAnnualMoneyStopProject(project)) {
+    if (isAnnualMoneyStopProject(project, selectedYear)) {
         return true;
     }
     if (isAnnualMoneyCurrentEventProject(project, selectedYear)) {
@@ -1037,7 +1064,7 @@ function splitAnnualMoneySections(list = []) {
             return;
         }
 
-        if (isAnnualMoneyStopProject(project)) {
+        if (isAnnualMoneyStopProject(project, selectedYear)) {
             sections.stop.push(project);
             return;
         }
@@ -1056,7 +1083,7 @@ function splitAnnualMoneySections(list = []) {
 }
 
 function summarizeBalanceOnly(list = []) {
-    return (Array.isArray(list) ? list : []).reduce((acc, project) => {
+    const summary = (Array.isArray(list) ? list : []).reduce((acc, project) => {
         const vatView = getAnnualMoneyVatView(project);
         acc.receiptBalance += vatView.receiptBalance;
         acc.outsourcingBalance += vatView.outsourcingBalance;
@@ -1065,6 +1092,23 @@ function summarizeBalanceOnly(list = []) {
         receiptBalance: 0,
         outsourcingBalance: 0,
     });
+
+    return normalizeBalancePair(summary);
+}
+
+function getAnnualMoneyStatsProjects(sections) {
+    const safeSections = sections || {
+        currentEvent: [],
+        longTerm: [],
+        stop: [],
+        total: [],
+    };
+
+    return [
+        ...(Array.isArray(safeSections.currentEvent) ? safeSections.currentEvent : []),
+        ...(Array.isArray(safeSections.longTerm) ? safeSections.longTerm : []),
+        ...(Array.isArray(safeSections.stop) ? safeSections.stop : []),
+    ].filter(project => !isTotalContractCode(project?.ContractCode));
 }
 
 function buildFamilyBalanceMap(list = []) {
@@ -1100,6 +1144,8 @@ function buildProgressingAnnualFamilyBalanceMap(list = []) {
 }
 
 function summarizeLongTermBalance(sections) {
+    /*
+    // 기존 계산식: 총괄사업을 장기&연차 잔금에 반영하던 방식
     const longBase = summarizeBalanceOnly(sections.longTerm);
     const progressingAnnuals = buildProgressingAnnualFamilyBalanceMap([
         ...(Array.isArray(sections.currentEvent) ? sections.currentEvent : []),
@@ -1114,6 +1160,10 @@ function summarizeLongTermBalance(sections) {
     });
 
     return longBase;
+    */
+
+    // 새 계산식: 총괄사업은 기수령/잔금 계산에서 완전히 제외
+    return summarizeBalanceOnly(Array.isArray(sections?.longTerm) ? sections.longTerm : []);
 }
 
 function buildAnnualMoneyStatsBuckets(sections) {
@@ -1243,7 +1293,9 @@ function buildAnnualMoneyProjectRow(project, index) {
             <td class="group-end" style="font-weight: ${vatView.outsourcingBalance > 0 ? 'bold' : 'normal'};">${vatView.outsourcingBalance.toLocaleString()}</td>
         `
         : `
-            <td colspan="3" class="group-end" style="text-align:center;">-</td>
+            <td style="text-align:center;">-</td>
+            <td style="text-align:center;">-</td>
+            <td class="group-end" style="text-align:center;">-</td>
         `;
 
     return `
@@ -1365,6 +1417,14 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
     });
     const quarterReceiptTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
     const quarterPayTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const receivedBeforeDisplay = safeList.reduce((sum, project) => {
+        const vatView = getAnnualMoneyVatView(project);
+        return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal;
+    }, 0);
+    const outsourcingPaidPreviousDisplay = safeList.reduce((sum, project) => {
+        const vatView = getAnnualMoneyVatView(project);
+        return sum + vatView.outsourcingPaidPrevious;
+    }, 0);
 
     safeList.forEach((project) => {
         for (let quarter = 1; quarter <= 4; quarter += 1) {
@@ -1377,7 +1437,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
     return {
         year: Number(window.selectedYear) || new Date().getFullYear(),
         receipt: {
-            receivedBeforeTotal: summary.receivedBeforeTotal,
+            receivedBeforeTotal: receivedBeforeDisplay,
             q1: quarterReceiptTotals[1],
             q2: quarterReceiptTotals[2],
             q3: quarterReceiptTotals[3],
@@ -1386,9 +1446,10 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
             balanceCurrent: balanceBuckets.current.receiptBalance,
             balanceLong: balanceBuckets.long.receiptBalance,
             balanceStop: balanceBuckets.stop.receiptBalance,
+            note: '** 각 내역의 계산식에 총괄 사업비는 제외되어 있습니다 **',
         },
         pay: {
-            paidPrevious: summary.outsourcingPaidPrevious,
+            paidPrevious: outsourcingPaidPreviousDisplay,
             q1: quarterPayTotals[1],
             q2: quarterPayTotals[2],
             q3: quarterPayTotals[3],
@@ -1397,6 +1458,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
             balanceCurrent: balanceBuckets.current.outsourcingBalance,
             balanceLong: balanceBuckets.long.outsourcingBalance,
             balanceStop: balanceBuckets.stop.outsourcingBalance,
+            note: '** 각 내역의 계산식에 총괄 사업비는 제외되어 있습니다 **',
         }
     };
 }
@@ -1411,11 +1473,7 @@ function buildAnnualMoneyExportPayload() {
     const exportTitle = buildAnnualMoneyExportTitle(ctx);
     const baseList = applySort(getFilteredProjectsByQuarter(processedProjects));
     const sections = splitAnnualMoneySections(baseList);
-    const statsSourceList = [
-        ...sections.currentEvent,
-        ...sections.longTerm,
-        ...sections.stop,
-    ];
+    const statsSourceList = getAnnualMoneyStatsProjects(sections);
 
     return {
         year: ctx.year || Number(window.selectedYear) || new Date().getFullYear(),

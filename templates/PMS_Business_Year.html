@@ -49,6 +49,9 @@
         <input type="hidden" id="requestedView" value="{{ requested_view|default('', true) }}">
         <input type="hidden" id="requestedStatus" value="{{ requested_status|default('', true) }}">
         <input type="hidden" id="requestedTab" value="{{ requested_tab|default('', true) }}">
+
+        {% set report_user_name = session['user'].get('name', session['user'].get('Name', '')) %}
+        {% set can_view_monthly_report = report_user_name in ['나준영', '개발'] %}
     </header>
     <nav class="navbar">
         <ul>
@@ -93,6 +96,17 @@
             <li id="meeting-li" style="display: none;"><button class="year-button" type="button"
                     onclick="viewMeetingMinutes()">회의록</button></li>
             {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
+            {#
+            <li class="dropdown">
+                <button class="year-button dropbtn" type="button">업무보고서 ▼</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="viewWeeklyReports(); return false;">주간보고서</a>
+                    {% if can_view_monthly_report %}
+                    <a href="#" onclick="viewMonthlyReports(); return false;">월간보고서</a>
+                    {% endif %}
+                </div>
+            </li>
+            #}
             <li><button class="year-button" type="button" onclick="viewWeeklyReports()">주간보고서</button></li>
             <li style="display:none;"><button class="year-button" type="button"
                     onclick="viewDailyReports()">일일보고서</button></li>
@@ -519,7 +533,7 @@
     <div id="meetingUploadModal" class="modal">
         <div class="modal-content meeting-upload-modal">
             <div class="modal-header">
-                <h2>회의록 업로드</h2>
+                <h2 id="meetingUploadModalTitle">회의록 업로드</h2>
                 <span class="close" onclick="closeMeetingUploadModal()">&times;</span>
             </div>
             <hr class="modal-divider">
@@ -536,7 +550,7 @@
                         <col style="width: 38%;">
                     </colgroup>
                     <tbody>
-                        <tr>
+                        <tr id="meetingCategoryRow">
                             <th>구분</th>
                             <td colspan="3">
                                 {% set meeting_user_name = session['user'].get('name', '') %}
@@ -568,7 +582,7 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="meetingProjectRow">
                             <th>관련사업번호</th>
                             <td class="meeting-suggest-cell">
                                 <input type="text" id="meetingProjectNumber" class="meeting-form-input"
@@ -579,7 +593,7 @@
                                 <input type="text" id="meetingProjectName" class="meeting-form-input" readonly>
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="meetingDatePlaceRow">
                             <th>회의 일자</th>
                             <td>
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -612,14 +626,14 @@
                                     autocomplete="off">
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="meetingAgendaRow">
                             <th>제목(안건)</th>
                             <td colspan="3">
                                 <input type="text" id="meetingAgendaTitle" class="meeting-form-input"
                                     placeholder="제목(안건)을 입력하세요" autocomplete="off">
                             </td>
                         </tr>
-                        <tr>
+                        <tr id="meetingOrganizerRow">
                             <th>주관</th>
                             <td colspan="3">
                                 <input type="text" id="meetingOrganizer" class="meeting-form-input" placeholder="주관 입력"
@@ -627,7 +641,7 @@
                             </td>
                         </tr>
                         <tr>
-                            <th>참석자</th>
+                            <th id="meetingAttendeesLabel">참석자</th>
                             <td colspan="3">
                                 <input type="text" id="meetingAttendees" class="meeting-form-input" placeholder="참석자 입력"
                                     autocomplete="off">
@@ -636,7 +650,7 @@
                     </tbody>
                 </table>
 
-                <div class="meeting-upload-section">
+                <div id="meetingUploadAttachmentSection" class="meeting-upload-section">
                     <div class="meeting-dropzone" id="meetingDropzone">
                         <div class="meeting-dropzone-title">회의록 PDF 파일(필수)</div>
                         <div class="meeting-dropzone-sub">회의록 본문에 해당하는 PDF 파일을 드래그 앤 드랍하거나 클릭해서 업로드</div>
@@ -657,7 +671,7 @@
                             <div class="meeting-upload-block-title">회의록 PDF 파일(필수)</div>
                             <div id="meetingPdfUploadList" class="meeting-upload-inner"></div>
                         </div>
-                        <div class="meeting-upload-block">
+                        <div id="meetingAttachmentUploadBlock" class="meeting-upload-block">
                             <div class="meeting-upload-block-title">첨부파일(선택)</div>
                             <div id="meetingAttachmentUploadList" class="meeting-upload-inner"></div>
                         </div>
@@ -674,13 +688,13 @@
     <div id="meetingViewModal" class="modal">
         <div class="modal-content meeting-view-modal">
             <div class="modal-header">
-                <h2>회의록 보기</h2>
+                <h2 id="meetingViewModalTitle">회의록 보기</h2>
                 <span class="close" onclick="closeMeetingViewModal()">&times;</span>
             </div>
             <hr class="modal-divider">
             <div class="modal-body">
                 <div class="meeting-view-toolbar">
-                    <button type="button" class="meeting-view-action" onclick="openMeetingViewerModal()"
+                    <button type="button" id="meetingViewerBtn" class="meeting-view-action" onclick="openMeetingViewerModal()"
                         aria-label="조회자 정보">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" fill="none" stroke="currentColor"
@@ -699,7 +713,7 @@
                         </svg>
                         <span>다운로드</span>
                     </button>
-                    <button type="button" class="meeting-view-action" onclick="meetingViewEdit()" aria-label="수정">
+                    <button type="button" id="meetingEditBtn" class="meeting-view-action" onclick="meetingViewEdit()" aria-label="수정">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M4 20h4l10-10-4-4L4 16v4z" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linejoin="round" />
@@ -725,7 +739,15 @@
                         <col style="width: 38%;">
                     </colgroup>
                     <tbody>
-                        <tr>
+                        <tr id="meetingViewMonthlySummaryRow" style="display:none;">
+                            <th>부서</th>
+                            <td id="meetingViewDepartment">-</td>
+                            <th>작성자</th>
+                            <td id="meetingViewAuthorMonthly">-</td>
+                            <th>작성일</th>
+                            <td id="meetingViewCreatedAtMonthly">-</td>
+                        </tr>
+                        <tr id="meetingViewCreatedAuthorRow">
                             <th>작성일</th>
                             <td id="meetingViewCreatedAt">-</td>
                             <th>작성자</th>
@@ -733,7 +755,7 @@
                         </tr>
                     </tbody>
                 </table>
-                <table class="meeting-form-table meeting-view-summary">
+                <table id="meetingViewSummaryTable" class="meeting-form-table meeting-view-summary">
                     <colgroup>
                         <col style="width: 12%;">
                         <col style="width: 38%;">
@@ -771,7 +793,7 @@
                     </div>
                 </div>
                 <iframe id="meetingViewFrame" class="meeting-view-frame" title="회의록 PDF"></iframe>
-                <div class="meeting-view-attachments-wrap">
+                <div id="meetingViewAttachmentsWrap" class="meeting-view-attachments-wrap">
                     <div class="meeting-view-attachments-title">첨부파일</div>
                     <div id="meetingViewAttachments" class="meeting-view-attachments-list"></div>
                 </div>
@@ -832,6 +854,9 @@
                 {% if (session['user'].get('reportAUTH', 0)|int) == 1 %}
                 <button class="search-button" id="openWeeklyInputBtn" onclick="openWeeklyInput()"
                     style="display:none; height:40px; padding:0 20px; display:inline-flex; align-items:center; justify-content:center;">주간보고서
+                    입력</button>
+                <button class="search-button" id="openMonthlyInputBtn" onclick="openMonthlyReportUploadModal()"
+                    style="display:none; height:40px; padding:0 20px; align-items:center; justify-content:center;">월간보고서
                     입력</button>
                 {% endif %}
             </div>
@@ -997,10 +1022,17 @@
     </div>
 
     <footer>
+        {% if can_view_monthly_report %}
+        <a style="display: inline-block;" href="#" onclick="viewMonthlyReports(); return false;" title="월간보고서 열기">
+            <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
+                style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px;">
+        </a>
+        {% else %}
         <a style="display: inline-block;">
             <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
-                style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px; cursor: pointer;">
+                style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px;">
         </a>
+        {% endif %}
     </footer>
 
     <script id="available-years-json" type="application/json">{{ available_years | tojson | safe }}</script>

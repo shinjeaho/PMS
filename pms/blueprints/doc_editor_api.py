@@ -189,6 +189,12 @@ def _can_view_special_meeting_categories() -> bool:
     return _get_session_user_name() in {'이주현', '나준영', '최도현', '개발'}
 
 
+def _normalize_meeting_category(value: str | None) -> str:
+    v = (value or '').strip()
+    allowed = {'사업관련', '공통', '주간보고', '월간보고', 'TF'}
+    return v if v in allowed else '사업관련'
+
+
 def _backfill_meeting_viewers_profile(cursor, meeting_id: str | None = None) -> None:
     has_department = _meeting_viewers_has_department(cursor)
     has_position = _meeting_viewers_has_position(cursor)
@@ -299,7 +305,7 @@ def upload_meeting_pdf():
             return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
 
     doc_number = (request.form.get('docNumber') or '').strip()
-    meeting_category = (request.form.get('meetingCategory') or '사업관련').strip() or '사업관련'
+    meeting_category = _normalize_meeting_category(request.form.get('meetingCategory') or '사업관련')
     input_contractcode = (request.form.get('contractcode') or '').strip()
     input_project_name = (request.form.get('projectName') or '').strip()
     contractcode = input_contractcode if meeting_category == '사업관련' else meeting_category
@@ -506,7 +512,7 @@ def update_meeting_pdf():
             return jsonify({'success': False, 'message': '첨부파일은 한글/엑셀/PDF 파일만 업로드할 수 있습니다.'}), 400
 
     doc_number = (request.form.get('docNumber') or '').strip()
-    meeting_category = (request.form.get('meetingCategory') or '사업관련').strip() or '사업관련'
+    meeting_category = _normalize_meeting_category(request.form.get('meetingCategory') or '사업관련')
     input_contractcode = (request.form.get('contractcode') or '').strip()
     input_project_name = (request.form.get('projectName') or '').strip()
     contractcode = input_contractcode if meeting_category == '사업관련' else meeting_category
@@ -750,11 +756,27 @@ def list_meeting_files():
     cursor = conn.cursor(dictionary=True)
     try:
         has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
+        requested_category_raw = (request.args.get('category') or '').strip()
+        requested_category = _normalize_meeting_category(requested_category_raw) if requested_category_raw else ''
+        include_monthly = (request.args.get('include_monthly') or '').strip() == '1'
         meeting_category_sql = 'meeting_category,' if has_meeting_category_col else "'사업관련' AS meeting_category,"
-        where_clause = ''
+        where_parts = []
         params = []
-        if has_meeting_category_col and not _can_view_special_meeting_categories():
-            where_clause = "WHERE COALESCE(meeting_category, '사업관련') NOT IN ('주간보고', 'TF')"
+
+        if has_meeting_category_col:
+            if requested_category:
+                if requested_category in {'주간보고', 'TF'} and not _can_view_special_meeting_categories():
+                    return jsonify({'items': []})
+                where_parts.append("COALESCE(meeting_category, '사업관련') = %s")
+                params.append(requested_category)
+            elif not _can_view_special_meeting_categories():
+                where_parts.append("COALESCE(meeting_category, '사업관련') NOT IN ('주간보고', 'TF')")
+            if not requested_category and not include_monthly:
+                where_parts.append("COALESCE(meeting_category, '사업관련') <> '월간보고'")
+        elif requested_category and requested_category != '사업관련':
+            return jsonify({'items': []})
+
+        where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ''
         cursor.execute(
             f"""
                 SELECT id, doc_number, contractcode, project_name,
@@ -775,6 +797,43 @@ def list_meeting_files():
         )
         items = cursor.fetchall() or []
         return jsonify({'items': items})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@bp.route('/monthly/list', methods=['GET'])
+def list_monthly_reports():
+    conn = create_connection()
+    if conn is None:
+        return jsonify({'error': 'DB connection failed'}), 500
+
+    cursor = conn.cursor(dictionary=True)
+    try:
+        has_meeting_category_col = _column_exists(cursor, 'meeting_files', 'meeting_category')
+        meeting_category_sql = 'meeting_category,' if has_meeting_category_col else "'사업관련' AS meeting_category,"
+
+        if has_meeting_category_col:
+            cursor.execute(
+                f"""
+                SELECT id, doc_number, contractcode, project_name,
+                       agenda_title AS title,
+                      {meeting_category_sql}
+                      DATE_FORMAT(meeting_datetime, '%Y-%m-%d %H:%i') AS meeting_datetime,
+                      DATE_FORMAT(meeting_end_datetime, '%Y-%m-%d %H:%i') AS meeting_end_datetime,
+                      meeting_place, organizer, attendees,
+                       original_name, author,
+                       DATE_FORMAT(COALESCE(created_at, DATE(create_at)), '%Y-%m-%d') AS created_at,
+                       file_path, COALESCE(view_count, 0) AS view_count
+                FROM meeting_files
+                WHERE COALESCE(meeting_category, '사업관련') = '월간보고'
+                ORDER BY create_at DESC, id DESC
+                """
+            )
+            items = cursor.fetchall() or []
+            return jsonify({'items': items})
+
+        return jsonify({'items': []})
     finally:
         cursor.close()
         conn.close()

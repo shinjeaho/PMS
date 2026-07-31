@@ -1058,7 +1058,6 @@ h1#projectName {
     transform: scale(1.001);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     z-index: 20;
-    background: #f6fbff;
     outline: 2px solid #ff0000;
     outline-offset: -1px;
     position: relative;
@@ -1075,7 +1074,6 @@ h1#projectName {
 .custom-table tbody tr:hover .sticky-col,
 .custom-table tbody tr:hover .sticky-col-2 {
     z-index: 20;
-    background: #f6fbff;
     outline: none;
 }
 

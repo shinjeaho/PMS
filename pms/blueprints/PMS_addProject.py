@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 
 from flask import Blueprint, request, render_template, jsonify
 
@@ -18,6 +19,21 @@ def get_add_or_edit_project():
     year = request.args.get('year', type=int)
     action = request.args.get('action')
     mode = request.args.get('mode')
+    raw_return_to = request.args.get('return_to', '')
+    return_to = ''
+    if raw_return_to:
+        try:
+            parsed_return_to = urlparse(raw_return_to)
+            if not parsed_return_to.scheme and not parsed_return_to.netloc:
+                normalized = parsed_return_to.path or '/'
+                if not normalized.startswith('/'):
+                    normalized = '/' + normalized
+                if normalized.startswith('/project_detail/') or normalized.startswith('/project_examine/'):
+                    if parsed_return_to.query:
+                        normalized += '?' + parsed_return_to.query
+                    return_to = normalized
+        except Exception:
+            return_to = ''
     print(action, project_id)
 
     connection = create_connection()
@@ -96,6 +112,7 @@ def get_add_or_edit_project():
         files=project_files,
         action=action,
         mode=mode,
+        return_to=return_to,
     )
 
 

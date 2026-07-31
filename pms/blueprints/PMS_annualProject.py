@@ -486,7 +486,9 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
         )
         outsourcing_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
 
-        outsourcing_paid_where = f"o.contract_code IN ({format_strings})"
+        non_add_type_condition = "REPLACE(COALESCE(o.outsourcing_type, ''), ' ', '') <> '추가제안'"
+
+        outsourcing_paid_where = f"o.contract_code IN ({format_strings}) AND {non_add_type_condition}"
         outsourcing_paid_params = list(contract_codes_all)
         if mode == 'money':
             outsourcing_paid_where += " AND omp.PaymentDate IS NOT NULL AND YEAR(omp.PaymentDate) = %s"
@@ -514,6 +516,7 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
                 FROM outSourcing_MoneyPayment AS omp
                 JOIN outsourcing AS o ON o.id = omp.outsourcing_id
                 WHERE o.contract_code IN ({format_strings})
+                                    AND {non_add_type_condition}
                   AND omp.PaymentDate IS NOT NULL
                   AND YEAR(omp.PaymentDate) <= %s
                 GROUP BY o.contract_code
@@ -531,6 +534,7 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
                 FROM outSourcing_MoneyPayment AS omp
                 JOIN outsourcing AS o ON o.id = omp.outsourcing_id
                 WHERE o.contract_code IN ({format_strings})
+                                    AND {non_add_type_condition}
                   AND omp.PaymentDate IS NOT NULL
                   AND YEAR(omp.PaymentDate) < %s
                 GROUP BY o.contract_code
@@ -548,6 +552,7 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
                 FROM outSourcing_MoneyPayment AS omp
                 JOIN outsourcing AS o ON o.id = omp.outsourcing_id
                 WHERE o.contract_code IN ({format_strings})
+                                    AND {non_add_type_condition}
                   AND omp.PaymentDate IS NOT NULL
                   AND YEAR(omp.PaymentDate) = %s
                 GROUP BY o.contract_code, omp.PaymentDate
@@ -641,10 +646,28 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
         usemoney_map = {row['ContractCode']: float(row['total'] or 0) for row in cursor.fetchall()}
 
         cursor.execute(
-            f"SELECT contract_code, SUM(change_Cost_NoVAT) as total FROM outsourcing WHERE contract_code IN ({format_strings}) GROUP BY contract_code",
+            f"""
+            SELECT contract_code, SUM(change_Cost_NoVAT) as total
+            FROM outsourcing
+            WHERE contract_code IN ({format_strings})
+              AND REPLACE(COALESCE(outsourcing_type, ''), ' ', '') <> '추가제안'
+            GROUP BY contract_code
+            """,
             contract_codes_all,
         )
-        outsourcing_real_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
+        outsourcing_real_base_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
+
+        cursor.execute(
+            f"""
+            SELECT contract_code, SUM(change_Cost_NoVAT) as total
+            FROM outsourcing
+            WHERE contract_code IN ({format_strings})
+              AND REPLACE(COALESCE(outsourcing_type, ''), ' ', '') = '추가제안'
+            GROUP BY contract_code
+            """,
+            contract_codes_all,
+        )
+        outsourcing_add_proposal_map = {row['contract_code']: float(row['total'] or 0) for row in cursor.fetchall()}
 
         cursor.execute(
             f"""
@@ -682,7 +705,8 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
 
             actual_labor = taskassignment_map.get(code, 0)
             actual_expense = usemoney_map.get(code, 0)
-            actual_other = outsourcing_real_map.get(code, 0)
+            actual_other = outsourcing_real_base_map.get(code, 0)
+            actual_add_proposal = outsourcing_add_proposal_map.get(code, 0)
             actual_performance = performance_act_map.get(code, 0)
 
             project['estimated_labor'] = estimated_labor
@@ -694,8 +718,9 @@ def annual_project(mode, year, template_name='PMS_annualProject.html', extra_con
             project['actual_labor'] = round(actual_labor)
             project['actual_expense'] = actual_expense
             project['actual_other'] = actual_other
+            project['actual_add_proposal'] = actual_add_proposal
             project['actual_performance'] = actual_performance
-            project['actual_total'] = actual_labor + actual_expense + actual_other + actual_performance
+            project['actual_total'] = actual_labor + actual_expense + actual_other + actual_add_proposal + actual_performance
 
             paid = outsourcing_paid_map.get(code, 0.0)
             paid_previous = outsourcing_paid_previous_map.get(code, 0.0)
@@ -1245,15 +1270,15 @@ def export_annual_project():
         worksheet.set_column('G:G', 8)
         worksheet.set_column('H:I', 20)
         worksheet.set_column('J:R', 13)
-        worksheet.set_column('S:AA', 13)
-        worksheet.set_column('AB:AE', 15)
-        worksheet.set_column('AF:AG', 15)
+        worksheet.set_column('S:AB', 13)
+        worksheet.set_column('AC:AF', 15)
+        worksheet.set_column('AG:AH', 15)
 
         worksheet.merge_range(1, 0, 1, 8, '구분', category_end_format)
         worksheet.merge_range(1, 9, 1, 17, '예상진행비', category_end_format)
-        worksheet.merge_range(1, 18, 1, 26, '실제진행비', category_end_format)
-        worksheet.merge_range(1, 27, 1, 30, '사업비 수령내역', category_end_format)
-        worksheet.merge_range(1, 31, 1, 32, '외주비 지급내역', category_end_format)
+        worksheet.merge_range(1, 18, 1, 27, '실제진행비', category_end_format)
+        worksheet.merge_range(1, 28, 1, 31, '사업비 수령내역', category_end_format)
+        worksheet.merge_range(1, 32, 1, 33, '외주비 지급내역', category_end_format)
 
         detailed_headers = [
             'No.',
@@ -1271,6 +1296,7 @@ def export_annual_project():
             '자체인건비',
             '자체경비',
             '외주경비',
+            '추가제안',
             '성과심사비',
             '손익금액',
             '손익비율',
@@ -1291,7 +1317,7 @@ def export_annual_project():
             '잔금',
         ]
 
-        section_ends = [8, 17, 26, 30, 32]
+        section_ends = [8, 17, 27, 31, 33]
 
         for col, header in enumerate(detailed_headers):
             if col in section_ends:
@@ -1433,6 +1459,8 @@ def export_annual_project():
             worksheet.write(row, col, project.get('actual_expense', 0), money_format)
             col += 1
             worksheet.write(row, col, project.get('actual_other', 0), money_format)
+            col += 1
+            worksheet.write(row, col, project.get('actual_add_proposal', 0), money_format)
             col += 1
             worksheet.write(row, col, project.get('actual_performance', 0), money_format)
             col += 1
@@ -1581,6 +1609,8 @@ def export_annual_project():
         col += 1
         worksheet.write(row, col, total.get('actual_other', 0), total_format)
         col += 1
+        worksheet.write(row, col, total.get('actual_add_proposal', 0), total_format)
+        col += 1
         worksheet.write(row, col, total.get('actual_performance', 0), total_format)
         col += 1
         worksheet.write(row, col, total_act_profit, total_act_profit_format)
@@ -1704,6 +1734,7 @@ def export_annual_money():
             {'bold': True, 'bg_color': '#E7E6E6', 'border': 1, 'right': 2, 'align': 'right', 'valign': 'vcenter', 'num_format': '#,##0'}
         )
         empty_format = workbook.add_format({'italic': True, 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        note_format = workbook.add_format({'italic': True, 'font_color': '#666666', 'align': 'center', 'valign': 'vcenter'})
 
         stats_worksheet.set_column('A:S', 12)
 
@@ -1740,7 +1771,7 @@ def export_annual_money():
 
             worksheet.merge_range(row_top, start_col + 6, row_top, start_col + 8, '잔금', stats_header_format)
             worksheet.write(row_sub, start_col + 6, '당해년도', stats_header_format)
-            worksheet.write(row_sub, start_col + 7, '장기&연차', stats_header_format)
+            worksheet.write(row_sub, start_col + 7, '장기사업', stats_header_format)
             worksheet.write(row_sub, start_col + 8, '용역중지', stats_header_format)
 
             for offset, value in enumerate(values):
@@ -1846,8 +1877,9 @@ def export_annual_money():
 
         receipt_stats = stats.get('receipt') or {}
         pay_stats = stats.get('pay') or {}
+        stats_note = receipt_stats.get('note') or pay_stats.get('note') or '** 각 내역의 계산식에 총괄 사업비는 제외되어 있습니다 **'
 
-        write_stats_table(
+        receipt_end_row = write_stats_table(
             stats_worksheet,
             current_row,
             0,
@@ -1865,7 +1897,7 @@ def export_annual_money():
             ],
         )
 
-        write_stats_table(
+        pay_end_row = write_stats_table(
             stats_worksheet,
             current_row,
             10,
@@ -1881,6 +1913,16 @@ def export_annual_money():
                 pay_stats.get('balanceLong', 0),
                 pay_stats.get('balanceStop', 0),
             ],
+        )
+
+        note_row = max(receipt_end_row, pay_end_row) + 1
+        stats_worksheet.merge_range(
+            note_row,
+            0,
+            note_row,
+            18,
+            stats_note,
+            note_format,
         )
 
         project_worksheet.merge_range(0, 0, 0, 17, title, title_format)

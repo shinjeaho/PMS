@@ -1801,6 +1801,12 @@ body.modal-open {
     display: block;
 }
 
+/* Keep examine right card on top even if detail grid mapping changes. */
+body.examine-dashboard #Details .card-files {
+    grid-column: 2;
+    grid-row: 1;
+}
+
 #Details .detail-section-card {
     background: #ffffff;
     border: 1px solid #d9dee6;

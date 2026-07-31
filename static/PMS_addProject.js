@@ -96,6 +96,27 @@ document.addEventListener('DOMContentLoaded', () => {
     initReferenceProjectTags();
 });
 
+function goBackFromAddProject() {
+    const returnTo = (document.getElementById('returnTo')?.value || '').trim();
+    if (returnTo && returnTo.startsWith('/')) {
+        window.location.href = returnTo;
+        return;
+    }
+
+    const projectId = document.getElementById('projectID')?.value || document.getElementById('projectId')?.value || document.getElementById('project_id')?.value || '';
+    const mode = (document.getElementById('mode')?.value || '').trim();
+    if (projectId) {
+        if (mode === 'examine') {
+            window.location.href = `/project_examine/${encodeURIComponent(projectId)}`;
+            return;
+        }
+        window.location.href = `/project_detail/${encodeURIComponent(projectId)}`;
+        return;
+    }
+
+    window.history.back();
+}
+
 
 
 function formatCurrency(input) {

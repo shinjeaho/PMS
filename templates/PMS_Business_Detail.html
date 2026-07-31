@@ -146,6 +146,7 @@
                     <select id="year_select" class="modal_custom-select"
                         style="margin-top: 20px; margin-bottom: 0; display: none;">
                     </select>
+                    <input type="hidden" id="project_status_raw" value="{{ project_status_raw }}">
                 </div>
             </div>
 
@@ -638,7 +639,7 @@
                             </span>
                         </div>
                         <hr class="section-divider">
-                        <table class="custom-table th-no-wrap no_wrap">
+                        <table class="custom-table th-no-wrap outsourcing-money-table">
                             <thead>
                                 <tr>
                                     <th style="width: 5%;"></th>
@@ -1176,12 +1177,6 @@
                             </table>
                         </section>
 
-                        <section class="detail-section-card card-reference">
-                            <h2>참조사업</h2>
-                            <hr style="margin-bottom: 14px;">
-                            <div id="separatedReferenceArea"></div>
-                        </section>
-
                         <section class="detail-section-card card-files">
                             <div class="section-title-row">
                                 <h2>첨부파일</h2>
@@ -1189,6 +1184,12 @@
                             </div>
                             <hr style="margin-bottom: 14px;">
                             <div id="separatedFileArea"></div>
+                        </section>
+
+                        <section class="detail-section-card card-reference">
+                            <h2>참조사업</h2>
+                            <hr style="margin-bottom: 14px;">
+                            <div id="separatedReferenceArea"></div>
                         </section>
 
                         <div class="grid-label section-finance-label">재무 관리</div>

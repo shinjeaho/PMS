@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import re
+from datetime import date
 
 from flask import Blueprint, jsonify, request
 
@@ -125,14 +127,17 @@ def update_project_status():
 
         contractCode = data.get('contractCode')
         status = data.get('project_status')
+        status_year_raw = data.get('status_year')
 
         if not contractCode or not status:
             return jsonify({'success': False, 'message': '필수 항목 누락'}), 400
 
-        cursor.execute('SELECT endDate FROM projects WHERE contractCode = %s', (contractCode,))
+        cursor.execute('SELECT ProjectID, endDate FROM projects WHERE contractCode = %s', (contractCode,))
         row = cursor.fetchone()
+        project_id = None
         end_date = None
         if row:
+            project_id = row.get('ProjectID') if isinstance(row, dict) else row[0]
             end_date = row.get('endDate') if isinstance(row, dict) else row[0]
 
         cursor.execute(
@@ -143,6 +148,99 @@ def update_project_status():
             """,
             (status, contractCode),
         )
+
+        def _normalize_history_status(raw_status):
+            text = str(raw_status or '').strip()
+            if text.startswith('준공'):
+                return '준공'
+            if text == '용역중지':
+                return '용역중지'
+            if text == '진행중':
+                return '진행중'
+            return text or '진행중'
+
+        def _extract_year(raw_status, raw_year):
+            try:
+                if raw_year is not None:
+                    y = int(str(raw_year).strip())
+                    if 2000 <= y <= 2100:
+                        return y
+            except Exception:
+                pass
+
+            status_text = str(raw_status or '').strip()
+            m = re.search(r'\((\d{2,4})\)', status_text)
+            if m:
+                token = m.group(1)
+                try:
+                    if len(token) == 2:
+                        y = int(f'20{token}')
+                    else:
+                        y = int(token)
+                    if 2000 <= y <= 2100:
+                        return y
+                except Exception:
+                    pass
+
+            return date.today().year
+
+        # 연도별 상태 조회를 위해 상태 이력 테이블에 YYYY 기준 이력을 저장
+        try:
+            cursor.execute("SHOW TABLES LIKE 'project_status_history'")
+            has_history_table = cursor.fetchone() is not None
+        except Exception:
+            has_history_table = False
+
+        if has_history_table and project_id is not None:
+            history_status = _normalize_history_status(status)
+            history_year = _extract_year(status, status_year_raw)
+            effective_date = date(history_year, 12, 31)
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM project_status_history
+                WHERE project_id = %s
+                  AND status = %s
+                  AND effective_date = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (project_id, history_status, effective_date),
+            )
+            exists_row = cursor.fetchone()
+
+            if exists_row:
+                history_id = exists_row.get('id') if isinstance(exists_row, dict) else exists_row[0]
+                cursor.execute(
+                    """
+                    UPDATE project_status_history
+                    SET changed_at = NOW(), note = %s
+                    WHERE id = %s
+                    """,
+                    ('status updated via modal', history_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO project_status_history (
+                        project_id,
+                        contract_code,
+                        status,
+                        effective_date,
+                        changed_by,
+                        note
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        project_id,
+                        contractCode,
+                        history_status,
+                        effective_date,
+                        'status_modal',
+                        'status updated via modal',
+                    ),
+                )
 
         d_val = calculate_d_day_value(end_date, status)
         if d_val is not None:

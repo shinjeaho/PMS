@@ -290,16 +290,28 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         const statusRadios = document.getElementsByName('project_status');
         const yearSelect = document.getElementById('year_select');
+        const statusRaw = (document.getElementById('project_status_raw')?.value || '').trim();
+
+        const shouldShowYearSelect = (statusValue) => statusValue === '준공' || statusValue === '용역중지';
+        const syncStatusYearSelectVisibility = () => {
+            const selected = Array.from(statusRadios).find(r => r.checked);
+            if (!selected || !yearSelect) return;
+            yearSelect.style.display = shouldShowYearSelect(selected.value) ? 'block' : 'none';
+        };
+
+        const statusYearMatch = statusRaw.match(/\((\d{2,4})\)/);
+        if (yearSelect && statusYearMatch) {
+            const yy = String(statusYearMatch[1] || '').trim();
+            const yyyy = yy.length === 2 ? `20${yy}` : yy;
+            if (yyyy && yearSelect.querySelector(`option[value="${yyyy}"]`)) {
+                yearSelect.value = yyyy;
+            }
+        }
 
         statusRadios.forEach(radio => {
-            radio.addEventListener('change', function () {
-                if (this.value === '준공' && this.checked) {
-                    yearSelect.style.display = 'block';
-                } else if (this.checked) {
-                    yearSelect.style.display = 'none';
-                }
-            });
+            radio.addEventListener('change', syncStatusYearSelectVisibility);
         });
+        syncStatusYearSelectVisibility();
         // 참여 기술자 명단 로드
         await loadParticipantEngineers();
     } catch (error) {
@@ -533,8 +545,16 @@ function escapeActualTooltipHtml(value) {
 // 1. 이벤트 리스너 설정 함수
 function setupEventListeners() {
     //사업명
-    const projectName = document.getElementById('headerName').value;
-    document.getElementById('projectName').textContent = projectName;
+    const projectName = document.getElementById('headerName')?.value || '';
+    const contractCode = document.getElementById('project-contractCode')?.value || '';
+    const trimmedProjectName = projectName.trim();
+    const trimmedContractCode = contractCode.trim();
+    const titleText = trimmedContractCode
+        ? `[${trimmedContractCode}] ${trimmedProjectName}`.trim()
+        : trimmedProjectName;
+    const titleEl = document.getElementById('projectName');
+    if (titleEl) titleEl.textContent = titleText;
+    document.title = titleText || document.title;
 
     //==========검토
     // 첫 번째 부서 버튼들
@@ -1982,7 +2002,7 @@ function renderNoDepartmentState() {
     const budgetThead = document.querySelector('#Dep_fir_RealBudget thead');
     const expenseTbody = document.getElementById('Dep_fir_Specific_data');
     const expenseThead = document.querySelector('#Dep_fir_Specific thead');
-    const noDataText = '등록된 사업물량이 없습니다.';
+    const noDataText = '등록된 데이터가 존재하지 않습니다.';
 
     if (budgetThead) {
         const positions = getPositions();
@@ -2152,7 +2172,9 @@ function toggleEdit(tabId) {
         return;
     }
 
-    window.location.replace(`/addproject?projectId=${projectId}&year=${year}&mode=detail`);
+    const currentDetailUrl = `${window.location.pathname}${window.location.search || ''}`;
+    const nextUrl = `/addproject?projectId=${encodeURIComponent(projectId)}&year=${encodeURIComponent(year)}&mode=detail&return_to=${encodeURIComponent(currentDetailUrl)}`;
+    window.location.replace(nextUrl);
 }
 
 // 텍스트 박스 자릿수 표현
@@ -2213,8 +2235,11 @@ function makeEditable(td, isText = false) {
     if (detailReadOnlyMode) return;
     if (td.querySelector('input, textarea')) return;  // 이미 editor가 있는 경우 return
 
-    const input = document.createElement('input');
-    input.type = 'text';  // 항상 text로 설정 (숫자 포맷을 위해)
+    // const input = document.createElement('input');
+    const input = isText ? document.createElement('textarea') : document.createElement('input');
+    if (!isText) {
+        input.type = 'text';  // 숫자 포맷을 위해 text 사용
+    }
     input.value = td.innerText.replace(/,/g, '');  // 기존 값을 가져와 콤마 제거 후 input에 설정
     input.classList.add('editable-input');
 
@@ -2233,6 +2258,10 @@ function makeEditable(td, isText = false) {
     input.style.setProperty('padding', '0', 'important');
     input.style.setProperty('margin', '0', 'important');
     input.style.setProperty('box-sizing', 'border-box', 'important');
+    if (isText) {
+        input.style.setProperty('resize', 'none', 'important');
+        input.style.setProperty('overflow', 'auto', 'important');
+    }
     input.focus();
 
     // 자리수(콤마) 추가를 위한 input 이벤트
@@ -4826,7 +4855,7 @@ function updateTable(data, department) {
         const noDataRow = document.createElement('tr');
         noDataRow.innerHTML = `
             <td colspan="${8 + positions.length * 3}" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
-                등록된 사업물량이 없습니다.
+                등록된 데이터가 존재하지 않습니다.
             </td>
         `;
         tableBody.appendChild(noDataRow);
@@ -5290,7 +5319,7 @@ function updateSpecificTable(data, department) {
         const noDataRow = document.createElement('tr');
         noDataRow.innerHTML = `
             <td colspan="6" style="text-align: center; padding: 20px; color: #666; background-color: #f9f9f9;">
-                등록된 사업물량이 없습니다.
+                등록된 데이터가 존재하지 않습니다.
             </td>
         `;
         tableBody.appendChild(noDataRow);
@@ -5405,6 +5434,19 @@ function updateSpecificTable(data, department) {
 
 let pieChart1, pieChart2, barChart;
 
+function getAdditionalProposalNoVatTotal() {
+    const tbody = document.getElementById('addQuantity_result_tbody');
+    if (!tbody) return 0;
+
+    return Array.from(tbody.querySelectorAll('tr')).reduce((sum, tr) => {
+        const tds = tr.querySelectorAll('td');
+        if (!tds || tds.length < 4) return sum;
+        const noVatText = tds[3].textContent || '0';
+        const noVat = Number(String(noVatText).replace(/[^0-9.-]/g, '')) || 0;
+        return sum + noVat;
+    }, 0);
+}
+
 function createCharts() {
     //  예상 데이터 가져오기
     const expectedtable = document.getElementById('EX_fee_table')
@@ -5421,11 +5463,14 @@ function createCharts() {
     const realOutsourceEl = document.getElementById('Real_outsourceTotalCost');
     const resultOutsource = realOutsourceEl ? Number(realOutsourceEl.textContent.replace(/[^0-9.-]/g, '')) || 0 : 0;
 
+    const actualAddProposal = getAdditionalProposalNoVatTotal();
+
     const expectedData = {
         exCompanyMoney: Number(expectedtable.querySelector('tbody tr:nth-child(5) td:nth-child(3)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         exBudget: Number(expectedtable.querySelector('tbody tr:nth-child(6) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         exSpecific: Number(expectedtable.querySelector('tbody tr:nth-child(7) td:nth-child(3)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         exOutsource: exOutsource,
+        exAddProposal: 0,
         exPerformance: Number(expectedtable.querySelector('tbody tr:nth-child(10) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         performance: 0
     };
@@ -5434,6 +5479,7 @@ function createCharts() {
         resultBudgetSum: Number(actualtable.querySelector('tbody tr:nth-child(6) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         resultSpecific: Number(actualtable.querySelector('tbody tr:nth-child(7) td:nth-child(3)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         resultOutsource: resultOutsource,
+        resultAddProposal: actualAddProposal,
         resultPerformance: Number(actualtable.querySelector('tbody tr:nth-child(10) td:nth-child(4)')?.textContent.replace(/[^0-9.-]/g, '')) || 0,
         performance: 0
     };
@@ -5459,10 +5505,13 @@ function createCharts() {
     });
 
     //  도넛 차트 옵션 (라벨 중앙 정렬 추가)
+    const expectedPieLabels = ['제경비', '인건비', '경비', '외주경비', '추가제안(제외)', '성과심사비'];
+    const actualPieLabels = ['제경비', '인건비', '경비', '외주경비', '추가제안', '성과심사비'];
+
     const pieOptions = {
         chart: { type: 'donut', height: 340 },
-        colors: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#FF9F40'],
-        labels: ['제경비', '인건비', '경비', '외주경비', '성과심사비'],
+        colors: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#8B5CF6', '#FF9F40'],
+        labels: expectedPieLabels,
         title: { align: 'center', style: { fontSize: '16px', fontWeight: 'bold' } },
         legend: { position: 'bottom', horizontalAlign: 'center', fontSize: '14px' },
         dataLabels: {
@@ -5516,7 +5565,7 @@ function createCharts() {
         },
         stroke: { show: true, width: 2, colors: ['transparent'] },
         xaxis: {
-            categories: ['제경비', '인건비', '경비', '외주경비', '성과심사비'],
+            categories: ['제경비', '인건비', '경비', '외주경비', '추가제안', '성과심사비'],
             max: () => parseFloat(document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^\d.-]/g, '')) || 0
         },
         yaxis: {
@@ -5533,24 +5582,28 @@ function createCharts() {
         //  차트 생성
         pieChart1 = new ApexCharts(document.querySelector("#pieChart1"), {
             ...pieOptions,
-            title: { text: '실행예산 비율' },
+            title: { text: '예상진행비' },
+            labels: expectedPieLabels,
             series: [
                 expectedData.exCompanyMoney,
                 expectedData.exBudget,
                 expectedData.exSpecific,
                 expectedData.exOutsource,
+                expectedData.exAddProposal,
                 expectedData.performance
             ]
         });
 
         pieChart2 = new ApexCharts(document.querySelector("#pieChart2"), {
             ...pieOptions,
-            title: { text: '사업수행 비율' },
+            title: { text: '실제진행비' },
+            labels: actualPieLabels,
             series: [
                 actualData.resultCompanyMoney,
                 actualData.resultBudgetSum,
                 actualData.resultSpecific,
                 actualData.resultOutsource,
+                actualData.resultAddProposal,
                 actualData.performance
             ]
         });
@@ -5558,21 +5611,23 @@ function createCharts() {
         barChart = new ApexCharts(document.querySelector("#barChart"), {
             ...barOptions,
             series: [{
-                name: '실행예산',
+                name: '예상진행비',
                 data: [
                     expectedData.exCompanyMoney,
                     expectedData.exBudget,
                     expectedData.exSpecific,
                     expectedData.exOutsource,
+                    expectedData.exAddProposal,
                     expectedData.performance
                 ]
             }, {
-                name: '사업수행',
+                name: '실제진행비',
                 data: [
                     actualData.resultCompanyMoney,
                     actualData.resultBudgetSum,
                     actualData.resultSpecific,
                     actualData.resultOutsource,
+                    actualData.resultAddProposal,
                     actualData.performance
                 ]
             }]
@@ -7628,7 +7683,9 @@ function updateReceiptBalances(targetRow) {
     if (rowIndex > 0) {
         // 이전 행에서 잔액 값 가져오기
         const previousRow = rows[rowIndex - 1];
-        const prevBalanceCell = previousRow.querySelector('td:nth-child(4)');
+        // 컬럼 순서: 1 체크박스, 2 구분, 3 금액, 4 금액(VAT제외), 5 잔액
+        // 이전 잔액을 참조해야 하므로 5번째 컬럼을 읽어야 한다.
+        const prevBalanceCell = previousRow.querySelector('td:nth-child(5)');
 
         if (prevBalanceCell) {
             previousBalance = parseInt(prevBalanceCell.textContent.replace(/,/g, '').trim(), 10) || projectCost;
@@ -8425,15 +8482,33 @@ function loadLatestReceipt() {
             const tbody = document.getElementById('projectCost_result_tbody');
             tbody.innerHTML = ''; // 기존 내용 삭제
 
+            const projectCostNoVAT = parseFloat(
+                document.getElementById('ProjectCost_NoVAT')?.textContent.replace(/[^0-9.-]/g, '') || 0
+            );
+            const contributionRate = parseFloat(
+                document.getElementById('ContributionRate')?.textContent.replace(/[^0-9.-]/g, '') || 0
+            ) / 100;
+            const baseCostShare = Math.round(projectCostNoVAT * contributionRate);
+            let remainingBalance = Number.isFinite(baseCostShare) ? baseCostShare : 0;
+
             // 데이터가 있는 경우 출력
             if (data && Array.isArray(data) && data.length > 0) {
                 data.forEach(receipt => {
+                    const amount = parseFloat(receipt.amount || 0) || 0;
+                    const amountNoVAT = Number.isFinite(parseFloat(receipt.Amount_NoVAT))
+                        ? parseFloat(receipt.Amount_NoVAT)
+                        : Math.round(amount / 1.1);
+
+                    remainingBalance -= amountNoVAT;
+                    if (Math.abs(remainingBalance) <= 100) remainingBalance = 0;
+                    remainingBalance = Math.max(remainingBalance, 0);
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${receipt.division || ''}</td>
-                        <td>${receipt.amount ? parseFloat(receipt.amount).toLocaleString() : ''}</td>
-                        <td>${receipt.Amount_NoVAT ? receipt.Amount_NoVAT.toLocaleString() : ''}</td>
-                        <td>${receipt.balance !== undefined && receipt.balance !== null ? parseFloat(receipt.balance) === 0 ? '0' : parseFloat(receipt.balance).toLocaleString() : ''}</td>
+                        <td>${amount ? amount.toLocaleString() : ''}</td>
+                        <td>${amountNoVAT ? amountNoVAT.toLocaleString() : '0'}</td>
+                        <td>${remainingBalance.toLocaleString()}</td>
                         <td>${receipt.receipt_date ? new Date(receipt.receipt_date).toLocaleDateString() : ''}</td>
                         <td>${receipt.description || ''}</td>
                     `;
@@ -9629,6 +9704,29 @@ async function updateOutsourcingTable() {
 }
 
 // 외주 금액 지급 탭 렌더링
+function isExcludedAddProposalSelf(item) {
+    const type = String(item?.outsourcing_type || '').trim();
+    const company = String(item?.outsourcing_company || '').trim();
+    return type === '추가 제안' && company === '자체';
+}
+
+function isExcludedAddProposalSelfByType(type, company) {
+    return String(type || '').trim() === '추가 제안' && String(company || '').trim() === '자체';
+}
+
+function getSelectableOutsourcingBaseList(baseList, currentId = '') {
+    const list = Array.isArray(baseList) ? baseList : [];
+    const filtered = list.filter(item => !isExcludedAddProposalSelf(item));
+    if (!currentId) return filtered;
+
+    const hasCurrent = filtered.some(item => String(item?.id) === String(currentId));
+    if (hasCurrent) return filtered;
+
+    const currentItem = list.find(item => String(item?.id) === String(currentId));
+    if (currentItem) return [currentItem, ...filtered];
+    return filtered;
+}
+
 async function updateOutsourcingMoneyPaymentTable() {
     const tbody = document.getElementById('outsourcing_moneyPayment_tbody');
     if (!tbody) return;
@@ -9647,7 +9745,6 @@ async function updateOutsourcingMoneyPaymentTable() {
         baseList.forEach(item => {
             if (item && item.id != null) {
                 typeById[item.id] = (item.outsourcing_type || '').trim();
-                if (typeById[item.id] === '추가 제안') return; // 제외
                 const base = parseFloat(item.change_Cost) || 0;
                 baseCostById[item.id] = base;
             }
@@ -9658,15 +9755,22 @@ async function updateOutsourcingMoneyPaymentTable() {
     }
 
     // 전역 캐시로 저장(추가 행에서 사용)
-    // 선택 목록용: '추가 제안' 제외한 리스트만 보관
-    window.__outsourcingBaseList = (baseList || []).filter(it => (it.outsourcing_type || '').trim() !== '추가 제안');
+    // 선택 목록용: 전체 외주 업체 목록 보관(추가 제안 포함)
+    window.__outsourcingBaseList = (baseList || []);
     window.__outsourcingBaseCostById = baseCostById;
+
+    // '추가 제안 - 자체' 지급내역은 표시/집계에서 제외
+    const excludedOutsourcingIdSet = new Set(
+        (baseList || [])
+            .filter(item => isExcludedAddProposalSelf(item))
+            .map(item => String(item.id))
+    );
 
     // 초기화
     tbody.innerHTML = '';
 
     // 지급 데이터 없을 때도 추가 버튼으로 바로 입력 가능하도록 placeholder만 표시
-    const filteredPayments = (payments || []).filter(p => (typeById[p.outsourcing_id] || '').trim() !== '추가 제안');
+    const filteredPayments = (payments || []).filter(p => !excludedOutsourcingIdSet.has(String(p?.outsourcing_id ?? '')));
     if (!filteredPayments.length) {
         const emptyRow = document.createElement('tr');
         emptyRow.setAttribute('data-placeholder', 'true');
@@ -9735,11 +9839,8 @@ async function updateOutsourcingMoneyPaymentTable() {
 
             const tr = document.createElement('tr');
             tr.setAttribute('data-outsourcing-id', outsourcingId);
-            // 업체명 select 박스 구성 (outsourcing_type이 '추가 제안'인 항목은 제외)
-            const selectBaseList = (window.__outsourcingBaseList || []).filter(item => {
-                const t = (item.outsourcing_type || '').trim();
-                return t !== '추가 제안';
-            });
+            // 업체명 select: '추가 제안 - 자체' 제외
+            const selectBaseList = getSelectableOutsourcingBaseList(window.__outsourcingBaseList || [], outsourcingId);
             const selectOptions = selectBaseList.map(item => {
                 const selected = String(item.id) === String(outsourcingId) ? 'selected' : '';
                 const txt = (item.outsourcing_company || '-');
@@ -9786,7 +9887,6 @@ async function updateOutsourcingMoneyPaymentView() {
         baseList.forEach(item => {
             if (item && item.id != null) {
                 typeById[item.id] = (item.outsourcing_type || '').trim();
-                if (typeById[item.id] === '추가 제안') return; // 제외
                 baseCostById[item.id] = parseFloat(item.change_Cost) || 0;
                 nameById[item.id] = item.outsourcing_company || '-';
             }
@@ -9796,8 +9896,12 @@ async function updateOutsourcingMoneyPaymentView() {
         baseCostById = {};
     }
 
-    // '추가 제안' 타입 지급 내역은 화면에서 제외
-    const payments = paymentsAll.filter(p => (typeById[p.outsourcing_id] || '').trim() !== '추가 제안');
+    const excludedOutsourcingIdSet = new Set(
+        Object.keys(typeById)
+            .filter(id => isExcludedAddProposalSelfByType(typeById[id], nameById[id]))
+            .map(id => String(id))
+    );
+    const payments = paymentsAll.filter(p => !excludedOutsourcingIdSet.has(String(p?.outsourcing_id ?? '')));
 
     // 날짜 문자열을 yyyy-mm-dd로 정규화하는 헬퍼
     const toYMD = (val) => {
@@ -9965,11 +10069,7 @@ function addMoneyPaymentRow() {
     const tbody = document.getElementById('outsourcing_moneyPayment_tbody');
     if (!tbody) return;
 
-    // '추가 제안' 타입은 선택 목록에서 제외
-    const baseList = (window.__outsourcingBaseList || []).filter(item => {
-        const t = (item.outsourcing_type || '').trim();
-        return t !== '추가 제안';
-    });
+    const baseList = getSelectableOutsourcingBaseList(window.__outsourcingBaseList || []);
     if (!baseList.length) {
         alert('외주 업체 목록을 가져오지 못했습니다. 페이지를 새로고침 해주세요.');
         return;
@@ -11090,7 +11190,11 @@ function generateOutsourcingRows(flag = false) {
         .then(data => {
             let rowsHtml = '';
             const allItems = data.outsourcing_items || [];
-            const items = flag ? allItems : allItems.filter(entry => entry.type !== '추가 제안');
+            const nonAddProposalItems = allItems.filter(entry => entry.type !== '추가 제안');
+            // 실제 사업 수행비 현황(기타 경비 D)에서는 '자체' 업체를 제외
+            const items = flag
+                ? allItems.filter(entry => String(entry?.company || '').trim() !== '자체')
+                : nonAddProposalItems;
             const idPrefix = flag ? "Real_" : "";
 
             let totalOutsourceCost = 0;
@@ -11361,6 +11465,8 @@ async function generateComparisonTable() {
     const expectedtable = document.getElementById('EX_fee_table')
     const actualtable = document.getElementById('actual_fee_table')
 
+    const actualAddProposal = getAdditionalProposalNoVatTotal();
+
     // 예상 데이터
     const expectedData = {
         projectCost: Number(expectedtable.querySelector('tbody tr:nth-child(1) td:nth-child(2)').textContent.replace(/[^0-9.-]/g, '')),
@@ -11370,6 +11476,7 @@ async function generateComparisonTable() {
         budget: Number(expectedtable.querySelector('tbody tr:nth-child(6) td:nth-child(4)').textContent.replace(/[^0-9.-]/g, '')),
         records: Number(expectedtable.querySelector('tbody tr:nth-child(7) td:nth-child(3)').textContent.replace(/[^0-9.-]/g, '')),
         outsourcing: expectedOutsource.outsourceTotalCost,
+        addProposal: null,
         performance: 0
     };
     //실제 데이터
@@ -11381,6 +11488,7 @@ async function generateComparisonTable() {
         budget: Number(actualtable.querySelector('tbody tr:nth-child(6) td:nth-child(4)').textContent.replace(/[^0-9.-]/g, '')),
         records: Number(actualtable.querySelector('tbody tr:nth-child(7) td:nth-child(3)').textContent.replace(/[^0-9.-]/g, '')),
         outsourcing: actualOutsource.outsourceTotalCost,
+        addProposal: actualAddProposal,
         performance: 0
     };
     const comparisonPerformanceData = Array.isArray(performance_result?.filtered_data)
@@ -11423,7 +11531,7 @@ async function generateComparisonTable() {
     const actualSumData = {
         companyMoney: actualData.academicResearch + actualData.operationalCost + actualData.equipmentCost,
         executionSum: actualData.budget + actualData.records,
-        otherRecords: actualData.outsourcing + actualData.performance, //성과심사비 추가
+        otherRecords: actualData.outsourcing + actualData.addProposal + actualData.performance, //성과심사비 + 추가제안
 
     };
     //실제 총계, 영업 이익, 이익율
@@ -11440,6 +11548,7 @@ async function generateComparisonTable() {
         budget: actualData.budget - expectedData.budget,
         records: actualData.records - expectedData.records,
         outsourcing: actualData.outsourcing - expectedData.outsourcing,
+        addProposal: null,
         performance: actualData.performance - expectedData.performance,
     };
     const differencecompanyMoney = actualSumData.companyMoney - expectedSumData.companyMoney;
@@ -11524,11 +11633,17 @@ async function generateComparisonTable() {
 
 
         <tr>
-            <td rowspan="3">기타 경비(D)</td>
+            <td rowspan="4">기타 경비(D)</td>
             <td>외주 경비</td>
             <td>${expectedData.outsourcing.toLocaleString()}원</td>
             <td>${actualData.outsourcing.toLocaleString()}원</td>
             <td>${differenceData.outsourcing.toLocaleString()}원</td>
+        </tr>
+        <tr>
+            <td>추가제안</td>
+            <td>-</td>
+            <td>${actualData.addProposal.toLocaleString()}원</td>
+            <td>-</td>
         </tr>
         <tr>
             <td>성과심사비</td>
@@ -11838,12 +11953,18 @@ function saveEditTable() {
 function saveProjectStatus() {
     const selectedStatus = document.querySelector('input[name="project_status"]:checked').value;
     const contractCode = document.getElementById('project-contractCode').value;
+    const yearSelect = document.getElementById('year_select');
+    const selectedYearText = (yearSelect?.value || '').trim();
+    const nowYear = new Date().getFullYear();
+    const parsedYear = Number(selectedYearText);
+    const statusYear = Number.isInteger(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100
+        ? parsedYear
+        : nowYear;
     let statusToSend = selectedStatus;
 
     // 준공이면 연도 select 값 붙이기
     if (selectedStatus === '준공') {
-        const yearSelect = document.getElementById('year_select');
-        const selectedYear = yearSelect.value;
+        const selectedYear = String(statusYear);
         if (selectedYear) {
             statusToSend = `준공(${selectedYear.slice(-2)})`; // '준공(25)' 형태
         }
@@ -11861,7 +11982,8 @@ function saveProjectStatus() {
         },
         body: JSON.stringify({
             contractCode: contractCode,
-            project_status: statusToSend
+            project_status: statusToSend,
+            status_year: statusYear
         })
     })
         .then(response => response.json())
