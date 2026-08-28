@@ -1338,11 +1338,11 @@ function setTableHead(mode) {
         thead.innerHTML = `
             <tr>
                 <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
-                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 42%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 38%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
                 <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 20%;">발주처</th>
                 <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
                 <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 8%;">진행률</th>
-                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 6%;">외주구분</th>
+                <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
             </tr>
         `;
         updateProjectSortIndicators();
@@ -1720,7 +1720,11 @@ function _weeklyLoadAndRenderReports({ year = null } = {}) {
 }
 
 function _monthlyParseYear(item) {
-    const raw = String(item?.meeting_datetime || item?.created_at || '').trim();
+    const rawTitle = String(item?.title || '').trim();
+    const titleMatch = rawTitle.match(/^(\d{4})년(\d{1,2})월(\d+)주차/);
+    if (titleMatch) return Number(titleMatch[1]);
+
+    const raw = String(item?.meeting_datetime || item?.created_at || item?.week_start || '').trim();
     const m = raw.match(/^(\d{4})/);
     return m ? Number(m[1]) : null;
 }
@@ -1735,10 +1739,52 @@ function _monthlyGetAvailableYearsForFilter(items) {
 }
 
 function _monthlyGetYearMonthKey(item) {
-    const raw = String(item?.meeting_datetime || item?.created_at || '').trim();
+    const rawTitle = String(item?.title || '').trim();
+    const titleMatch = rawTitle.match(/^(\d{4})년(\d{1,2})월(\d+)주차/);
+    if (titleMatch) {
+        return `${titleMatch[1]}-${String(Number(titleMatch[2])).padStart(2, '0')}`;
+    }
+
+    const raw = String(item?.meeting_datetime || item?.created_at || item?.week_start || '').trim();
     const m = raw.match(/^(\d{4})-(\d{2})/);
     if (m) return `${m[1]}-${m[2]}`;
     return '';
+}
+
+function _monthlyBuildMonthLabel(item) {
+    const key = _monthlyGetYearMonthKey(item);
+    if (key) {
+        const [yearRaw, monthRaw] = key.split('-');
+        const year = Number(yearRaw) || null;
+        const month = Number(monthRaw) || null;
+        if (year && month) return `${year}년 ${month}월 월간보고`;
+        if (month) return `${month}월 월간보고`;
+    }
+
+    const rawTitle = String(item?.title || '').trim();
+    const titleMatch = rawTitle.match(/^(\d{4})년(\d{1,2})월(\d+)주차/);
+    if (titleMatch) {
+        return `${titleMatch[1]}년 ${Number(titleMatch[2])}월 월간보고`;
+    }
+
+    return rawTitle || '월간보고';
+}
+
+function openMonthlyReportPage(item) {
+    const key = _monthlyGetYearMonthKey(item);
+    if (!key) return;
+
+    const [yearRaw, monthRaw] = key.split('-');
+    const year = Number(yearRaw) || new Date().getFullYear();
+    const month = Number(monthRaw) || (new Date().getMonth() + 1);
+    const dept = normalizeMonthlyDepartmentName(item?.attendees || '');
+
+    const params = new URLSearchParams();
+    params.set('year', String(year));
+    params.set('month', String(month));
+    if (dept) params.set('dept', dept);
+
+    window.location.href = `/monthly_report?${params.toString()}`;
 }
 
 function _monthlyPickOneItemPerMonth(items) {
@@ -1824,12 +1870,12 @@ function _monthlyRenderRowsGroupedByYear(tableBody, items) {
 
         (byYear.get(y) || []).forEach((m) => {
             const row = document.createElement('tr');
-            const title = escapeHtmlSafe(m.title || m.original_name || '-');
+            const title = escapeHtmlSafe(_monthlyBuildMonthLabel(m));
             row.innerHTML = `<td style="padding: 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;"
                 onmouseover="this.style.backgroundColor='#f1f5f9'"
                 onmouseout="this.style.backgroundColor=''">${title}</td>`;
             row.addEventListener('click', () => {
-                openMeetingViewModal(m, { mode: 'monthly' });
+                openMonthlyReportPage(m);
             });
             tableBody.appendChild(row);
         });
@@ -1841,10 +1887,10 @@ function _monthlyLoadAndRenderReports({ year = null } = {}) {
     if (!tableBody) return;
     tableBody.innerHTML = '';
 
-    fetch('/doc_editor_api/monthly/list')
+    fetch('/api/weekly_reports')
         .then(res => res.json())
         .then(data => {
-            const all = Array.isArray(data.items) ? data.items : [];
+            const all = Array.isArray(data.weeks) ? data.weeks : [];
             meetingItemsAll = all;
 
             const years = _monthlyGetAvailableYearsForFilter(all);
@@ -1865,12 +1911,12 @@ function _monthlyLoadAndRenderReports({ year = null } = {}) {
             } else {
                 listItems.forEach((m) => {
                     const row = document.createElement('tr');
-                    const title = escapeHtmlSafe(m.title || m.original_name || '-');
+                    const title = escapeHtmlSafe(_monthlyBuildMonthLabel(m));
                     row.innerHTML = `<td style="padding: 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;"
                         onmouseover="this.style.backgroundColor='#f1f5f9'"
                         onmouseout="this.style.backgroundColor=''">${title}</td>`;
                     row.addEventListener('click', () => {
-                        openMeetingViewModal(m, { mode: 'monthly' });
+                        openMonthlyReportPage(m);
                     });
                     tableBody.appendChild(row);
                 });
@@ -2877,12 +2923,12 @@ const WEEKLY_INPUT_SCHEDULE_LINE_LIMITS = (() => {
         ['경영지원부', 5],
         ['총무부', 2],
         ['공공사업부', 4],
-        ['공정관리부', 3],
+        ['공정관리부', 4],
         ['GIS사업부', 5],
         ['공간정보사업부', 4],
-        ['기업부설연구소(연구소)', 3],
-        ['기업부설연구소', 3],
-        ['연구소', 3],
+        ['기업부설연구소(연구소)', 2],
+        ['기업부설연구소', 2],
+        ['연구소', 2],
         ['BIT', 3],
         ['BIT 공정관리부', 2]
     ];

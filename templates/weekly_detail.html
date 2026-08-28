@@ -678,7 +678,7 @@
 <body>
   {% set login_user = session.get('user', {}) %}
   <header class="page-header annual-topbar">
-    <button type="button" onclick="try{sessionStorage.setItem('addressLockDisabled','true');}catch(_){ } window.location.href='/go_back'" class="back-button annual-home-btn">
+    <button type="button" onclick="window.location.href='/'" class="back-button annual-home-btn" aria-label="홈으로 이동">
       <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
     </button>
     <h1 id="projectName">{{ week_title }} 주간보고</h1>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ year }}년 {{ month }}월 월간보고</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='PMS_Business_Year.css') }}" />
+  <style>
+    html,
+    body {
+      display: block;
+      font-size: 15px;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+
+    header.page-header.annual-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      font-family: 'Outfit', 'Noto Sans KR', 'Segoe UI', sans-serif;
+      background: #ffffff;
+      color: #334155;
+      border: 0;
+      border-bottom: 1px solid #e2e8f0;
+      border-radius: 0;
+      box-shadow: none;
+      min-height: 60px;
+      margin: 0 0 20px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-sizing: border-box;
+      text-align: left;
+    }
+
+    header.page-header.annual-topbar h1 {
+      margin: 0;
+      flex: 1 1 320px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0;
+      color: #334155;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    header.page-header.annual-topbar .back-button {
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .annual-home-logo {
+      width: 110px;
+      height: 56px;
+      object-fit: contain;
+    }
+
+    .annual-topbar-userbox {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex: 0 1 auto;
+      margin-left: auto;
+      align-self: flex-start;
+      padding-top: 2px;
+    }
+
+    .annual-topbar-userlabel {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .annual-topbar-user-sep {
+      color: #94a3b8;
+    }
+
+    .monthly-page {
+      width: 100%;
+      margin: 14px 0 20px;
+      padding: 0 16px 12px;
+      box-sizing: border-box;
+    }
+
+    .monthly-title {
+      margin: 8px 0 14px;
+      font-size: 28px;
+      font-weight: 800;
+      text-align: center;
+      color: #0f172a;
+    }
+
+    .monthly-subtitle {
+      margin: 10px 0 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .monthly-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 14px;
+    }
+
+    .monthly-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border: 1px solid #cbd5e1;
+    }
+
+    .monthly-table th,
+    .monthly-table td {
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    .monthly-table th {
+      background: #e2e8f0;
+      text-align: center;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .monthly-week-col {
+      width: 220px;
+      text-align: center !important;
+      vertical-align: middle !important;
+      white-space: nowrap;
+    }
+
+    #monthlyIssueTable th.monthly-week-col,
+    #monthlyIssueTable td.monthly-week-col {
+      text-align: center !important;
+      vertical-align: middle !important;
+    }
+
+    .monthly-content-col {
+      width: calc(100% - 220px);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+
+    .monthly-content-col p,
+    .monthly-content-col ol,
+    .monthly-content-col ul {
+      margin: 0;
+    }
+
+    .monthly-content-col ol,
+    .monthly-content-col ul {
+      padding-left: 18px;
+    }
+
+    .monthly-empty {
+      text-align: center;
+      color: #64748b;
+      padding: 24px 8px;
+      font-size: 14px;
+    }
+
+    .monthly-pdf-wrap {
+      margin-top: 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f8fafc;
+      min-height: 560px;
+    }
+
+    .monthly-pdf-frame {
+      width: 100%;
+      height: 1130px;
+      border: none;
+      background: #fff;
+      display: block;
+    }
+
+    .monthly-pdf-empty {
+      display: none;
+      min-height: 220px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+      padding: 20px;
+    }
+
+    .monthly-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      width: 100%;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .monthly-toolbar .monthly-nav-btn {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .monthly-toolbar .monthly-nav-btn:hover {
+      background: #218838;
+    }
+
+    .monthly-toolbar .green-btn {
+      background: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .monthly-toolbar .green-btn:hover {
+      background: #218838;
+    }
+
+    footer {
+      text-align: center;
+      padding: 12px 0;
+    }
+
+    @media (max-width: 768px) {
+      header.page-header.annual-topbar {
+        padding: 10px 14px;
+        gap: 10px;
+      }
+
+      header.page-header.annual-topbar h1 {
+        flex-basis: 100%;
+        font-size: 17px;
+        order: 2;
+      }
+
+      .annual-topbar-userbox {
+        width: 100%;
+        justify-content: flex-end;
+        order: 3;
+        margin-left: 0;
+        padding-top: 0;
+      }
+
+      .annual-topbar-userlabel {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .monthly-week-col {
+        width: 140px;
+      }
+
+      .monthly-content-col {
+        width: calc(100% - 140px);
+      }
+
+      .monthly-pdf-frame {
+        height: 500px;
+      }
+    }
+  </style>
+  <script src="{{ url_for('static', filename='monthly_report.js') }}" defer></script>
+</head>
+
+<body>
+  {% set login_user = session.get('user', {}) %}
+  <header class="page-header annual-topbar">
+    <button type="button" onclick="window.location.href='/'" class="back-button annual-home-btn">
+      <img class="annual-home-logo" src="{{ url_for('static', filename='img/home.png') }}" alt="홈">
+    </button>
+    <h1 id="projectName">{{ year }}년 {{ month }}월 월간보고</h1>
+    <div class="annual-topbar-userbox">
+      <div class="annual-topbar-userlabel" title="로그인 정보">
+        <span>{{ login_user.get('Department', login_user.get('department', '')) }}</span>
+        <span class="annual-topbar-user-sep">/</span>
+        <span>{{ login_user.get('position', login_user.get('Position', '-')) or '-' }}</span>
+        <span class="annual-topbar-user-sep">/</span>
+        <span>{{ login_user.get('name', '-') }}</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="monthly-page">
+    <input type="hidden" id="monthlyYear" value="{{ year }}">
+    <input type="hidden" id="monthlyMonth" value="{{ month }}">
+    <input type="hidden" id="monthlyInitialDept" value="{{ initial_dept }}">
+    <input type="hidden" id="monthlyUserName" value="{{ login_user.get('name', login_user.get('Name', '')) }}">
+    <input type="hidden" id="sessionDept" value="{{ login_user.get('Department', login_user.get('department', '')) }}">
+
+    <div class="monthly-toolbar">
+      <button type="button" class="monthly-nav-btn" onclick="goToPreviousMonthlyReport()">◀ 이전 월간보고</button>
+      <button type="button" class="monthly-nav-btn" onclick="goToNextMonthlyReport()">다음 월간보고 ▶</button>
+      <button type="button" class="green-btn" onclick="goBackToMonthlyList()">목록으로</button>
+    </div>
+
+    <div class="monthly-card">
+      <div id="monthlyDeptTabs" class="monthly-dept-tabs" role="tablist" aria-label="월간보고 부서 선택"></div>
+
+      <div class="monthly-subtitle">부서별 이슈사항(전주)</div>
+      <table class="monthly-table" id="monthlyIssueTable">
+        <thead>
+          <tr>
+            <th class="monthly-week-col">주차</th>
+            <th class="monthly-content-col">내용</th>
+          </tr>
+        </thead>
+        <tbody id="monthlyIssueTableBody"></tbody>
+      </table>
+
+      <div class="monthly-subtitle">월간보고 PDF</div>
+      <div class="monthly-pdf-wrap" id="monthlyPdfWrap">
+        <iframe id="monthlyPdfFrame" class="monthly-pdf-frame" title="월간보고 PDF"></iframe>
+        <div id="monthlyPdfEmpty" class="monthly-pdf-empty">해당 부서 월간보고 PDF가 없습니다.</div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo" style="height: 60px;">
+  </footer>
+</body>
+
+</html>

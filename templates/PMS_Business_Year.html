@@ -51,7 +51,8 @@
         <input type="hidden" id="requestedTab" value="{{ requested_tab|default('', true) }}">
 
         {% set report_user_name = session['user'].get('name', session['user'].get('Name', '')) %}
-        {% set can_view_monthly_report = report_user_name in ['나준영', '개발'] %}
+        {% set can_click_monthly_report_logo = report_user_name in ['박민재', '나준영', '개발'] %}
+        {% set can_view_all_monthly_report_tabs = report_user_name in ['김정욱', '최태혁', '한형섭', '나준영', '최도현', '개발'] %}
     </header>
     <nav class="navbar">
         <ul>
@@ -101,7 +102,7 @@
                 <button class="year-button dropbtn" type="button">업무보고서 ▼</button>
                 <div class="dropdown-content">
                     <a href="#" onclick="viewWeeklyReports(); return false;">주간보고서</a>
-                    {% if can_view_monthly_report %}
+                    {% if can_view_all_monthly_report_tabs %}
                     <a href="#" onclick="viewMonthlyReports(); return false;">월간보고서</a>
                     {% endif %}
                 </div>
@@ -866,7 +867,7 @@
                         <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable"
                             style="width: 14%;">사업번호</th>
                         <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable"
-                            style="width: calc(42% - 5px);" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                            style="width: calc(38% - 5px);" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
                         <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable"
                             style="width: 20%;">발주처</th>
                         <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable"
@@ -874,7 +875,7 @@
                         <th id="projectSortProgress" data-sort-key="progress" class="project-sortable"
                             style="width: 8%;">진행률</th>
                         <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable"
-                            style="width: 6%;">외주구분</th>
+                            style="width: 10%;">외주구분</th>
                     </tr>
                 </thead>
                 <tbody id="projectList_tbody"></tbody>
@@ -1022,7 +1023,7 @@
     </div>
 
     <footer>
-        {% if can_view_monthly_report %}
+        {% if can_click_monthly_report_logo %}
         <a style="display: inline-block;" href="#" onclick="viewMonthlyReports(); return false;" title="월간보고서 열기">
             <img src="{{ url_for('static', filename='img/company_logo.png') }}" alt="Company Logo"
                 style="height: 60px; margin-right: 20px; margin-top: 30px; margin-bottom: 25px;">

@@ -1550,6 +1550,10 @@ body.modal-open {
     text-overflow: ellipsis;
 }
 
+.projectList tbody td:nth-child(6) {
+    white-space: nowrap;
+}
+
 .projectList tbody tr:hover {
     background-color: #d5d7d8;
 }

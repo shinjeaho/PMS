@@ -240,6 +240,35 @@ def _compute_week_meta(week_start: date):
     }
 
 
+def _compute_monthly_source_week_meta(week_start: date) -> dict:
+    """작성 주간보고의 주차에서 1주 앞선 주차를 월간보고 대상으로 계산한다."""
+    source_meta = _compute_week_meta(week_start)
+    source_year = int(source_meta['year'])
+    source_month = int(source_meta['month'])
+    source_week_index = int(source_meta['week_index'])
+
+    if source_week_index > 1:
+        year = source_year
+        month = source_month
+        week_index = source_week_index - 1
+    else:
+        if source_month == 1:
+            year, month = source_year - 1, 12
+        else:
+            year, month = source_year, source_month - 1
+        first_day = date(year, month, 1)
+        last_day = date(year, month + 1, 1) - timedelta(days=1) if month < 12 else date(year + 1, 1, 1) - timedelta(days=1)
+        first_week_monday = first_day - timedelta(days=first_day.weekday())
+        week_index = ((last_day - first_week_monday).days // 7) + 1
+
+    return {
+        'year': year,
+        'month': month,
+        'week_index': week_index,
+        'title': f'{year}년{month}월{week_index}주차',
+    }
+
+
 def _get_weekly_detail(week_start: date):
     conn = create_connection()
     if conn is None:
@@ -359,6 +388,144 @@ def api_weekly_detail():
 
     data = _get_weekly_detail(week_start)
     return jsonify({'ok': True, **data})
+
+
+def _month_range_with_buffer(year: int, month: int) -> tuple[date, date]:
+    first = date(year, month, 1)
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    last = next_month - timedelta(days=1)
+    # 월 주차 계산(목요일 기준)에서 경계 주차를 포함하도록 완충 구간을 둔다.
+    return first - timedelta(days=10), last + timedelta(days=10)
+
+
+def _extract_prev_issue_from_segments(raw_segments) -> str:
+    try:
+        parsed = json.loads(raw_segments) if isinstance(raw_segments, str) else raw_segments
+    except Exception:
+        parsed = None
+
+    if not isinstance(parsed, dict):
+        return ''
+
+    issues = parsed.get('issues') or {}
+    if not isinstance(issues, dict):
+        return ''
+
+    return _sanitize_weekly_html(issues.get('prev') or '')
+
+
+def _collect_monthly_prev_issues(year: int, month: int) -> dict[str, list[dict]]:
+    conn = create_connection()
+    if conn is None:
+        return {dept: [] for dept in DEPT_ORDER}
+
+    cur = conn.cursor(dictionary=True)
+    result_map: dict[str, list[dict]] = {dept: [] for dept in DEPT_ORDER}
+    seen_keys: set[tuple[str, str]] = set()
+    start_date, end_date = _month_range_with_buffer(year, month)
+
+    try:
+        cur.execute(
+            """
+            SELECT r.week_start,
+                   r.department,
+                   r.id AS report_id,
+                   e.summary_segments,
+                   COALESCE(e.updated_at, r.updated_at) AS updated_at
+              FROM weekly_report r
+              LEFT JOIN weekly_entry e ON e.report_id = r.id
+             WHERE r.week_start BETWEEN %s AND %s
+             ORDER BY r.week_start DESC, updated_at DESC, r.id DESC
+            """,
+            (start_date, end_date),
+        )
+
+        rows = cur.fetchall() or []
+        for rw in rows:
+            ws = rw.get('week_start')
+            if isinstance(ws, datetime):
+                ws_date = ws.date()
+            elif isinstance(ws, date):
+                ws_date = ws
+            else:
+                continue
+
+            prev_week_start = ws_date - timedelta(days=7)
+            meta = _compute_monthly_source_week_meta(ws_date)
+            if int(meta.get('year') or 0) != int(year):
+                continue
+            if int(meta.get('month') or 0) != int(month):
+                continue
+
+            dept = _canon_dept(rw.get('department') or '')
+            if dept not in result_map:
+                continue
+
+            week_key = prev_week_start.isoformat()
+            dedupe_key = (dept, week_key)
+            if dedupe_key in seen_keys:
+                continue
+
+            prev_html = _extract_prev_issue_from_segments(rw.get('summary_segments'))
+            if not prev_html:
+                continue
+
+            seen_keys.add(dedupe_key)
+            result_map[dept].append(
+                {
+                    'week_start': week_key,
+                    'week_title': meta.get('title') or _compute_week_title(prev_week_start),
+                    'content_html': prev_html,
+                }
+            )
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+    return result_map
+
+
+@bp.route('/api/monthly_prev_issues', methods=['GET'])
+def api_monthly_prev_issues():
+    try:
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+        if not year or not month:
+            return jsonify({'ok': False, 'message': 'year/month가 필요합니다.'}), 400
+        if month < 1 or month > 12:
+            return jsonify({'ok': False, 'message': 'month는 1~12 범위여야 합니다.'}), 400
+
+        issue_map = _collect_monthly_prev_issues(year, month)
+        departments = [{'department': dept, 'issues': issue_map.get(dept) or []} for dept in DEPT_ORDER]
+        return jsonify({'ok': True, 'year': year, 'month': month, 'departments': departments})
+    except Exception as e:
+        return jsonify({'ok': False, 'message': str(e)}), 500
+
+
+@bp.route('/monthly_report', methods=['GET'])
+def monthly_report_page():
+    today = date.today()
+    year = request.args.get('year', type=int) or int(today.year)
+    month = request.args.get('month', type=int) or int(today.month)
+    if month < 1 or month > 12:
+        month = int(today.month)
+
+    initial_dept = _canon_dept(request.args.get('dept', type=str) or '')
+    if initial_dept not in DEPT_ORDER:
+        initial_dept = ''
+
+    return render_template(
+        'monthly_report.html',
+        year=year,
+        month=month,
+        initial_dept=initial_dept,
+    )
 
 
 @bp.route('/weekly_report/<week_start>', methods=['GET'])

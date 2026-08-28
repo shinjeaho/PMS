@@ -27,6 +27,7 @@ def init_login_gate(app):
         '/project_detail/',
         '/project_examine/',
         '/weekly_report/',
+        '/monthly_report',
     )
 
     def _is_same_host_referrer(url: str | None) -> bool:
