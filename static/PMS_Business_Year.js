@@ -1192,11 +1192,19 @@ function closeDailyWriteModal() {
 //기본 프로젝트 목록 가져오기
 function fetchProjects(page = 1) {
     _dailyHideSection();
+    // 기본 연도별 사업목록 모드임을 명시한다. 다른 모드에서 돌아온 뒤에도
+    // 헤더 정렬 클릭이 현재 20건 정렬이 아닌 서버 전체 정렬을 호출해야 한다.
+    currentView = "";
     const scope = document.getElementById('searchScope')?.value || 'year';
     const year = document.getElementById("projectYEAR")?.value || '';
     let url = `/api/get_projects/?page=${encodeURIComponent(page)}`;
     if (scope !== 'all' && year) {
         url += `&year=${encodeURIComponent(year)}`;
+    }
+    if (projectSortState.key) {
+        url += `&sort_key=${encodeURIComponent(projectSortState.key)}`;
+        url += `&sort_dir=${encodeURIComponent(projectSortState.dir)}`;
+        url += `&name_mode=${encodeURIComponent(projectSortState.nameMode)}`;
     }
 
     fetch(url)
@@ -1204,7 +1212,7 @@ function fetchProjects(page = 1) {
         .then(data => {
             currentPage = Math.max(1, Number(data.current_page || page || 1) || 1);
             totalPages = Math.max(1, Number(data.total_pages || 1) || 1);
-            renderTable(data.projects || []);
+            renderTable(data.projects || [], false);
             renderPagination(data.current_page || 1, data.total_pages || 1);
             const titleEl = document.getElementById('yearTitle');
             if (titleEl) {
@@ -1478,7 +1486,12 @@ function initProjectListSort() {
         }
 
         updateProjectSortIndicators();
-        renderTable(projectRowsCache || []);
+        if (!currentView && !String(searchTerm || '').trim()) {
+            // 서버에서 해당 연도 전체를 정렬한 후 첫 페이지를 다시 받는다.
+            fetchProjects(1);
+        } else {
+            renderTable(projectRowsCache || []);
+        }
     });
 
     table.dataset.sortBound = '1';
@@ -2690,12 +2703,12 @@ function truncateText(text, maxLength = 25) {
 }
 
 //프로젝트 목록을 테이블에 표시
-function renderTable(projects) {
+function renderTable(projects, applyClientSort = true) {
     const tableBody = document.getElementById("projectList_tbody");
     tableBody.innerHTML = "";
     projectRowsCache = Array.isArray(projects) ? [...projects] : [];
 
-    const sortedProjects = sortProjectRows(projectRowsCache);
+    const sortedProjects = applyClientSort ? sortProjectRows(projectRowsCache) : projectRowsCache;
     updateProjectSortIndicators();
 
     if ((!Array.isArray(sortedProjects) || sortedProjects.length === 0) && String(searchTerm || '').trim()) {
@@ -3383,8 +3396,10 @@ function getSessionName() {
 }
 
 function isWeeklyAdminByAccess() {
-    const adminAuthEl = document.getElementById('sessionAdminAuth');
-    return Number(adminAuthEl?.value || 0) === 1;
+    // 관리자도 주간보고 입력 화면에서는 일반 사용자와 동일하게 자기 부서만 표시한다.
+    // const adminAuthEl = document.getElementById('sessionAdminAuth');
+    // return Number(adminAuthEl?.value || 0) === 1;
+    return false;
 }
 
 function weeklyInputSetAdminMode(isAdmin) {

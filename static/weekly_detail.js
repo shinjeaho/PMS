@@ -978,7 +978,9 @@ function weeklyEditGetSessionAuth() {
 }
 
 function weeklyEditIsAdminByAccess() {
-  return weeklyEditGetSessionAuth() === '관리자';
+  // 관리자도 주간보고 수정 화면에서는 일반 사용자와 동일하게 자기 부서만 표시한다.
+  // return weeklyEditGetSessionAuth() === '관리자';
+  return false;
 }
 
 function weeklyEditNearestMonday(d) {

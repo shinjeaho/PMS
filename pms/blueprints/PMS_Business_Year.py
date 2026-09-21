@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime
 
 import mysql.connector
@@ -24,6 +25,9 @@ def get_projects():
         cursor = db.cursor(dictionary=True)
         year = request.args.get('year', type=int)
         page = request.args.get('page', 1, type=int)
+        sort_key = (request.args.get('sort_key', '') or '').strip().lower()
+        sort_dir = (request.args.get('sort_dir', '') or '').strip().lower()
+        name_mode = (request.args.get('name_mode', '') or '').strip().lower()
         per_page = 20
 
         if not year:
@@ -42,8 +46,6 @@ def get_projects():
         if page > total_pages or page < 1:
             page = 1
 
-        offset = (page - 1) * per_page
-
         cursor.execute(
             """
                 SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
@@ -51,9 +53,8 @@ def get_projects():
                 WHERE YEAR(StartDate) = %s
             AND ContractCode NOT LIKE '%%검토%%'
                 ORDER BY ContractCode DESC
-            LIMIT %s OFFSET %s
             """,
-            (year, per_page, offset),
+            (year,),
         )
         projects = cursor.fetchall()
 
@@ -107,6 +108,38 @@ def get_projects():
                     proj['has_risk'] = bool(risk_map.get(code))
         except Exception:
             pass
+
+        def natural_key(value):
+            parts = re.split(r'(\d+)', str(value or '').casefold())
+            return tuple(int(part) if part.isdigit() else part for part in parts)
+
+        valid_sort_keys = {
+            'contract_code', 'project_name', 'order_place',
+            'project_status', 'progress', 'outsourcing',
+        }
+        if sort_key in valid_sort_keys:
+            if sort_key == 'project_name' and name_mode == 'issue':
+                risk_projects = [project for project in projects if project.get('has_risk')]
+                normal_projects = [project for project in projects if not project.get('has_risk')]
+                risk_projects.sort(key=lambda project: natural_key(project.get('ContractCode')), reverse=True)
+                normal_projects.sort(key=lambda project: natural_key(project.get('ContractCode')), reverse=True)
+                projects = risk_projects + normal_projects
+            else:
+                value_getters = {
+                    'contract_code': lambda project: natural_key(project.get('ContractCode')),
+                    'project_name': lambda project: natural_key(project.get('ProjectName')),
+                    'order_place': lambda project: natural_key(project.get('orderPlace')),
+                    'project_status': lambda project: natural_key(project.get('project_status') or '진행중'),
+                    'progress': lambda project: float(project.get('progress') or 0),
+                    'outsourcing': lambda project: natural_key(project.get('outsourcingCheck')),
+                }
+                projects.sort(
+                    key=value_getters[sort_key],
+                    reverse=(sort_dir == 'desc'),
+                )
+
+        offset = (page - 1) * per_page
+        projects = projects[offset:offset + per_page]
 
         return jsonify({
             'projects': projects,
