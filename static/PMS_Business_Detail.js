@@ -4155,7 +4155,8 @@ function closeQuantityModal() {
     document.getElementById('externalLaborModal').style.display = 'none';
     document.getElementById('modal_statusModal').style.display = 'none';
     document.getElementById('modal_EXrecordsModal').style.display = 'none';
-    document.getElementById('modal_copyData').style.display = 'none';
+    const copyDataModal = document.getElementById('modal_copyData');
+    if (copyDataModal) copyDataModal.style.display = 'none';
     const standardInfoModal = document.getElementById('modal_standardInfo');
     if (standardInfoModal) standardInfoModal.style.display = 'none';
 }
