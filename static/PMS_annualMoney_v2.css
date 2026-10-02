@@ -793,19 +793,26 @@ header.annual-topbar .annual-home-logo {
     padding-top: 2px;
 }
 
+/* Match the detail page login badge. */
 .annual-topbar-userlabel {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid #cbd5e1;
+    box-sizing: border-box;
+    padding: 5px 10px;
+    border: 1px solid #d8e0ea;
     border-radius: 999px;
-    background: #f8fafc;
-    color: #334155;
-    font-size: 13px;
-    font-weight: 600;
+    background: #ffffff;
+    color: #475569;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.55;
     white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+    .annual-topbar-userlabel { font-size: 11px; }
 }
 
 .annual-topbar-user-sep {
@@ -1072,7 +1079,8 @@ h1#projectName {
 #engineers-table tbody tr:hover .sticky-col-f,
 .custom-table tbody tr:hover .sticky-col-3,
 .custom-table tbody tr:hover .sticky-col,
-.custom-table tbody tr:hover .sticky-col-2 {
+.custom-table tbody tr:hover .sticky-col-2,
+.custom-table tbody tr:hover .sticky-col-progress {
     z-index: 20;
     outline: none;
 }
@@ -1185,7 +1193,8 @@ input[name="marginFilter"] {
 #engineers-table thead th.sticky-col-c,
 .custom-table thead th.sticky-col-3,
 .custom-table thead th.sticky-col,
-.custom-table thead th.sticky-col-2 {
+.custom-table thead th.sticky-col-2,
+.custom-table thead th.sticky-col-progress {
     z-index: 15 !important;
     /* 가장 높게 */
 }
@@ -1239,14 +1248,33 @@ input[name="marginFilter"] {
     overflow: hidden;
     white-space: nowrap;
 }
-/* Fix: sticky 사업명 열 우측 경계선이 스크롤 시 사라지는 문제를 pseudo-element로 해결 */
-.custom-table thead th.sticky-col-2,
-.custom-table tbody td.sticky-col-2 {
+.annual-money-project-name > a {
+    display: block;
+    max-width: 330px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sticky-col-progress {
+    position: sticky;
+    left: 470px;
+    background: #fff;
+    z-index: 5;
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
+    border: 1px solid #ddd;
+}
+
+/* 고정 영역의 마지막 열인 진행률 우측 경계선 유지 */
+.custom-table thead th.sticky-col-progress,
+.custom-table tbody td.sticky-col-progress {
     border-right: none; /* 기본 경계 제거 (겹침 방지) */
     position: sticky; /* 명시적 유지 */
 }
-.custom-table thead th.sticky-col-2::after,
-.custom-table tbody td.sticky-col-2::after {
+.custom-table thead th.sticky-col-progress::after,
+.custom-table tbody td.sticky-col-progress::after {
     content: '';
     position: absolute;
     top: 0;
@@ -1606,6 +1634,21 @@ input[name="marginFilter"] {
     table-layout: fixed;
     margin-bottom: 0;
     font-size: 13px;
+    /* Keep each sticky cell's border attached while horizontally scrolling. */
+    border-collapse: separate;
+    border-spacing: 0;
+    border-top: 1px solid #d1d5db;
+    border-left: 1px solid #d1d5db;
+}
+
+.annual-money-data-table th,
+.annual-money-data-table td {
+    border-width: 0 1px 1px 0;
+}
+
+.annual-money-data-table tbody tr:hover {
+    /* Scaling a row shifts its cells away from the sticky header offsets. */
+    transform: none;
 }
 
 .annual-money-section-body .annual-money-empty-section {
@@ -1734,9 +1777,9 @@ input[name="marginFilter"] {
     box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
 }
 
-/* 오른쪽 굵은 경계선 지정: 사업명(3), 사업비(총괄,VAT제외)(11), 손익비율 예상(20), 손익비율 실제(29) */
-.custom-table thead tr:nth-child(2) th:nth-child(3),
-.custom-table tbody tr:not(.summary-row) td:nth-child(3) {
+/* 고정 영역 오른쪽 굵은 경계선 */
+.custom-table thead th.sticky-col-progress,
+.custom-table tbody td.sticky-col-progress {
     border-right: 2px solid #999;
 }
 
@@ -2031,3 +2074,13 @@ input[name="marginFilter"] {
         font-size: 32px;
     }
 }
+/* Compact title bar and help beside the unit. */
+header.annual-topbar {
+    height: auto;
+    min-height: 44px;
+    padding: 6px 24px;
+}
+header.annual-topbar .annual-home-logo { height: 40px; }
+.annual-money-unit-tools { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.annual-money-unit-tools .annual-money-help-outside { margin: 0; padding: 0; }
+.annual-money-section-head-next { background: #edf4ff; }

@@ -3,8 +3,10 @@ document.addEventListener("DOMContentLoaded", function () {
     initAnnualMoneyStatsPanel();
     initAnnualMoneyQuarterFilter();
     initVatModeControls();
+    initAnnualMoneyTopbarHeight();
     initAnnualMoneyAnchorNavigation();
     initAnnualMoneyHorizontalScroll();
+    window.addEventListener('resize', updateAnnualMoneyStickyColumns);
 });
 
 
@@ -125,6 +127,20 @@ function initVatModeControls() {
     applyMode('exclude');
 }
 
+function initAnnualMoneyTopbarHeight() {
+    const topbar = document.querySelector('header.annual-topbar');
+    if (!topbar) return;
+    const updateHeight = () => document.body.style.setProperty(
+        '--annual-money-topbar-height', `${topbar.getBoundingClientRect().height}px`
+    );
+    updateHeight();
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(updateHeight).observe(topbar);
+    } else {
+        window.addEventListener('resize', updateHeight);
+    }
+}
+
 function initAnnualMoneyAnchorNavigation() {
     const links = Array.from(document.querySelectorAll('.annual-money-anchor-link[href^="#"]'));
     if (!links.length) return;
@@ -241,6 +257,7 @@ function getAnnualMoneyVatView(project, quarterOverride = null) {
         shareExclude,
         advanceBeforeTotal,
         progressBeforeTotal,
+        completionBeforeTotal: include ? baseCompletionBefore : toNoVat(baseCompletionBefore),
         advanceTotal,
         progressTotal,
         completionTotal,
@@ -552,6 +569,7 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
         receivedBeforeTotal: 0,
         advanceBeforeTotal: 0,
         progressBeforeTotal: 0,
+        completionBeforeTotal: 0,
         advanceTotal: 0,
         progressTotal: 0,
         completionTotal: 0,
@@ -594,7 +612,7 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
         const statsProjects = getAnnualMoneyStatsProjects(sections);
         const receivedBeforeDisplay = statsProjects.reduce((sum, project) => {
             const vatView = getAnnualMoneyVatView(project);
-            return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal;
+            return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal + vatView.completionBeforeTotal;
         }, 0);
         const outsourcingPaidPreviousDisplay = statsProjects.reduce((sum, project) => {
             const vatView = getAnnualMoneyVatView(project);
@@ -622,9 +640,11 @@ function renderAnnualMoneyStats(summary, list = [], precomputedSections = null) 
         setText('statsAllReceiptTotal', moneyText(allReceiptTotal));
         setText('statsAllPayGrandTotal', moneyText(allPayTotal));
         setText('statsAllReceiptBalanceCurrent', moneyText(balanceBuckets.current.receiptBalance));
+        setText('statsAllReceiptBalanceNext', moneyText(balanceBuckets.next.receiptBalance));
         setText('statsAllReceiptBalanceLong', moneyText(balanceBuckets.long.receiptBalance));
         setText('statsAllReceiptBalanceStop', moneyText(balanceBuckets.stop.receiptBalance));
         setText('statsAllPayBalanceCurrent', moneyText(balanceBuckets.current.outsourcingBalance));
+        setText('statsAllPayBalanceNext', moneyText(balanceBuckets.next.outsourcingBalance));
         setText('statsAllPayBalanceLong', moneyText(balanceBuckets.long.outsourcingBalance));
         setText('statsAllPayBalanceStop', moneyText(balanceBuckets.stop.outsourcingBalance));
 
@@ -755,6 +775,7 @@ function aggregateAnnualMoneyDisplaySummary(list = []) {
         acc.receivedBeforeTotal += Number(project.receivedBeforeTotal || 0);
         acc.advanceBeforeTotal += v.advanceBeforeTotal;
         acc.progressBeforeTotal += v.progressBeforeTotal;
+        acc.completionBeforeTotal += v.completionBeforeTotal;
         acc.advanceTotal += v.advanceTotal;
         acc.progressTotal += v.progressTotal;
         acc.completionTotal += v.completionTotal;
@@ -771,6 +792,7 @@ function aggregateAnnualMoneyDisplaySummary(list = []) {
         receivedBeforeTotal: 0,
         advanceBeforeTotal: 0,
         progressBeforeTotal: 0,
+        completionBeforeTotal: 0,
         advanceTotal: 0,
         progressTotal: 0,
         completionTotal: 0,
@@ -927,6 +949,11 @@ function renderAnnualProjectTable(dataList) {
         countId: 'annualMoneyCurrentCount',
         emptyMessage: '당해년도 준공예정 또는 이벤트 발생 사업이 없습니다.'
     });
+    renderAnnualMoneySectionTable('annualMoneyNextSection', sections.nextYear, {
+        groups: getAnnualMoneyNextGroups(sections),
+        countId: 'annualMoneyNextCount',
+        emptyMessage: '조회 연도 수령·지급 내역이 있는 차기년도 사업이 없습니다.'
+    });
     renderAnnualMoneySectionTable('annualMoneyLongSection', sections.longTerm, {
         countId: 'annualMoneyLongCount',
         emptyMessage: '장기사업으로 분류된 대상이 없습니다.'
@@ -941,6 +968,19 @@ function renderAnnualProjectTable(dataList) {
     });
 
     renderAnnualMoneyStats(summary, statsSourceList, sections);
+    updateAnnualMoneyStickyColumns();
+}
+
+function updateAnnualMoneyStickyColumns() {
+    document.querySelectorAll('.annual-money-data-table').forEach(table => {
+        let left = 0;
+        ['sticky-col-3', 'sticky-col', 'sticky-col-2', 'sticky-col-progress'].forEach(className => {
+            const header = table.querySelector(`thead .${className}`);
+            if (!header) return;
+            table.querySelectorAll(`.${className}`).forEach(cell => { cell.style.left = `${left}px`; });
+            left += header.getBoundingClientRect().width;
+        });
+    });
 }
 
 function getYearFromDateValue(value) {
@@ -961,10 +1001,21 @@ function hasAnnualMoneyEvent(project) {
     return Boolean(project?.has_risk);
 }
 
+function isAnnualMoneyNextYearProject(project, selectedYear) {
+    return !isTotalContractCode(project?.ContractCode)
+        && getYearFromDateValue(project?.EndDate) === selectedYear + 1;
+}
+
 function isAnnualMoneyCurrentEventProject(project, selectedYear) {
-    if (isAnnualMoneyStopProject(project, selectedYear) || isTotalContractCode(project?.ContractCode)) return false;
+    if (isTotalContractCode(project?.ContractCode)) return false;
+    // 용역중지도 조회 연도 수령 또는 지급이 있으면 당해년도 목록에 포함한다.
+    if (isAnnualMoneyStopProject(project, selectedYear)) {
+        return (project.receipt_details || []).some(receipt => getYearFromDateValue(receipt.receipt_date) === selectedYear)
+            || (project.outsourcing_payment_details || []).some(payment => getYearFromDateValue(payment.payment_date) === selectedYear);
+    }
     const endYear = getYearFromDateValue(project?.EndDate);
     
+
     // 1. 준공 연도가 당해년도인 경우 포함
     if (endYear === selectedYear) return true;
     
@@ -1051,6 +1102,7 @@ function splitAnnualMoneySections(list = []) {
     const selectedYear = Number(window.selectedYear) || new Date().getFullYear();
     const sections = {
         currentEvent: [],
+        nextYear: [],
         longTerm: [],
         stop: [],
         total: [],
@@ -1065,9 +1117,14 @@ function splitAnnualMoneySections(list = []) {
         }
 
         if (isAnnualMoneyStopProject(project, selectedYear)) {
-            sections.stop.push(project);
+            if (isAnnualMoneyCurrentEventProject(project, selectedYear)) {
+                sections.currentEvent.push(project);
+            } else {
+                sections.stop.push(project);
+            }
             return;
         }
+
 
         if (isAnnualMoneyCurrentEventProject(project, selectedYear)) {
             sections.currentEvent.push(project);
@@ -1079,7 +1136,26 @@ function splitAnnualMoneySections(list = []) {
         }
     });
 
+    sections.nextYear = [...sections.currentEvent, ...sections.longTerm]
+        .filter(project => isAnnualMoneyNextYearProject(project, selectedYear));
     return sections;
+}
+
+function annualMoneyProjectKey(project) {
+    return String(project.projectID ?? project.ContractCode);
+}
+
+function withoutAnnualMoneyNextYear(list, sections) {
+    const nextKeys = new Set((sections.nextYear || []).map(annualMoneyProjectKey));
+    return (list || []).filter(project => !nextKeys.has(annualMoneyProjectKey(project)));
+}
+
+function getAnnualMoneyNextGroups(sections) {
+    const nextKeys = new Set((sections.nextYear || []).map(annualMoneyProjectKey));
+    return [
+        { title: '차기년도(당해년도)', list: (sections.currentEvent || []).filter(p => nextKeys.has(annualMoneyProjectKey(p))) },
+        { title: '차기년도(장기사업)', list: (sections.longTerm || []).filter(p => nextKeys.has(annualMoneyProjectKey(p))) },
+    ];
 }
 
 function summarizeBalanceOnly(list = []) {
@@ -1099,16 +1175,19 @@ function summarizeBalanceOnly(list = []) {
 function getAnnualMoneyStatsProjects(sections) {
     const safeSections = sections || {
         currentEvent: [],
+        nextYear: [],
         longTerm: [],
         stop: [],
         total: [],
     };
 
-    return [
+    const projects = [
         ...(Array.isArray(safeSections.currentEvent) ? safeSections.currentEvent : []),
+        ...(Array.isArray(safeSections.nextYear) ? safeSections.nextYear : []),
         ...(Array.isArray(safeSections.longTerm) ? safeSections.longTerm : []),
         ...(Array.isArray(safeSections.stop) ? safeSections.stop : []),
     ].filter(project => !isTotalContractCode(project?.ContractCode));
+    return [...new Map(projects.map(project => [annualMoneyProjectKey(project), project])).values()];
 }
 
 function buildFamilyBalanceMap(list = []) {
@@ -1163,12 +1242,13 @@ function summarizeLongTermBalance(sections) {
     */
 
     // 새 계산식: 총괄사업은 기수령/잔금 계산에서 완전히 제외
-    return summarizeBalanceOnly(Array.isArray(sections?.longTerm) ? sections.longTerm : []);
+    return summarizeBalanceOnly(withoutAnnualMoneyNextYear(sections.longTerm, sections));
 }
 
 function buildAnnualMoneyStatsBuckets(sections) {
     return {
-        current: summarizeBalanceOnly(sections.currentEvent),
+        current: summarizeBalanceOnly(withoutAnnualMoneyNextYear(sections.currentEvent, sections)),
+        next: summarizeBalanceOnly(sections.nextYear),
         long: summarizeLongTermBalance(sections),
         stop: summarizeBalanceOnly(sections.stop),
     };
@@ -1178,25 +1258,26 @@ function buildAnnualMoneyTableHead() {
     return `
         <thead>
             <tr>
-                <th colspan="11" class="group-end">구분</th>
-                <th colspan="6" class="group-end">수령내역</th>
+                <th colspan="12" class="group-end">구분</th>
+                <th colspan="7" class="group-end">수령내역</th>
                 <th colspan="3" class="group-end">외주비 지급내역</th>
             </tr>
             <tr>
                 <th class="sticky-col-3" rowspan="2">No.</th>
                 <th class="sticky-col" rowspan="2" onclick="sortBy('ContractCode','string')" style="cursor:pointer;">사업번호</th>
                 <th class="sticky-col-2" onclick="sortBy('ProjectName','string')" style="cursor:pointer;" rowspan="2">사업명</th>
+                <th class="sticky-col-progress" rowspan="2" onclick="sortBy('total_progress','number')" style="cursor:pointer;">진행률</th>
                 <th rowspan="2" onclick="sortBy('orderPlace','string')" style="cursor:pointer;">발주처</th>
                 <th rowspan="2" onclick="sortBy('StartDate','date')" style="cursor:pointer;">계약일자</th>
                 <th rowspan="2" onclick="sortBy('EndDate','date')" style="cursor:pointer;">준공일자</th>
-                <th class="vat-col-include" rowspan="2" onclick="sortBy('ProjectCost','number')" style="cursor:pointer;">사업비(총괄,VAT포함)</th>
-                <th class="vat-col-exclude" rowspan="2" onclick="sortBy('ProjectCost_NoVAT','number')" style="cursor:pointer;">사업비(총괄,VAT제외)</th>
+                <th class="vat-col-include" rowspan="2" onclick="sortBy('ProjectCost','number')" style="cursor:pointer;">사업비<br>(총괄,VAT포함)</th>
+                <th class="vat-col-exclude" rowspan="2" onclick="sortBy('ProjectCost_NoVAT','number')" style="cursor:pointer;">사업비<br>(총괄,VAT제외)</th>
                 <th rowspan="2" onclick="sortBy('ContributionRate','number')" style="cursor:pointer;">지분율</th>
-                <th class="vat-col-include" rowspan="2" onclick="sortBy('realCostShare_VAT','number')" style="cursor:pointer;">사업비(지분,VAT포함)</th>
-                <th class="vat-col-exclude group-end" rowspan="2" onclick="sortBy('realCostShare','number')" style="cursor:pointer;">사업비(지분,VAT제외)</th>
+                <th class="vat-col-include" rowspan="2" onclick="sortBy('realCostShare_VAT','number')" style="cursor:pointer;">사업비<br>(지분,VAT포함)</th>
+                <th class="vat-col-exclude group-end" rowspan="2" onclick="sortBy('realCostShare','number')" style="cursor:pointer;">사업비<br>(지분,VAT제외)</th>
                 <th colspan="2">선금</th>
                 <th colspan="2">기성금</th>
-                <th rowspan="2" onclick="sortBy('completionTotal','number')" style="cursor:pointer;">준공금</th>
+                <th colspan="2">준공금</th>
                 <th class="group-end" rowspan="2" onclick="sortBy('receiptBalance','number')" style="cursor:pointer;">잔금</th>
                 <th rowspan="2" onclick="sortBy('outsourcing_paid_previous','number')" style="cursor:pointer;">기지급</th>
                 <th rowspan="2" onclick="sortBy('outsourcing_paid','number')" style="cursor:pointer;">당해년도</th>
@@ -1207,17 +1288,19 @@ function buildAnnualMoneyTableHead() {
                 <th onclick="sortBy('advanceTotal','number')" style="cursor:pointer;">당해년도</th>
                 <th onclick="sortBy('progressBeforeTotal','number')" style="cursor:pointer;">기수령</th>
                 <th onclick="sortBy('progressTotal','number')" style="cursor:pointer;">당해년도</th>
+                <th onclick="sortBy('completionBeforeTotal','number')" style="cursor:pointer;">기수령</th>
+                <th onclick="sortBy('completionTotal','number')" style="cursor:pointer;">당해년도</th>
             </tr>
         </thead>
     `;
 }
 
 function buildAnnualMoneyTableColgroup() {
-    return `
-        <colgroup>
+    return `<colgroup>
             <col style="width: 30px;">
             <col style="width: 110px;">
             <col style="width: 330px;">
+            <col style="width: 70px;">
             <col style="width: 180px;">
             <col style="width: 110px;">
             <col style="width: 110px;">
@@ -1235,8 +1318,8 @@ function buildAnnualMoneyTableColgroup() {
             <col style="width: 110px;">
             <col style="width: 110px;">
             <col style="width: 110px;">
-        </colgroup>
-    `;
+            <col style="width: 110px;">
+        </colgroup>`;
 }
 
 function renderAnnualMoneySectionTable(containerId, list, options = {}) {
@@ -1246,7 +1329,7 @@ function renderAnnualMoneySectionTable(containerId, list, options = {}) {
         countEl.textContent = `${(list || []).length.toLocaleString()}건`;
     }
     if (!host) return;
-    if (!Array.isArray(list) || list.length === 0) {
+    if ((!Array.isArray(list) || list.length === 0) && !options.groups) {
         host.innerHTML = `<div class="annual-money-empty-section">${options.emptyMessage || '표시할 데이터가 없습니다.'}</div>`;
         return;
     }
@@ -1256,8 +1339,12 @@ function renderAnnualMoneySectionTable(containerId, list, options = {}) {
             ${buildAnnualMoneyTableColgroup()}
             ${buildAnnualMoneyTableHead()}
             <tbody>
-                ${list.map((project, index) => buildAnnualMoneyProjectRow(project, index)).join('')}
-                ${buildAnnualMoneySummaryRow(list)}
+                ${options.groups ? options.groups.map(group => `
+                    <tr class="annual-money-subgroup"><td colspan="22" style="text-align:left;font-weight:bold;">${group.title}</td></tr>
+                    ${group.list.map((project, index) => buildAnnualMoneyProjectRow(project, index)).join('')}
+                    ${group.list.length ? '' : '<tr><td colspan="22" style="text-align:center;">해당 사업이 없습니다.</td></tr>'}
+                    ${buildAnnualMoneySummaryRow(group.list, '소계')}
+                `).join('') + buildAnnualMoneySummaryRow(list, '총계') : list.map((project, index) => buildAnnualMoneyProjectRow(project, index)).join('') + buildAnnualMoneySummaryRow(list)}
             </tbody>
         </table>
     `;
@@ -1303,6 +1390,7 @@ function buildAnnualMoneyProjectRow(project, index) {
             <td class="sticky-col-3" style="text-align: center;">${index + 1}</td>
             <td class="sticky-col" style="text-align: left;"><a href="/project_detail/${project.projectID}" target="_top">${project.ContractCode}</a></td>
             <td class="sticky-col-2 annual-money-project-name" style="text-align: left;" data-full="${project.ProjectName}"><a href="/project_detail/${project.projectID}" target="_top">${truncateText(project.ProjectName)}</a></td>
+            <td class="sticky-col-progress">${toNumber(project.total_progress).toLocaleString()}%</td>
             <td style="text-align: left;" title="${project.orderPlace ? project.orderPlace : ''}">${project.orderPlace ? truncateOrderPlace(project.orderPlace) : '-'}</td>
             <td>${formatDate(project.StartDate)}</td>
             <td>${formatDate(project.EndDate)}</td>
@@ -1315,6 +1403,7 @@ function buildAnnualMoneyProjectRow(project, index) {
             <td style="color: ${vatView.advanceTotal > 0 ? 'red' : 'black'}; font-weight: ${vatView.advanceTotal > 0 ? 'bold' : 'normal'};">${vatView.advanceTotal.toLocaleString()}</td>
             <td style="font-weight: ${vatView.progressBeforeTotal > 0 ? 'bold' : 'normal'};">${vatView.progressBeforeTotal.toLocaleString()}</td>
             <td style="color: ${vatView.progressTotal > 0 ? 'red' : 'black'}; font-weight: ${vatView.progressTotal > 0 ? 'bold' : 'normal'};">${vatView.progressTotal.toLocaleString()}</td>
+            <td style="font-weight: ${vatView.completionBeforeTotal > 0 ? 'bold' : 'normal'};">${vatView.completionBeforeTotal.toLocaleString()}</td>
             <td style="color: ${vatView.completionTotal > 0 ? 'red' : 'black'}; font-weight: ${vatView.completionTotal > 0 ? 'bold' : 'normal'};">${vatView.completionTotal.toLocaleString()}</td>
             <td class="group-end" style="font-weight: ${vatView.receiptBalance !== 0 ? 'bold' : 'normal'}; color: ${vatView.receiptBalance < 0 ? 'red' : 'black'};">${vatView.receiptBalance.toLocaleString()}</td>
             ${outsourcingCellsHtml}
@@ -1322,7 +1411,7 @@ function buildAnnualMoneyProjectRow(project, index) {
     `;
 }
 
-function buildAnnualMoneySummaryRow(list) {
+function buildAnnualMoneySummaryRow(list, label = '합계') {
     const summary = aggregateAnnualMoneyDisplaySummary(list);
     const totalHasCurrentYearAdvance = list.some(project => getAnnualMoneyVatView(project).advanceTotal > 0);
     const totalHasCurrentYearProgress = list.some(project => getAnnualMoneyVatView(project).progressTotal > 0);
@@ -1331,7 +1420,7 @@ function buildAnnualMoneySummaryRow(list) {
 
     return `
         <tr class="summary-row">
-            <td colspan="6" style="text-align:center;">합계</td>
+            <td colspan="7" style="text-align:center;">${label}</td>
             <td class="vat-col-include">${summary.ProjectCost.toLocaleString()}</td>
             <td class="vat-col-exclude">${summary.ProjectCost_NoVAT.toLocaleString()}</td>
             <td>-</td>
@@ -1341,6 +1430,7 @@ function buildAnnualMoneySummaryRow(list) {
             <td style="color: ${totalHasCurrentYearAdvance ? 'red' : 'black'}; font-weight: bold;">${summary.advanceTotal.toLocaleString()}</td>
             <td style="font-weight: bold;">${summary.progressBeforeTotal.toLocaleString()}</td>
             <td style="color: ${totalHasCurrentYearProgress ? 'red' : 'black'}; font-weight: bold;">${summary.progressTotal.toLocaleString()}</td>
+            <td style="font-weight: bold;">${summary.completionBeforeTotal.toLocaleString()}</td>
             <td style="color: ${totalHasCurrentYearCompletion ? 'red' : 'black'}; font-weight: bold;">${summary.completionTotal.toLocaleString()}</td>
             <td class="group-end" style="font-weight: bold; color: ${Number(summary.receiptBalance || 0) < 0 ? 'red' : 'black'};">${Number(summary.receiptBalance || 0).toLocaleString()}</td>
             <td style="font-weight: bold;">${(summary.outsourcingPaidPrevious || 0).toLocaleString()}</td>
@@ -1361,6 +1451,7 @@ function buildAnnualMoneyExportRow(project, index) {
         orderPlace: project.orderPlace || '',
         startDate: formatDate(project.StartDate),
         endDate: formatDate(project.EndDate),
+        totalProgress: toNumber(project.total_progress),
         projectCost: useInclude ? vatView.projectCostInclude : vatView.projectCostExclude,
         contributionRate: Number(project.ContributionRate || 0),
         costShare: useInclude ? vatView.shareInclude : vatView.shareExclude,
@@ -1368,6 +1459,7 @@ function buildAnnualMoneyExportRow(project, index) {
         advanceTotal: vatView.advanceTotal,
         progressBeforeTotal: vatView.progressBeforeTotal,
         progressTotal: vatView.progressTotal,
+        completionBeforeTotal: vatView.completionBeforeTotal,
         completionTotal: vatView.completionTotal,
         receiptBalance: vatView.receiptBalance,
         outsourcingPaidPrevious: vatView.outsourcingPaidPrevious,
@@ -1387,6 +1479,7 @@ function buildAnnualMoneyExportSummary(list) {
         advanceTotal: summary.advanceTotal,
         progressBeforeTotal: summary.progressBeforeTotal,
         progressTotal: summary.progressTotal,
+        completionBeforeTotal: summary.completionBeforeTotal,
         completionTotal: summary.completionTotal,
         receiptBalance: summary.receiptBalance,
         outsourcingPaidPrevious: summary.outsourcingPaidPrevious,
@@ -1411,6 +1504,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
     const summary = aggregateAnnualMoneyDisplaySummary(safeList);
     const balanceBuckets = buildAnnualMoneyStatsBuckets(sections || {
         currentEvent: [],
+        nextYear: [],
         longTerm: [],
         stop: [],
         total: [],
@@ -1419,7 +1513,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
     const quarterPayTotals = { 1: 0, 2: 0, 3: 0, 4: 0 };
     const receivedBeforeDisplay = safeList.reduce((sum, project) => {
         const vatView = getAnnualMoneyVatView(project);
-        return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal;
+        return sum + vatView.advanceBeforeTotal + vatView.progressBeforeTotal + vatView.completionBeforeTotal;
     }, 0);
     const outsourcingPaidPreviousDisplay = safeList.reduce((sum, project) => {
         const vatView = getAnnualMoneyVatView(project);
@@ -1444,6 +1538,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
             q4: quarterReceiptTotals[4],
             total: quarterReceiptTotals[1] + quarterReceiptTotals[2] + quarterReceiptTotals[3] + quarterReceiptTotals[4],
             balanceCurrent: balanceBuckets.current.receiptBalance,
+            balanceNext: balanceBuckets.next.receiptBalance,
             balanceLong: balanceBuckets.long.receiptBalance,
             balanceStop: balanceBuckets.stop.receiptBalance,
             note: '** 각 내역의 계산식에 총괄 사업비는 제외되어 있습니다 **',
@@ -1456,6 +1551,7 @@ function buildAnnualMoneyExportStatsPayload(list, sections) {
             q4: quarterPayTotals[4],
             total: quarterPayTotals[1] + quarterPayTotals[2] + quarterPayTotals[3] + quarterPayTotals[4],
             balanceCurrent: balanceBuckets.current.outsourcingBalance,
+            balanceNext: balanceBuckets.next.outsourcingBalance,
             balanceLong: balanceBuckets.long.outsourcingBalance,
             balanceStop: balanceBuckets.stop.outsourcingBalance,
             note: '** 각 내역의 계산식에 총괄 사업비는 제외되어 있습니다 **',
@@ -1486,6 +1582,14 @@ function buildAnnualMoneyExportPayload() {
                 sections.currentEvent,
                 '당해년도 준공예정 또는 이벤트 발생 사업이 없습니다.'
             ),
+            {
+                title: '차기년도 사업 목록', count: sections.nextYear.length,
+                summary: buildAnnualMoneyExportSummary(sections.nextYear),
+                groups: getAnnualMoneyNextGroups(sections).map(group => ({
+                    ...buildAnnualMoneyExportSectionPayload(group.title, group.list, '해당 사업이 없습니다.'),
+                    summaryLabel: '소계',
+                })),
+            },
             buildAnnualMoneyExportSectionPayload(
                 '장기사업 목록',
                 sections.longTerm,
@@ -1985,6 +2089,8 @@ function getSortableValue(project, key) {
             return v.progressBeforeTotal;
         case 'progressTotal':
             return v.progressTotal;
+        case 'completionBeforeTotal':
+            return v.completionBeforeTotal;
         case 'completionTotal':
             return v.completionTotal;
         case 'receiptBalance':

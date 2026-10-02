@@ -1,0 +1,30 @@
+.annual-topbar-userbox {
+    align-items: stretch;
+}
+
+.annual-list-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    box-sizing: border-box;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #475569;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.annual-list-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
