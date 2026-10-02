@@ -2,12 +2,17 @@
 <html lang="ko">
 
 <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>사업 참여기술자 모아보기</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='PMS_annualProject.css') }}">
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script src="{{ url_for('static', filename='PMS_annualProject_engineers.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='annual_navigation.css') }}">
+    <script src="{{ url_for('static', filename='annual_navigation.js') }}" defer></script>
 </head>
 
 <body class="annual-project-page">
@@ -18,6 +23,7 @@
         </button>
         <h1 id="projectName">참여기술자 모아보기</h1>
         <div class="annual-topbar-userbox">
+            <button type="button" class="annual-list-btn" data-year="{{ selected_year or year or '' }}">목록으로</button>
             <div class="annual-topbar-userlabel" title="로그인 정보">
                 <span>{{ login_user.get('Department', login_user.get('department', '')) }}</span>
                 <span class="annual-topbar-user-sep">/</span>

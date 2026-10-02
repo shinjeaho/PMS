@@ -148,9 +148,10 @@ header.annual-topbar {
     border-bottom: 1px solid #e2e8f0;
     border-radius: 0;
     box-shadow: none;
-    min-height: 60px;
+    height: auto;
+    min-height: 44px;
     margin: -20px -20px 20px -20px;
-    padding: 12px 24px;
+    padding: 6px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -181,7 +182,7 @@ header.annual-topbar .annual-home-btn {
 
 header.annual-topbar .annual-home-logo {
     width: 110px;
-    height: 56px;
+    height: 40px;
     object-fit: contain;
 }
 
@@ -196,19 +197,26 @@ header.annual-topbar .annual-home-logo {
     padding-top: 2px;
 }
 
+/* Match the detail page login badge. */
 .annual-topbar-userlabel {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid #cbd5e1;
+    box-sizing: border-box;
+    padding: 5px 10px;
+    border: 1px solid #d8e0ea;
     border-radius: 999px;
-    background: #f8fafc;
-    color: #334155;
-    font-size: 13px;
-    font-weight: 600;
+    background: #ffffff;
+    color: #475569;
+    font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.55;
     white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+    .annual-topbar-userlabel { font-size: 11px; }
 }
 
 .annual-topbar-user-sep {
@@ -217,7 +225,7 @@ header.annual-topbar .annual-home-logo {
 
 @media (max-width: 768px) {
     header.annual-topbar {
-        padding: 10px 14px;
+        padding: 6px 24px;
         gap: 10px;
     }
 

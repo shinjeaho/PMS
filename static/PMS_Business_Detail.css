@@ -4404,7 +4404,7 @@ body.detail-dashboard .detail-user-label .user-sep {
 
 body.detail-dashboard .detail-top-row {
     display: inline-flex;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
 }
 
@@ -4433,6 +4433,20 @@ body.detail-dashboard .btn-ghost {
 body.detail-dashboard .btn-ghost:hover {
     background: #f1f5f9;
     border-color: #94a3b8;
+}
+
+body.detail-dashboard .detail-top-row .detail-list-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 body.detail-dashboard .detail-tabs {
