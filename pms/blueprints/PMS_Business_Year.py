@@ -48,7 +48,7 @@ def get_projects():
 
         cursor.execute(
             """
-                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status, CAST(last_updated_at AS CHAR) AS last_updated_at
                 FROM Projects
                 WHERE YEAR(StartDate) = %s
             AND ContractCode NOT LIKE '%%검토%%'
@@ -115,7 +115,7 @@ def get_projects():
 
         valid_sort_keys = {
             'contract_code', 'project_name', 'order_place',
-            'project_status', 'progress', 'outsourcing',
+            'project_status', 'progress', 'outsourcing', 'last_updated_at',
         }
         if sort_key in valid_sort_keys:
             if sort_key == 'project_name' and name_mode == 'issue':
@@ -132,6 +132,7 @@ def get_projects():
                     'project_status': lambda project: natural_key(project.get('project_status') or '진행중'),
                     'progress': lambda project: float(project.get('progress') or 0),
                     'outsourcing': lambda project: natural_key(project.get('outsourcingCheck')),
+                    'last_updated_at': lambda project: project.get('last_updated_at') or '',
                 }
                 projects.sort(
                     key=value_getters[sort_key],
@@ -177,7 +178,7 @@ def business(year: int):
 
         cursor.execute(
             """
-            SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck 
+            SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, CAST(last_updated_at AS CHAR) AS last_updated_at
             FROM Projects 
             WHERE YEAR(StartDate) = %s 
             AND ContractCode NOT LIKE '%%검토%%'
@@ -189,7 +190,7 @@ def business(year: int):
 
         cursor.execute(
             """
-            SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck 
+            SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, CAST(last_updated_at AS CHAR) AS last_updated_at
             FROM Projects 
             WHERE ContractCode NOT LIKE '%%검토%%'
             ORDER BY ContractCode DESC
@@ -320,7 +321,8 @@ def search_projects():
                 orderPlace,
                 yearProject,
                 project_status,
-                outsourcingCheck
+                outsourcingCheck,
+                CAST(last_updated_at AS CHAR) AS last_updated_at
             {base_query}
             ORDER BY ContractCode ASC 
             LIMIT %s OFFSET %s

@@ -9,6 +9,7 @@ import xlsxwriter
 from flask import Blueprint, jsonify, redirect, render_template, request, send_file, url_for
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..services.progress import calc_progress_bulk
 
 bp = Blueprint('annual_project', __name__)
@@ -2089,6 +2090,7 @@ def annual_project_engineers_save():
             _insert_names('분책', project.get('subchief') or [])
             _insert_names('분참', project.get('participants') or [])
 
+        touch_projects(cursor, [p.get('contractcode') for p in projects])
         db.commit()
         return jsonify({'success': True})
     except Exception as e:

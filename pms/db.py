@@ -68,4 +68,5 @@ def create_connection():
         )
     except Error as e:
         print(f"The error '{e}' occurred")
-    return connection
+    from .ops.file_logging import audit_connection
+    return audit_connection(connection)

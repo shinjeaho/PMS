@@ -1554,6 +1554,12 @@ body.modal-open {
     white-space: nowrap;
 }
 
+.projectList tbody td.project-order-place {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .projectList tbody tr:hover {
     background-color: #d5d7d8;
 }
@@ -2771,7 +2777,7 @@ header.pageheader {
 
 .projectList tbody td {
     color: #0f172a;
-    font-size: 18px;
+    font-size: 16px;
     line-height: 1.45;
 }
 

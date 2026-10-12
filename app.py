@@ -7,10 +7,15 @@ from flask import Flask, request, session
 
 from pms.blueprints import register_blueprints
 from pms.middleware import init_address_lock, init_login_gate
+from pms.ops.file_logging import init_file_logging, seoul_now
+from pms.ops.migrations import run_startup_migrations
 
 
 def create_app() -> Flask:
     app = Flask(__name__, static_folder='static')
+    init_file_logging(app)
+    if os.getenv('PMS_AUTO_MIGRATE', '1').lower() not in {'0', 'false', 'no'}:
+        run_startup_migrations()
 
     # 기존 동작 유지: 재시작 시 세션키가 바뀌는 구조(원본과 동일)
     app.secret_key = os.urandom(24)
@@ -39,14 +44,14 @@ def create_app() -> Flask:
     @app.before_request
     def _before_request():
         session.permanent = True
-        request._start_time = datetime.now()
+        request._start_time = seoul_now()
         user_name = session.get('user', {}).get('name', '비회원')
         print(f"{request._start_time.strftime('%H:%M:%S')} [요청 진입] 사용자: {user_name} - {request.method} {request.path}")
 
     # 요청 처리 후 로그
     @app.after_request
     def _after_request(response):
-        end_time = datetime.now()
+        end_time = seoul_now()
         user_name = session.get('user', {}).get('name', '비회원')
         if hasattr(request, '_start_time'):
             duration = (end_time - request._start_time).seconds

@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from flask import Blueprint, jsonify, render_template, request
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..utils.files import format_file_size
 
 
@@ -409,6 +410,7 @@ def save_estimated_budget():
             (outsourcing_check_value, contract_code),
         )
 
+        touch_projects(cursor, contract_code)
         db.commit()
         return jsonify({'success': True, 'message': '예상 진행비 저장 완료'})
 
@@ -456,6 +458,7 @@ def save_note():
                 (department, note_text, contractcode),
             )
 
+    touch_projects(cursor, contractcode)
     db.commit()
     cursor.close()
     db.close()
@@ -518,6 +521,7 @@ def save_examine_records():
                 ),
             )
 
+        touch_projects(cursor, project_id=project_id)
         conn.commit()
 
     except Exception as e:

@@ -9,6 +9,7 @@ from urllib.parse import quote
 from flask import Blueprint, jsonify, request, send_file, session
 
 from ..db import create_connection
+# from ..services.project_updates import touch_projects  # 회의록은 사업 갱신일에서 제외
 
 bp = Blueprint('doc_editor_api', __name__, url_prefix='/doc_editor_api')
 
@@ -471,6 +472,7 @@ def upload_meeting_pdf():
                         ),
                     )
 
+            # touch_projects(cursor, contractcode)  # 회의록 업로드는 사업 갱신일에서 제외
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -565,7 +567,7 @@ def update_meeting_pdf():
 
         cursor.execute(
             """
-            SELECT id, file_path, original_name, file_size, author
+            SELECT id, file_path, original_name, file_size, author, contractcode
             FROM meeting_files
             WHERE id = %s
             LIMIT 1
@@ -704,6 +706,7 @@ def update_meeting_pdf():
         else:
             all_attachments = []
 
+        # touch_projects(cursor, [existing.get('contractcode'), contractcode])  # 회의록 수정은 사업 갱신일에서 제외
         conn.commit()
 
         if file is not None and old_file_url and old_file_url != file_url:
@@ -1139,7 +1142,7 @@ def delete_meeting_file():
         return jsonify({'success': False, 'message': 'DB connection failed'}), 500
     cursor = conn.cursor(dictionary=True)
     try:
-        cursor.execute("SELECT file_path, author FROM meeting_files WHERE id = %s", (record_id,))
+        cursor.execute("SELECT file_path, author, contractcode FROM meeting_files WHERE id = %s", (record_id,))
         row = cursor.fetchone()
         if not row:
             return jsonify({'success': False, 'message': '파일을 찾을 수 없습니다.'}), 404
@@ -1152,6 +1155,7 @@ def delete_meeting_file():
         attachment_rows = cursor.fetchall() or []
 
         cursor.execute("DELETE FROM meeting_files WHERE id = %s", (record_id,))
+        # touch_projects(cursor, row.get('contractcode'))  # 회의록 삭제는 사업 갱신일에서 제외
         conn.commit()
 
         file_url = row.get('file_path')
@@ -1187,7 +1191,7 @@ def delete_meeting_attachment():
     try:
         cursor.execute(
             """
-            SELECT a.id, a.file_path, m.author
+            SELECT a.id, a.file_path, m.author, m.contractcode
             FROM meeting_file_attachments a
             JOIN meeting_files m ON m.id = a.meeting_id
             WHERE a.id = %s
@@ -1210,6 +1214,7 @@ def delete_meeting_attachment():
             "DELETE FROM meeting_file_attachments WHERE id = %s",
             (attachment_id,),
         )
+        # touch_projects(cursor, row.get('contractcode'))  # 회의록 첨부파일 삭제는 사업 갱신일에서 제외
         conn.commit()
 
         attachment_url = (row or {}).get('file_path')

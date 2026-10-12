@@ -5303,3 +5303,12 @@ body.detail-dashboard #Budget .sub-tabcontent .ex_tablinks.active {
     border-bottom: 1px solid #bfdbfe;
 }
 
+body.detail-dashboard .detail-sidebar {
+    display: none;
+}
+
+body.detail-dashboard .page-wrapper {
+    margin-left: 0;
+    width: 100%;
+}
+

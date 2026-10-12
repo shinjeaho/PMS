@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from flask import Blueprint, request, render_template, jsonify
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..services.dday import calculate_d_day_value, auto_insert_risk_for_contract
 from ..utils.files import UPLOAD_FOLDER, format_file_size
 
@@ -323,6 +324,7 @@ def post_add_or_edit_project():
                     except Exception as e:
                         print(f"[ERROR] Failed to save file {file.get('filename')}: {str(e)}")
 
+                touch_projects(cursor, project_id=project_id)
                 connection.commit()
                 return jsonify({
                     'success': True,
@@ -454,6 +456,7 @@ def post_add_or_edit_project():
                     ),
                 )
 
+                touch_projects(cursor, project_id=project_id)
                 connection.commit()
                 return jsonify({
                     'success': True,
@@ -556,6 +559,7 @@ def post_add_or_edit_project():
                     except Exception as e:
                         print(f"[ERROR] Failed to save file {file.get('filename')}: {str(e)}")
 
+                touch_projects(cursor, project_id=project_id)
                 connection.commit()
                 return jsonify({
                     'success': True,

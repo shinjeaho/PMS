@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 
 bp = Blueprint('outsourcing', __name__)
 
@@ -87,6 +88,7 @@ def save_outsourcing():
                 (data['contract_code'],),
             )
 
+        touch_projects(cursor, data['contract_code'])
         db.commit()
 
         return jsonify({'success': True, 'message': '외주 정보가 성공적으로 저장되었습니다.'})
@@ -130,6 +132,7 @@ def save_outsourcing_progress():
                 (progress_rate, contract_code, outsourcing_company),
             )
 
+        touch_projects(cursor, contract_code)
         connection.commit()
 
         return jsonify({'success': True, 'message': 'Outsourcing progress updated successfully'})
@@ -340,6 +343,7 @@ def update_outsourcing():
             (outsourcing_check_value, updates[0]['contract_code']),
         )
 
+        touch_projects(cursor, [r.get('contract_code') for r in updates])
         db.commit()
 
         return jsonify(

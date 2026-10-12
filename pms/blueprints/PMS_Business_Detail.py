@@ -7,6 +7,7 @@ import pymysql
 from flask import Blueprint, jsonify, render_template, request
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..services.progress import calc_progress_bulk
 from ..utils.files import format_file_size
 
@@ -486,6 +487,7 @@ def update_details(project_id: int):
         )
 
         cursor.execute(query, values)
+        touch_projects(cursor, project_id=project_id)
         connection.commit()
         return jsonify({"message": "Update successful", "project_id": project_id})
     except pymysql.MySQLError as e:
@@ -556,6 +558,7 @@ def save_personnel_budget():
                 (cc, pos, dept, vals['M_D'], vals['person'], vals['amount'], project_id),
             )
 
+        touch_projects(cursor, [cc for cc, dept in unique_contract_departments], project_id=project_id)
         conn.commit()
         return jsonify({'message': 'Personnel budget saved successfully'})
 
@@ -590,6 +593,7 @@ def save_expense_records():
                     """,
                     (contract_code_from_body, department, project_id),
                 )
+            touch_projects(cursor, project_id=project_id)
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -646,6 +650,7 @@ def save_expense_records():
                 ),
             )
 
+        touch_projects(cursor, project_id=project_id)
         conn.commit()
 
     except Exception:
@@ -719,6 +724,7 @@ def save_layout():
                 ),
             )
 
+        touch_projects(cursor, data['contract_code'])
         conn.commit()
         return jsonify({'success': True, 'message': '저장되었습니다.'})
 

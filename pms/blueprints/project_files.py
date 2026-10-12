@@ -8,6 +8,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, send_file
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 
 bp = Blueprint('project_files', __name__)
 
@@ -144,6 +145,8 @@ def upload_files():
             else:
                 print(f"[DEBUG] Skipped file {getattr(file, 'filename', '')} - not allowed")
 
+        if uploaded_files:
+            touch_projects(cursor, contract_code)
         db.commit()
         if len(uploaded_files) == 0:
             return (
@@ -227,7 +230,7 @@ def delete_file(file_id: int):
     try:
         cursor.execute(
             """
-            SELECT FilePath, OriginalFileName 
+            SELECT FilePath, OriginalFileName, ContractCode
             FROM ProjectFiles 
             WHERE FileID = %s
         """,
@@ -247,6 +250,7 @@ def delete_file(file_id: int):
             print(f"[WARNING] File not found in filesystem: {actual_path}")
 
         cursor.execute('DELETE FROM ProjectFiles WHERE FileID = %s', (file_id,))
+        touch_projects(cursor, file_info['ContractCode'])
         db.commit()
 
         return jsonify({'success': True, 'message': 'File deleted successfully'})

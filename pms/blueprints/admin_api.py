@@ -7,6 +7,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..services.dday import calculate_d_day_value, auto_insert_risk_for_contract
 
 bp = Blueprint('admin_api', __name__)
@@ -247,6 +248,7 @@ def update_project_status():
             cursor.execute('UPDATE projects SET D_Day = %s WHERE contractCode = %s', (d_val, contractCode))
             auto_insert_risk_for_contract(cursor, contractCode)
 
+        touch_projects(cursor, contractCode)
         db.commit()
         return jsonify({'success': True})
 

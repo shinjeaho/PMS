@@ -11,6 +11,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 from io import BytesIO
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 
 bp = Blueprint('data_transfer', __name__)
 
@@ -579,6 +580,7 @@ def insert_project():
 
             cursor.execute('DELETE FROM transferData WHERE ContractCode = %s', (row['B'],))
 
+        touch_projects(cursor, [row['B'] for row in extracted_data])
         db.commit()
         return jsonify({'message': '데이터가 성공적으로 저장되었고, 기존 데이터가 삭제되었습니다.'})
 

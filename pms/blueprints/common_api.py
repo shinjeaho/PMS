@@ -11,6 +11,7 @@ import xlsxwriter
 from flask import Blueprint, jsonify, request, send_file, session
 
 from ..db import create_connection
+from ..services.project_updates import touch_projects
 from ..services.progress import calc_progress_bulk
 
 bp = Blueprint('common_api', __name__)
@@ -96,6 +97,7 @@ def save_outsourcing_payments():
                 ),
             )
 
+        touch_projects(cursor, contract_code)
         conn.commit()
         return jsonify({'success': True})
 
@@ -275,6 +277,7 @@ def save_task_quantity():
         except Exception as ee:
             print(f"[project_depbohal 업서트 경고] {ee}")
 
+        touch_projects(cursor, contract_code)
         conn.commit()
         return jsonify({'message': 'Save successful'})
 
@@ -368,6 +371,7 @@ def delete_task_quantity_department():
             (contract_code, department),
         )
 
+        touch_projects(cursor, contract_code)
         conn.commit()
         return jsonify({'message': 'Delete successful'})
     except Exception as e:
@@ -579,6 +583,7 @@ def save_budget_data():
         for line in log_lines:
             f.write(line + "\n")
 
+    touch_projects(cursor, [r.get('contractCode') for r in assignment_data + summary_data] + [r.get('ContractCode') for r in expense_data] + list(cc_set))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Save successful'})
@@ -868,7 +873,8 @@ def search():
                 ContractCode, 
                 yearProject,
                 LinkProjectCheck,
-                outsourcingCheck
+                outsourcingCheck,
+                CAST(last_updated_at AS CHAR) AS last_updated_at
             FROM projects 
             WHERE (ProjectName LIKE %s OR ContractCode LIKE %s)
             AND YEAR(StartDate) = %s
@@ -947,6 +953,7 @@ def save_quantity_log():
                 ),
             )
 
+        touch_projects(cursor, contract_code)
         conn.commit()
         return jsonify({'message': 'Log saved successfully'})
 
@@ -1227,6 +1234,7 @@ def update_quantity_log():
             ),
         )
 
+        touch_projects(cursor, [old_data['contract_code'], data['contract_code']])
         conn.commit()
         return jsonify({'success': True, 'message': '수정이 완료되었습니다.'})
 
@@ -1428,6 +1436,7 @@ def update_expense_log():
         )
         final_state = cursor.fetchone()
 
+        touch_projects(cursor, old_data['contractcode'])
         conn.commit()
         return jsonify({'success': True, 'message': '수정이 완료되었습니다.'})
 
@@ -1776,6 +1785,7 @@ def save_project_changes():
         except Exception as risk_err:
             print(f"[WARN] project_risks 저장 중 오류: {risk_err}")
 
+        touch_projects(cursor, contract_code)
         conn.commit()
         return jsonify(
             {
@@ -2153,7 +2163,7 @@ def api_yearly_projects():
         if project_type == 'yearly':
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status, CAST(last_updated_at AS CHAR) AS last_updated_at
                 FROM Projects
                 WHERE yearProject = 1 AND ContractCode NOT LIKE '%검토%'
                 ORDER BY ContractCode DESC 
@@ -2164,7 +2174,7 @@ def api_yearly_projects():
         elif project_type == 'examine':
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status, CAST(last_updated_at AS CHAR) AS last_updated_at
                 FROM Projects WHERE ContractCode LIKE '%검토%'
                 ORDER BY ContractCode DESC 
                 LIMIT %s OFFSET %s
@@ -2174,7 +2184,7 @@ def api_yearly_projects():
         else:
             cursor.execute(
                 """
-                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status
+                SELECT ProjectID, ProjectName, ContractCode, orderPlace, yearProject, outsourcingCheck, project_status, CAST(last_updated_at AS CHAR) AS last_updated_at
                 FROM Projects 
                 ORDER BY ContractCode DESC 
                 LIMIT %s OFFSET %s
@@ -2446,6 +2456,7 @@ def save_comments():
                 ),
             )
 
+        touch_projects(cursor, [r.get('contractcode', contract_code) for r in data])
         db.commit()
         return jsonify({'success': True, 'message': '코멘트가 성공적으로 저장되었습니다.'})
 
@@ -2508,6 +2519,7 @@ def save_external_labor():
                         (row['position'], row['monthly_rate'], row['daily_rate'], contract_date, contract_code),
                     )
 
+            touch_projects(cursor, contract_code)
             db.commit()
             return jsonify({'success': True})
 

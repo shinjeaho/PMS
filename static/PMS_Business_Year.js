@@ -42,6 +42,10 @@ document.addEventListener('DOMContentLoaded', function () {
         viewMeetingMinutes();
     } else if (requestedTab === 'daily' && reportAuth) {
         viewDailyReports();
+    } else if (requestedView === 'annual' && Number(document.getElementById('sessionDataAuth')?.value || 0) === 1) {
+        viewAnnualProjects();
+    } else if (requestedView === 'complete' && Number(document.getElementById('sessionDataAuth')?.value || 0) === 1) {
+        viewCompleteProjects();
     } else if (requestedView === 'examine') {
         viewExamineProjects(requestedPage);
     } else {
@@ -1298,19 +1302,13 @@ function viewAnnualProjects() {
 
     // 타이틀 등 UI 업데이트
     document.getElementById('yearTitle').textContent = "연도별 비용 산출 통합자료";
-    setActiveButton("검토사업");
+    setActiveButton("연도별 통합자료");
     _ensureSearchVisible(false);
     _weeklyHideReportsToolbar();
 }
 
 function viewAnnualMoney() {
-    const year = document.getElementById('projectYEAR')?.value;
-    if (year) {
-        window.location.href = `/PMS_annualMoney_v2?year=${encodeURIComponent(year)}`;
-        return;
-    }
-    const nowYear = new Date().getFullYear();
-    window.location.href = `/PMS_annualMoney_v2?year=${encodeURIComponent(nowYear)}`;
+    window.location.href = '/PMS_annualMoney_v2';
 }
 
 function viewAnnualManagment() {
@@ -1346,11 +1344,12 @@ function setTableHead(mode) {
         thead.innerHTML = `
             <tr>
                 <th id="projectSortContractCode" data-sort-key="contract_code" class="project-sortable" style="width: 14%;">사업번호</th>
-                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 38%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
-                <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 20%;">발주처</th>
+                <th id="projectSortProjectName" data-sort-key="project_name" class="project-sortable" style="width: 32%;" title="오름차순 → 내림차순 → 사업관리 이슈사항(사업번호 내림차순)">사업명</th>
+                <th id="projectSortOrderPlace" data-sort-key="order_place" class="project-sortable" style="width: 16%;">발주처</th>
                 <th id="projectSortStatus" data-sort-key="project_status" class="project-sortable" style="width: 10%;">준공여부</th>
                 <th id="projectSortProgress" data-sort-key="progress" class="project-sortable" style="width: 8%;">진행률</th>
                 <th id="projectSortOutsourcing" data-sort-key="outsourcing" class="project-sortable" style="width: 10%;">외주구분</th>
+                <th id="projectSortLastUpdated" data-sort-key="last_updated_at" class="project-sortable" style="width: 10%; white-space: nowrap;">최근 업데이트일</th>
             </tr>
         `;
         updateProjectSortIndicators();
@@ -1498,6 +1497,11 @@ function initProjectListSort() {
     updateProjectSortIndicators();
 }
 
+function formatProjectUpdatedDate(value) {
+    const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})(?:[ T]|$)/);
+    return match ? match[1] : '-';
+}
+
 function getProjectOutsourcingText(project) {
     const rawOutsourcing =
         project.outsourcingCheck ??
@@ -1568,6 +1572,8 @@ function sortProjectRows(projects) {
             cmp = parseProjectProgress(a) - parseProjectProgress(b);
         } else if (key === 'outsourcing') {
             cmp = compareProjectStrings(getProjectOutsourcingText(a), getProjectOutsourcingText(b));
+        } else if (key === 'last_updated_at') {
+            cmp = compareProjectStrings(a.last_updated_at || '', b.last_updated_at || '');
         }
 
         if (cmp === 0) {
@@ -1587,7 +1593,8 @@ function updateProjectSortIndicators() {
         order_place: document.getElementById('projectSortOrderPlace'),
         project_status: document.getElementById('projectSortStatus'),
         progress: document.getElementById('projectSortProgress'),
-        outsourcing: document.getElementById('projectSortOutsourcing')
+        outsourcing: document.getElementById('projectSortOutsourcing'),
+        last_updated_at: document.getElementById('projectSortLastUpdated')
     };
 
     Object.entries(map).forEach(([key, th]) => {
@@ -2735,12 +2742,13 @@ function renderTable(projects, applyClientSort = true) {
         row.innerHTML = `
             <td>${truncateText(project.ContractCode, 20)}</td>
             <td>${project.ProjectName || '-'}</td>
-            <td>${orderPlaceText}</td>
+            <td class="project-order-place">${orderPlaceText}</td>
             <td>${statusText}</td>
             <td>${project.progress ? formatProgress(project.progress) + '%' : '0%'}</td>
             <td>
                 ${outsourcingText}
             </td>
+            <td style="white-space: nowrap;">${formatProjectUpdatedDate(project.last_updated_at)}</td>
         `;
 
         // 리스크 강조 (has_risk 플래그가 true인 행 붉은 배경)

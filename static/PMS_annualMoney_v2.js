@@ -1340,7 +1340,7 @@ function renderAnnualMoneySectionTable(containerId, list, options = {}) {
             ${buildAnnualMoneyTableHead()}
             <tbody>
                 ${options.groups ? options.groups.map(group => `
-                    <tr class="annual-money-subgroup"><td colspan="22" style="text-align:left;font-weight:bold;">${group.title}</td></tr>
+                    <tr class="annual-money-subgroup"><td colspan="4" class="annual-money-fixed-label" style="text-align:left;font-weight:bold;">${group.title}</td><td colspan="18" class="annual-money-label-fill"></td></tr>
                     ${group.list.map((project, index) => buildAnnualMoneyProjectRow(project, index)).join('')}
                     ${group.list.length ? '' : '<tr><td colspan="22" style="text-align:center;">해당 사업이 없습니다.</td></tr>'}
                     ${buildAnnualMoneySummaryRow(group.list, '소계')}
@@ -1420,7 +1420,8 @@ function buildAnnualMoneySummaryRow(list, label = '합계') {
 
     return `
         <tr class="summary-row">
-            <td colspan="7" style="text-align:center;">${label}</td>
+            <td colspan="4" class="annual-money-fixed-label" style="text-align:center;">${label}</td>
+            <td colspan="3" class="annual-money-label-fill"></td>
             <td class="vat-col-include">${summary.ProjectCost.toLocaleString()}</td>
             <td class="vat-col-exclude">${summary.ProjectCost_NoVAT.toLocaleString()}</td>
             <td>-</td>
